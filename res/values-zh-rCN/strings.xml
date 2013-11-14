@@ -1,0 +1,58 @@
+<resources>
+    
+    <string name='preference_title_pro'>获取专业版插件</string>
+        <string name='preference_summary_pro'>添加更多功能插件</string>
+
+        <string name='category_title_usbplug'>USB插入/拔出</string>
+        <string name='preference_title_plug_wake'>插入唤醒</string>
+        <string name='preference_title_unplug_wake'>拔出唤醒</string>
+        
+        <string name='category_title_buttons'>按键</string>
+        <string name='category_title_secondary_buttons'>二次按键</string>
+        <string name='preference_title_delay_tap'>双击延迟</string>
+        <string name='preference_title_delay_press'>长按延迟</string>
+        <string name='preference_title_remap'>重新映射设置</string>
+        <string name='preference_summary_remap'>重设配置按钮</string>
+        
+        <string name='category_title_layout'>定制</string>
+        <string name='preference_title_layout_orientation'>用户旋转</string>
+        <string name='preference_summary_layout_orientation'>允许所有应用旋转，需要重新启动才能正常工作</string>
+        
+        <string name='preference_title_add_button'>添加新按键</string>
+        <string name='preference_title_add_secondary_button'>添加新的二次按键</string>
+        <string name='preference_summary_add_button'>点击这里添加一个新按键</string>
+        <string name='preference_summary_add_secondary_button'>添加二次按钮启用多选项</string>
+        
+        <string name='preference_title_remove_button'>移除按键</string>
+        <string name='preference_summary_remove_button'>点击这里删除此按键和配置</string>
+        
+        <string name='alert_dialog_name_intercept_key'>按键代码</string>
+        <string name='alert_dialog_title_intercept_key'>截取键盘代码</string>
+        <string name='alert_dialog_summary_intercept_key'>按下你需要添加的按键</string>
+        <string name='alert_dialog_title_key_exists'>该按键已经存在</string>
+        
+        <string name='category_title_remap_options'>显示选项</string>
+        <string name='category_title_remap_sleep_actions'>睡眠操作</string>
+        <string name='category_title_remap_awake_actions'>唤醒操作</string>
+        
+        <string name='preference_title_remap_options'>选择屏幕状态</string>
+        
+        <string name='key_removed'>所选择的按键已被删除</string>
+        
+        <string name='preference_title_remap_enabled'>启用映射</string>
+        <string name='preference_title_remap_click'>单击动作</string>
+        <string name='preference_title_remap_tap'>双击动作</string>
+        <string name='preference_title_remap_press'>长按动作</string>
+        
+        <string name='config_updated'>该模块配置已经重新加载</string>
+        
+        <string name='alert_title_welcome'>欢迎</string>
+        <string name='alert_text_welcome'>该应用只配置于功能模块中，你需要在Xposed安装器启用并重新启动。\n\n某些配置诸如拦截键码无法正常工作，因此，请确保启用该模块，并重新启动设备，然后再继续</string>
+        
+        <string name='alert_title_welcome_additional'>问题</string>
+        <string name='alert_text_welcome_additional'>因为Xposed模块运行在一个改变Android行为非标准的方式，因为一些定制ROM或原生ROM可能已经改变了原生Android源码，总是有一点小问题，这将无法工作\n\n如果您有任何功能不能正常工作的问题，请发送电子邮件或访问XDA主题（地址可以在Google市场上找到）</string>
+        
+        <string name='message_primary_disabled_awake'>禁用重新映射唤醒主按钮</string>
+        <string name='message_primary_disabled_sleep'>禁用重新映射睡眠主按钮</string>
+        
+</resources>
