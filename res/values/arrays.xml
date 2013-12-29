@@ -64,6 +64,7 @@
 		<item>Media Previous</item>
 		<item>Media Next</item>
 		<item>Recent Apps</item>
+		<item>Previous App</item>
 		<item>Power Menu</item>
 		<item>Orientation Toggle</item>
 		<item>Orientation Left</item>
@@ -73,6 +74,9 @@
 		<item>Zoom In</item>
 		<item>Zoom Out</item>
 		<item>Kill Foreground Application</item>
+		<item>Application&#8230;</item>
+		<item>Key Code&#8230;</item>
+		<item>Android Intent&#8230;</item>
 	</string-array>
 	
     <string-array name="remap_actions_on_values">
@@ -94,6 +98,7 @@
 		<item>88</item>
 		<item>87</item>
 		<item>recentapps</item>
+		<item>previousapp</item>
 		<item>powermenu</item>
 		<item>fliptoggle</item>
 		<item>flipleft</item>
@@ -103,6 +108,9 @@
 		<item>168</item>
 		<item>169</item>
 		<item>killapp</item>
+		<item>application</item>
+		<item>keycode</item>
+		<item>intent</item>
 	</string-array>
 
     <string-array name="remap_actions_off_names">
@@ -115,6 +123,9 @@
 		<item>Media Play/Pause</item>
 		<item>Media Previous</item>
 		<item>Media Next</item>
+		<item>Application&#8230;</item>
+		<item>Key Code&#8230;</item>
+		<item>Android Intent&#8230;</item>
 	</string-array>
 	
     <string-array name="remap_actions_off_values">
@@ -127,6 +138,9 @@
 		<item>85</item>
 		<item>88</item>
 		<item>87</item>
+		<item>application</item>
+		<item>keycode</item>
+		<item>intent</item>
 	</string-array>
     
 </resources>

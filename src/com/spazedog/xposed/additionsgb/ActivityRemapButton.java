@@ -58,13 +58,13 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	
 	private DialogBroadcastReceiver mDialog;
 	
-	private Boolean isUnlocked = false;
+	private final static Boolean mAdvancedSettings = false;
 	
 	@Override
     protected void onCreate(Bundle savedInstanceState) {
     	super.onCreate(savedInstanceState);
     	
-    	isUnlocked = Common.isUnlocked(this);
+    	Boolean isUnlocked = Common.isUnlocked(this);
     	
     	mKeyCurrent = getIntent().getIntExtra("keycode", 0);
     	mKeyPrimary = getIntent().getIntExtra("keyprimary", 0);
@@ -91,7 +91,9 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	List<String> newValues = new ArrayList<String>();
     	
     	for (int i=0; i < onNames.length; i++) {
-    		if (android.os.Build.VERSION.SDK_INT > 10 || (!onValues[i].equals("flipleft") && !onValues[i].equals("flipright"))) {
+    		if ((android.os.Build.VERSION.SDK_INT > 10 || (!onValues[i].equals("flipleft") && !onValues[i].equals("flipright"))) &&
+    				(android.os.Build.VERSION.SDK_INT > 11 || (!onValues[i].equals("recentapps"))) &&
+    				(mAdvancedSettings || (!onValues[i].equals("keycode") && !onValues[i].equals("intent")))) {
 	    		newNames.add(onNames[i]);
 	    		newValues.add(onValues[i]);
     		}
@@ -108,14 +110,26 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	    		}
     		}
     	}
+   	
+    	String[] offNames = getResources().getStringArray(R.array.remap_actions_off_names);
+    	String[] offValues = getResources().getStringArray(R.array.remap_actions_off_values);
+    	List<String> newOffNames = new ArrayList<String>();
+    	List<String> newOffValues = new ArrayList<String>();
     	
+    	for (int i=0; i < offNames.length; i++) {
+    		if (mAdvancedSettings || (!offValues[i].equals("keycode") && !offValues[i].equals("intent"))) {
+	    		newOffNames.add(offNames[i]);
+	    		newOffValues.add(offValues[i]);
+    		}
+    	}
+
     	mOptionsListNames = getResources().getStringArray(R.array.remap_options_names);
     	mOptionsListValues = getResources().getStringArray(R.array.remap_options_values);
     	mRemapOnNames = newNames.toArray(new String[newNames.size()]);
     	mRemapOnValues = newValues.toArray(new String[newValues.size()]);
-    	mRemapOffNames = getResources().getStringArray(R.array.remap_actions_off_names);
-    	mRemapOffValues = getResources().getStringArray(R.array.remap_actions_off_values);
-    	
+    	mRemapOffNames = newOffNames.toArray(new String[newOffNames.size()]);
+    	mRemapOffValues = newOffValues.toArray(new String[newOffValues.size()]);
+
     	mPrefRemoveButton = (Preference) findPreference("remove_button");
     	mPrefRemoveButton.setOnPreferenceClickListener(this);
     	
@@ -465,7 +479,7 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		if (resultCode > 0) {
-			String keyCode = "" + resultCode;
+			String keyCode = "" + Common.generateKeyCode(resultCode, 0);;
 			SharedPreferences sharedPreferences = Common.getSharedPreferences(ActivityRemapButton.this);
 			String[] keyArray = sharedPreferences.getString(Common.Remap.KEY_COLLECTION_SECONDARY + mKeyCurrent, "").split(",");
 			List<String> keyList = new ArrayList<String>();

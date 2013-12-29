@@ -163,7 +163,7 @@ public class ActivityRemapSettings extends PreferenceActivity implements OnPrefe
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		if (resultCode > 0) {
-			String keyCode = "" + resultCode;
+			String keyCode = "" + Common.generateKeyCode(resultCode, 0);
 			SharedPreferences sharedPreferences = Common.getSharedPreferences(ActivityRemapSettings.this);
 			String[] keyArray = sharedPreferences.getString(Common.Remap.KEY_COLLECTION, "").split(",");
 			List<String> keyList = new ArrayList<String>();

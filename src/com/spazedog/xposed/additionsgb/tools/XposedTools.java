@@ -142,6 +142,18 @@ public class XposedTools {
 		}
 	}
 	
+	public static Object callMethod_UserCurrent(Object obj, String methodName, Object... args) {
+			if (android.os.Build.VERSION.SDK_INT >= 17) {
+				//UserHandle.USER_CURRENT is @hide, only accessible with reflection
+				//This should probably not even be needed (ActivityManagerNative is really called?),
+				final int user_current = -2; //UserHandle.USER_CURRENT;
+				return XposedTools.callMethod(obj, methodName, args, user_current);
+				
+			} else {
+				return XposedTools.callMethod(obj, methodName, args);
+			}
+	}
+	
 	public static Object callMethod(Object obj, String methodName, Object... args) throws NoSuchMethodError {
 		try {
 			return findMethod(obj.getClass(), methodName, args).invoke(obj, args);

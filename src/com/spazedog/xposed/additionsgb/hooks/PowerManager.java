@@ -2,7 +2,7 @@ package com.spazedog.xposed.additionsgb.hooks;
 
 import android.content.Context;
 import android.os.BatteryManager;
-import android.view.HapticFeedbackConstants;
+//import android.view.HapticFeedbackConstants;
 
 import com.spazedog.xposed.additionsgb.Common;
 import com.spazedog.xposed.additionsgb.Common.HapticFeedbackLw;
