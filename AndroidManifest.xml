@@ -1,11 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.spazedog.xposed.additionsgb"
     android:versionCode="38"
-    android:versionName="2.3.8" >
+    android:versionName="2.3.8+" >
 
     <uses-sdk
         android:minSdkVersion="9"
-        android:targetSdkVersion="18" />
+        android:targetSdkVersion="19" />
     
     <permission android:name="com.spazedog.xposed.additionsgb.permission.REQUEST" android:protectionLevel="dangerous" />
     
@@ -14,7 +14,8 @@
     <application
         android:icon="@drawable/ic_launcher"
         android:label="Xposed Additions"
-        android:theme="@style/AppTheme" >
+        android:theme="@style/AppTheme"
+        android:allowBackup="true" >
         
         <meta-data android:value="true" android:name="xposedmodule" />
         <meta-data android:value="30+" android:name="xposedminversion" />
@@ -23,7 +24,7 @@
         <activity
             android:name="com.spazedog.xposed.additionsgb.ActivityMainSettings"
             android:label="Xposed Additions"
-             android:configChanges="orientation|screenSize" >
+            android:configChanges="orientation|screenSize" >
             
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
