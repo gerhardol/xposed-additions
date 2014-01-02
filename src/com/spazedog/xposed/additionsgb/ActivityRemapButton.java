@@ -93,7 +93,7 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	for (int i=0; i < onNames.length; i++) {
     		if ((android.os.Build.VERSION.SDK_INT > 10 || (!onValues[i].equals("flipleft") && !onValues[i].equals("flipright"))) &&
     				(android.os.Build.VERSION.SDK_INT > 11 || (!onValues[i].equals("recentapps"))) &&
-    				(mAdvancedSettings || (!onValues[i].equals("keycode") && !onValues[i].equals("intent")))) {
+    				(mAdvancedSettings || (!onValues[i].equals("application") && !onValues[i].equals("keycode") && !onValues[i].equals("intent")))) {
 	    		newNames.add(onNames[i]);
 	    		newValues.add(onValues[i]);
     		}
@@ -117,7 +117,7 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	List<String> newOffValues = new ArrayList<String>();
     	
     	for (int i=0; i < offNames.length; i++) {
-    		if (mAdvancedSettings || (!offValues[i].equals("keycode") && !offValues[i].equals("intent"))) {
+    		if (mAdvancedSettings || (!onValues[i].equals("application") && !offValues[i].equals("keycode") && !offValues[i].equals("intent"))) {
 	    		newOffNames.add(offNames[i]);
 	    		newOffValues.add(offValues[i]);
     		}
@@ -192,13 +192,13 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	mPrefOnClick.setOnPreferenceChangeListener(this);
     	mCategAwake.addPreference(mPrefOnClick);
     	
-    	mPrefOnTap = new ListPreference(this);
+     	mPrefOnTap = new ListPreference(this);
     	mPrefOnTap.setKey(Common.Remap.KEY_ON_ACTION_TAP + mKeyCurrent);
     	mPrefOnTap.setPersistent(false);
     	mPrefOnTap.setTitle(R.string.preference_title_remap_tap);
     	mPrefOnTap.setEntries(mRemapOnNames);
     	mPrefOnTap.setEntryValues(mRemapOnValues);
-    	mPrefOnTap.setValue(Common.Remap.getKeyTap(mKeyCurrent, false));
+    	mPrefOnTap.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, false));
     	mPrefOnTap.setOnPreferenceChangeListener(this);
     	if (isUnlocked) {
     		mCategAwake.addPreference(mPrefOnTap);
@@ -243,7 +243,7 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	mPrefOffTap.setTitle(R.string.preference_title_remap_tap);
     	mPrefOffTap.setEntries(mRemapOffNames);
     	mPrefOffTap.setEntryValues(mRemapOffValues);
-    	mPrefOffTap.setValue(Common.Remap.getKeyTap(mKeyCurrent, true));
+    	mPrefOffTap.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, true));
     	mPrefOffTap.setOnPreferenceChangeListener(this);
     	if (isUnlocked) {
     		mCategSleep.addPreference(mPrefOffTap);
@@ -461,8 +461,8 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	
 	@Override
 	public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
-		if (preference == mPrefOnEnaled || 
-				preference == mPrefOffEnaled) {
+		if (preference == mPrefOnEnaled  ||
+		    preference == mPrefOffEnaled) {
 			
 			Common.getSharedPreferences(this).edit().putBoolean(preference.getKey(), ((CheckBoxPreference) preference).isChecked()).apply();
 			
@@ -523,14 +523,16 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	
 	private void handleEnabledState(Preference preference) {
 		if (preference == mPrefOnEnaled) {
-			mPrefOnClick.setEnabled( mPrefOnEnaled.isChecked() );
-			mPrefOnTap.setEnabled( mPrefOnEnaled.isChecked() );
-			mPrefOnPress.setEnabled( mPrefOnEnaled.isChecked() );
+			Boolean isEnabled = mPrefOnEnaled.isChecked();
+			mPrefOnClick.setEnabled( isEnabled );
+			mPrefOnTap.setEnabled( isEnabled );
+			mPrefOnPress.setEnabled( isEnabled );
 			
 		} else if (preference == mPrefOffEnaled) {
-			mPrefOffClick.setEnabled( mPrefOffEnaled.isChecked() );
-			mPrefOffTap.setEnabled( mPrefOffEnaled.isChecked() );
-			mPrefOffPress.setEnabled( mPrefOffEnaled.isChecked() );
+			Boolean isEnabled = mPrefOffEnaled.isChecked();
+			mPrefOffClick.setEnabled( isEnabled );
+			mPrefOffTap.setEnabled( isEnabled );
+			mPrefOffPress.setEnabled( isEnabled );
 		}
 	}
 	
