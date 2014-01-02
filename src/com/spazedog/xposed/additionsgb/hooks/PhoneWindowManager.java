@@ -492,7 +492,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 			if (mIsUnlocked) {
 				if(DEBUG)Common.log(TAG, "Queueing: Enabling Multi and Tap options");
 				
-				String tabAction = Common.Remap.getKeyTap(mKeyCode, !isScreenOn);
+				String tabAction = Common.Remap.getKeyTap(mContext, mKeyCode, !isScreenOn);
 				
 				mKeyFlags.HAS_MULTI = true;
 				mKeyFlags.HAS_TAP = (tabAction != null && !tabAction.equals("disabled"));
@@ -543,7 +543,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 			} else {
 				if(DEBUG)Common.log(TAG, "Queueing: Invoking tap handler on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key");
 				
-				mKeyAction = Common.Remap.getKeyTap(mKeyCode, !isScreenOn);
+				mKeyAction = Common.Remap.getKeyTap(mContext, mKeyCode, !isScreenOn);
 				
 				invokeHandler(0);
 				
@@ -983,12 +983,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 	        		if (appInfo.pkgList != null && (appInfo.pkgList.length > 0)) {
 	        			for (String pkg : appInfo.pkgList) {
 	        				if (!pkg.equals("com.android.systemui") && !pkg.equals(defaultHomePackage)) {
-	        					if (SDK_NUMBER >= 17) {
-	        						XposedTools.callMethod(activityManager, "forceStopPackage", pkg, UserHandle.USER_CURRENT);
-	        						
-	        					} else {
-	        						XposedTools.callMethod(activityManager, "forceStopPackage", pkg);
-	        					}
+	        					XposedTools.callMethod_UserCurrent(activityManager, "forceStopPackage", pkg);
 	        				}
 	        			}
 	        			

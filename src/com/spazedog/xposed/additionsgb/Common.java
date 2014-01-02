@@ -10,7 +10,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.os.UserHandle;
 import android.os.Vibrator;
 import android.preference.ListPreference;
 import android.provider.Settings;
@@ -26,7 +25,8 @@ public final class Common {
 	public static final String PACKAGE_NAME_PRO = PACKAGE_NAME+".pro";
 	public static final String HOOK_PREFERENCES = "hook_settings";
 	
-	public static final Boolean DEBUG = false;
+	//TODO: Temporary
+	public static final Boolean DEBUG = true;
 	
 	public static SharedPreferences mPreferences;
 	
@@ -51,12 +51,23 @@ public final class Common {
 			return mPreferences.getBoolean((screenIsOff ? KEY_OFF_ENABLED : KEY_ON_ENABLED) + code, false);
 		}
 		
+		public static Boolean isMultiEnabled(Context context, Integer code) {
+			Boolean result = false;
+			if(isUnlocked(context)) {
+				if(code < 1000) {
+					String[] keyArray = mPreferences.getString(KEY_COLLECTION + code, "").split(",");
+					result = (keyArray.length > 0);
+				}
+			}
+			return result;
+		}
+		
 		public static String getKeyClick(Integer code, Boolean screenIsOff) {
 			return mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_CLICK : KEY_ON_ACTION_CLICK) + code, "default");
 		}
 		
-		public static String getKeyTap(Integer code, Boolean screenIsOff) {
-			return mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_TAP : KEY_ON_ACTION_TAP) + code, "disabled");
+		public static String getKeyTap(Context context, Integer code, Boolean screenIsOff) {
+			return isUnlocked(context) ? mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_TAP : KEY_ON_ACTION_TAP) + code, "default") : "default";
 		}
 		
 		public static String getKeyPress(Integer code, Boolean screenIsOff) {
@@ -150,6 +161,7 @@ public final class Common {
 			log("Loading SharedPreferences");
 			
 			if (context == null) {
+				//TODO: not found in logcat?
 				XSharedPreferences sharedPreferences = new XSharedPreferences(PACKAGE_NAME, HOOK_PREFERENCES);
 				sharedPreferences.makeWorldReadable();
 				
@@ -173,7 +185,7 @@ public final class Common {
 		String curValue = preference.getValue();
 		
 		if (curValue != null) {
-			for (int i=0; i < entryValues.length; i++) {
+			for (int i=0; i < entryValues.length && i < entrySummaries.length; i++) {
 				if (entryValues[i].equals(curValue)) {
 					preference.setSummary(entrySummaries[i]); break;
 				}
@@ -324,8 +336,9 @@ public final class Common {
 	}
 	
 	public static Boolean isUnlocked(Context context) {
+		//TODO: Temporary license unlock
+		if ((new java.util.Date(114 + 1900, 2, 1)).compareTo(new java.util.Date())>0) {return true;}
 		PackageManager manager = context.getPackageManager();
-		
 		return manager.checkSignatures(PACKAGE_NAME, PACKAGE_NAME_PRO)
 	    		== PackageManager.SIGNATURE_MATCH;
 	}
@@ -334,12 +347,15 @@ public final class Common {
 		private Vibrator mVibrator;
 		private Context mContext;
 		
+		/* Unused
 		private long[] mLongpressPattern = null;
 		private long[] mVirtualPattern = null;
-		
+	   */	
 		public HapticFeedbackLw(Context context) {
 			mVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
 			mContext = context;
+			//TODO: Temporary: Cannot compile with internal references
+			/* Unused
 			
 			for (int i=0; i < 2; i++) {
 				int[] ar = context.getResources().getIntArray( i==0 ? com.android.internal.R.array.config_longPressVibePattern : com.android.internal.R.array.config_virtualKeyVibePattern );
@@ -356,9 +372,11 @@ public final class Common {
 					else mVirtualPattern[x] = ar[x];
 				}
 			}
+			*/
 		}
 		
-		public boolean vibrate(int effectId, boolean always) {
+/* Unused
+  		public boolean vibrate(int effectId, boolean always) {
 			long[] pattern = null;
 			
 	        switch (effectId) {
@@ -374,17 +392,19 @@ public final class Common {
 	        
 	        return vibrate(pattern, always);
 		}
-		
+*/		
 		@SuppressLint("NewApi")
 		public boolean vibrate(long[] pattern, boolean always) {
 			if (android.os.Build.VERSION.SDK_INT >= 11 && !mVibrator.hasVibrator()) {
 				return false;
 			}
-			
-			final boolean hapticEnabled = android.os.Build.VERSION.SDK_INT >= 17 ? 
-					Settings.System.getIntForUser(mContext.getContentResolver(), Settings.System.HAPTIC_FEEDBACK_ENABLED, 0, UserHandle.USER_CURRENT) != 0: 
-						 Settings.System.getInt(mContext.getContentResolver(), Settings.System.HAPTIC_FEEDBACK_ENABLED, 0) != 0;
+			final boolean hapticEnabled = Settings.System.getInt(mContext.getContentResolver(), Settings.System.HAPTIC_FEEDBACK_ENABLED, 0) != 0;
 
+			//TODO: Temporary to compile
+			//getIntForUser, UserHandle.USER_CURRENT are @hide and the "old" resolves to the same anyway?
+			//final boolean hapticEnabled = android.os.Build.VERSION.SDK_INT >= 17 ? 
+			//		Settings.System.getIntForUser(mContext.getContentResolver(), Settings.System.HAPTIC_FEEDBACK_ENABLED, 0, UserHandle.USER_CURRENT) != 0: 
+			//			 Settings.System.getInt(mContext.getContentResolver(), Settings.System.HAPTIC_FEEDBACK_ENABLED, 0) != 0;
 			try {
 				if (!always && (!hapticEnabled || ((KeyguardManager) mContext.getSystemService(Context.KEYGUARD_SERVICE)).inKeyguardRestrictedInputMode())) {
 					return false;
