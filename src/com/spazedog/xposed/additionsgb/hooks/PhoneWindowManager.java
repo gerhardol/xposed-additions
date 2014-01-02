@@ -3,9 +3,11 @@ package com.spazedog.xposed.additionsgb.hooks;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 
 import android.annotation.SuppressLint;
+import android.app.ActivityManager;
 import android.app.ActivityManager.RunningAppProcessInfo;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -17,7 +19,6 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
-import android.os.UserHandle;
 import android.provider.Settings;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -28,11 +29,9 @@ import android.widget.Toast;
 
 import com.android.internal.statusbar.IStatusBarService;
 import com.spazedog.xposed.additionsgb.Common;
-import com.spazedog.xposed.additionsgb.Common.HapticFeedbackLw;
 import com.spazedog.xposed.additionsgb.tools.XposedTools;
 
 import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
 
 public class PhoneWindowManager extends XC_MethodHook {
 	
@@ -40,7 +39,9 @@ public class PhoneWindowManager extends XC_MethodHook {
 	
 	public static final Boolean DEBUG = Common.DEBUG;
 	
-	private PhoneWindowManager() {}
+	private PhoneWindowManager() {
+		resetEvent();
+	}
 	
 	public static void inject() {
 		Class<?> phoneWindowManagerClass = XposedTools.findClass("com.android.internal.policy.impl.PhoneWindowManager");
@@ -77,11 +78,22 @@ public class PhoneWindowManager extends XC_MethodHook {
 		}
 	}
 	
-	private int FLAG_INJECTED;
-	private int FLAG_VIRTUAL;
-	private int ACTION_DISPATCH;
-	private int ACTION_DISABLE = 0;
-	private int INJECT_INPUT_EVENT_MODE_ASYNC;
+	//when hook is constructed, so used both before queue/dispatch
+	private Class<?> mActivityManagerNativeClass;
+	private Class<?> mWindowManagerPolicyClass; 
+	private Class<?> mServiceManagerClass;
+	private Class<?> mInputManagerClass;
+	private Class<?> mProcessClass;
+	private Class<?> mWindowStateClass;
+		
+	private static int FLAG_INJECTED;
+	private static int FLAG_VIRTUAL;
+	private static int ACTION_DISPATCH;
+	
+	private final int ACTION_DISABLE = 0;
+	private final Object ACTION_DISPATCH_DISABLED = (SDK_NUMBER <= 10 ? true : -1);
+	
+	private static int INJECT_INPUT_EVENT_MODE_ASYNC;
 	
 	private static final int SDK_NUMBER = android.os.Build.VERSION.SDK_INT;
 	
@@ -92,92 +104,147 @@ public class PhoneWindowManager extends XC_MethodHook {
 	private PowerManager mPowerManager;
 	private WakeLock mWakeLock;
 	private WakeLock mWakeLockPartial;
-	private Handler mHandler;
-	HapticFeedbackLw mHapticFeedbackLw;
+	
+    protected static Boolean mBootCompleted = false;
+    protected static Boolean mInterceptKeycode = false; //Intercept when configuring
 	
 	private Object mRecentAppsTrigger;
 	
-	private Class<?> mActivityManagerNativeClass;
-	private Class<?> mWindowManagerPolicyClass; 
-	private Class<?> mServiceManagerClass;
-	private Class<?> mInputManagerClass;
-	private Class<?> mProcessClass;
-	private Class<?> mWindowStateClass;
+	//status for current event
 	
-	protected Boolean mInterceptKeycode = false;
-	
-	protected int mKeyPressDelay = 0;
-	protected int mKeyTapDelay = 0;
-	protected int mKeyPrimary = 0;
-	protected int mKeySecondary = 0;
-	protected int mKeyCode = 0;
-	protected String mKeyAction;
 	protected final Flags mKeyFlags = new Flags();
-	
-	protected Integer mInternalQueryResult;
-	protected Object[] mInternalQueryArgs;
-	protected Member mInternalQueryMethod;
-	
-	protected Boolean mWasScreenOn = true;
-	
-	protected Boolean mIsUnlocked = false;
-	
-	protected Boolean mReady = false;
-	
 	protected class Flags {
-		public volatile Boolean DOWN = false;
-		public volatile Boolean CANCEL = false;
-		public volatile Boolean RESET = false;
-		public volatile Boolean ONGOING = false;
-		public volatile Boolean DEFAULT = false;
-		public volatile Boolean REPEAT = false;
-		public volatile Boolean MULTI = false;
-		public volatile Boolean INJECTED = false;
-		public volatile Boolean DISPATCHED = false;
-		public volatile Boolean HAS_TAP = false;
-		public volatile Boolean HAS_MULTI = false;
+		protected int mKeyPrimary = 0;
+		protected int mKeySecondary = 0;
+		protected int mKeyRepeat = 0;
+		protected Boolean mWasScreenOn = true;
+		
+		//pass dispatch info from beforeQueue to beforeDispatch
+		//protected Object[] mInternalQueryArgs;
+		//protected Member mInternalQueryMethod;
+		//protected Object[] mInternalQuery2Args;
+		//protected Member mInternalQuery2Method;
+
+		//public volatile Boolean DOWN; //Directions of key, could be overridden
+		public volatile Boolean ACTION_DONE; //Cancel processing of further events for event (except pending up keys)
+		//public volatile Boolean RESET; //Set when action is done and when no action is possible
+		//public volatile Boolean ONGOING; //Any pending events
+		//public volatile Boolean LONGPRESS_DEFAULT_ACTION; //default handling for key event (set on first down)
+		//public volatile Boolean REPEAT; //tap detection
+		//public volatile Boolean MULTI; // Same as (mKeySecondary != 0)
+		public volatile Boolean INJECTED; //Key injected by this module
+		//public volatile Boolean DISPATCH_ORIG_EVENT;  //long press delay dispatch is ongoing
+		//public volatile Boolean HAS_TAP; //tap is enabled (set from configuration for primary key)
+		//public volatile Boolean HAS_MULTI; //multi is enabled (static from configuration)
+		//cache actions. null is same as "default"
+		public String clickAction;
+		public String tapAction;
+		public String pressAction;
+		//Time at first down
+		public long originalDownTime;
+		public int upCount;
+		public long firstUpTime;
 		
 		public void reset() {
-			DOWN = false;
-			CANCEL = false;
-			RESET = false;
-			ONGOING = false;
-			DEFAULT = false;
-			REPEAT = false;
-			MULTI = false;
+			//DOWN = false;
+			ACTION_DONE = false;
+			//RESET = false;
+			//ONGOING = false;
+			//LONGPRESS_DEFAULT_ACTION = false;
+			//REPEAT = false;
+			//MULTI = false;
 			INJECTED = false;
-			DISPATCHED = false;
-			HAS_TAP = false;
-			HAS_MULTI = false;
+			//DISPATCH_ORIG_EVENT = false;
+			//HAS_TAP = false;
+			//HAS_MULTI = false;
+			clickAction = null;
+			tapAction = null;
+			pressAction = null;
+			firstUpTime = 0;
 		}
 	}
 	
-	protected final Runnable mMappingRunnable = new Runnable() {
+	protected void resetEvent() {
+		resetEventForSecondary();
+		mKeyFlags.mKeyPrimary = 0;
+		mKeyFlags.mKeySecondary = 0;
+		mKeyFlags.upCount = 0;
+		//mKeyFlags.firstUpTime = 0;
+	}
+	
+	protected void resetEventForSecondary() {
+		mKeyFlags.reset();
+		mKeyFlags.mKeyRepeat = 0;
+		//mKeyFlags.mInternalQueryResult = ACTION_DISABLE;
+	}
+	
+	//Previously public volatile Boolean MULTI = false;
+	private Boolean isMulti() {
+		return (mKeyFlags.mKeySecondary != 0);
+	}
+	
+	//Previously public volatile Boolean ONGOING = false;
+	private Boolean isOnGoing() {
+		return (mKeyFlags.mKeyPrimary != 0);
+	}
+	
+	private static int tapDelay() { return Common.Remap.getTapDelay(); }
+	private static int pressDelay() { return Common.Remap.getPressDelay(); }
+
+	//Handler context
+	private static Handler mHandler;
+	private final KeyActionRunnable mMappingRunnable = new KeyActionRunnable();
+	private final PostponedUpKeyRunnable mPostponedUpKeyRunnable = new PostponedUpKeyRunnable();
+	
+	//private static HapticFeedbackLw mHapticFeedbackLw;
+	private ArrayList<Integer> mPendingKeys = new ArrayList<Integer>();
+
+	class PostponedUpKeyRunnable implements Runnable {
+		public void run() {
+			//mPendingKeys is only accessed in mHandler
+			if(mPendingKeys.size() > 0) {
+				if(DEBUG) {
+					String str = "Handler: Injecting delayed up key code(s): " + mPendingKeys.toString() + " for " + mKeyFlags.mKeyPrimary + " " + mKeyFlags.mKeySecondary;
+					Common.log(TAG, str);
+				}
+				for (Integer keyCode: mPendingKeys) {
+					if (keyCode > 0) {
+						triggerKeyEvent(keyCode, 0, true);
+					}
+				}
+				mPendingKeys.clear();
+			}
+		}
+	}
+	
+	class KeyActionRunnable implements Runnable {
+		public String keyAction;
+		public Boolean immediateUp;
+		
         @SuppressLint("NewApi")
 		@Override
         public void run() {
-        	if (!mKeyFlags.MULTI) {
-        		mKeyFlags.CANCEL = true;
-        		mKeyFlags.RESET = true;
-        		
-        	} else {
-        		mKeyFlags.CANCEL = true;
+        	if(keyAction == null) {
+        		keyAction = "default";
         	}
+
+    		if(mKeyFlags.ACTION_DONE) {
+    			android.util.Log.i(TAG, "Handler: Race condition, other action already done: " + mKeyFlags.mKeyPrimary + " " + keyAction);
+    			return;
+    		}
+        	//Cancel further processing
+            mKeyFlags.ACTION_DONE = true;
         	
-        	if (mKeyFlags.REPEAT || mKeyFlags.DOWN) {
+        	if ((mKeyFlags.mKeyRepeat > 0)/* || mKeyFlags.DOWN*/) {
         		performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
         	}
         	
-        	if (mKeyAction.equals("default")) {
-        		mKeyAction = "" + mKeyPrimary;
-        	}
-        	
-        	if (mKeyAction.equals("disabled")) {
+        	if (keyAction.equals("disabled")) {
         		if(DEBUG)Common.log(TAG, "Handler: Action is disabled, skipping");
         		
         		// Disable the button
         		
-        	} else if (mKeyAction.equals("poweron")) { 
+        	} else if (keyAction.equals("poweron")) { 
         		if(DEBUG)Common.log(TAG, "Handler: Invoking forced power on");
 
         		if (SDK_NUMBER >= 17) {
@@ -188,53 +255,96 @@ public class PhoneWindowManager extends XC_MethodHook {
         			mPowerManager.userActivity(SystemClock.uptimeMillis(), false);
         		}
         		
-        	} else if (mKeyAction.equals("poweroff")) { 
+        	} else if (keyAction.equals("poweroff")) { 
         		if(DEBUG)Common.log(TAG, "Handler: Invoking forced power off");
         		
         		/*
-        		 * Parsing the power code does not always work on Gingerbread.
+        		 * Passing the power code does not always work on Gingerbread.
         		 * So like poweron, we also make a poweroff to force the device off.
         		 */
         		mPowerManager.goToSleep(SystemClock.uptimeMillis());
         		
-        	} else if (mKeyAction.equals("recentapps")) {
+        	} else if (keyAction.equals("recentapps")) {
         		if(DEBUG)Common.log(TAG, "Handler: Invoking Recent Apps dialog");
         		
         		openRecentAppsDialog();
         		
-        	} else if (mKeyAction.equals("powermenu")) {
+        	} else if (keyAction.equals("previousapp")) {
+        		if(DEBUG)Common.log(TAG, "Handler: Invoking Previous App");
+        		
+        		switchToLastApp();
+        		
+        	} else if (keyAction.equals("powermenu")) {
         		if(DEBUG)Common.log(TAG, "Handler: Invoking Power Menu dialog");
         		
         		openGlobalActionsDialog();
         		
-        	} else if (mKeyAction.equals("flipleft")) {
+        	} else if (keyAction.equals("flipleft")) {
         		if(DEBUG)Common.log(TAG, "Handler: Invoking left orientation");
         		
         		rotateLeft();
         		
-        	} else if (mKeyAction.equals("flipright")) {
+        	} else if (keyAction.equals("flipright")) {
         		if(DEBUG)Common.log(TAG, "Handler: Invoking right orientation");
         		
         		rotateRight();
         		
-        	} else if (mKeyAction.equals("fliptoggle")) {
+        	} else if (keyAction.equals("fliptoggle")) {
         		if(DEBUG)Common.log(TAG, "Handler: Invoking orientation toggle");
         		
         		toggleRotation();
         		
-        	} else if (mKeyAction.equals("killapp")) {
+        	} else if (keyAction.equals("killapp")) {
         		if(DEBUG)Common.log(TAG, "Handler: Invoking kill foreground application");
         		
         		killForegroundApplication();
         		
         	} else {
-        		if(DEBUG)Common.log(TAG, "Handler: Injecting key code " + mKeyAction);
-        		
-        		Integer keyCode = Integer.parseInt(mKeyAction);
-        		
+        		int[] keyArray;
+            	if (keyAction.equals("default")) {
+            		//TODO: only for multi keys?
+            		keyArray = new int[2];
+            		keyArray[0] = mKeyFlags.mKeyPrimary;
+            		keyArray[1] = mKeyFlags.mKeySecondary;
+            		//isKeyRepeat() will just trigger one key trigger
+            	} else {
+            		//Action was one or more key codes
+        			String[] keyArray2 = keyAction.split(",");
+            		keyArray = new int[keyArray2.length];
+        			for (int i=0; i < keyArray2.length; i++) {
+        				Integer keyCode = Integer.parseInt(keyArray2[i]);
+        				keyArray[i] = keyCode;
+        			}
+            	}
+            	
+        		if(DEBUG){
+        			String str = "Handler: Injecting key code(s) for " + mKeyFlags.mKeyPrimary + "/" + mKeyFlags.mKeySecondary + " " + immediateUp + ": "+java.util.Arrays.toString(keyArray);
+        			Common.log(TAG, str);
+        		}
         		mKeyFlags.INJECTED = true;
-				
-				triggerKeyEvent(keyCode);
+    			
+				//immediateUp=true;
+				for (Integer keyCode: keyArray) {
+    				if (keyCode > 0) {
+    					triggerKeyEvent(keyCode, mKeyFlags.originalDownTime, immediateUp);
+    				}
+            	}
+				if (mPendingKeys.size() > 0) {
+					String s = "Handler: Up not sent for all keys before next action: " + mPendingKeys.toString();
+    			    Common.log(TAG, s);
+   			    
+				}
+    			if(!immediateUp) {
+    				//Caller waits for user to release a button before sending up
+    				for (Integer keyCode: keyArray) {
+    					if (!mPendingKeys.contains(keyCode)) {
+    						mPendingKeys.add(keyCode);
+    					}
+    				}
+    				//The delayed key up is triggered by any key press,
+    				//but should latest be triggered as long press (pressDelay here must match system)
+    				runPendingUpKeys(pressDelay()*5/4);
+    			}
         	}
         }
 	};
@@ -292,14 +402,14 @@ public class PhoneWindowManager extends XC_MethodHook {
     	mWakeLockPartial = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "PhoneWindowManagerHookPartial");
     	mHandler = new Handler();
     	mWindowManager = param.args[1];
-    	mIsUnlocked = Common.isUnlocked(mContext);
-    	mHapticFeedbackLw = new HapticFeedbackLw(mContext);
+    	//mHapticFeedbackLw = new HapticFeedbackLw(mContext);
     	
     	mContext.registerReceiver(
     		new BroadcastReceiver() {
 	    		@Override
 	    		public void onReceive(Context context, Intent intent) {
 	    			if (intent.getStringExtra("request").equals(Common.BroadcastOptions.REQUEST_ENABLE_KEYCODE_INTERCEPT)) {
+	    				//Send all keys to config dialog
 	    				mInterceptKeycode = true;
 	    				
 	    			} else if (intent.getStringExtra("request").equals(Common.BroadcastOptions.REQUEST_DISABLE_KEYCODE_INTERCEPT)) {
@@ -307,8 +417,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 	    				
 	    			} else if (intent.getStringExtra("request").equals(Common.BroadcastOptions.REQUEST_RELOAD_CONFIGS)) {
 	    				Common.loadSharedPreferences(null, true);
-	    				
-	    				mIsUnlocked = Common.isUnlocked(mContext);
 	    			}
 	    		}
 	    	}, 
@@ -321,8 +429,7 @@ public class PhoneWindowManager extends XC_MethodHook {
     		new BroadcastReceiver() {
 	    		@Override
 	    		public void onReceive(Context context, Intent intent) {
-	    			mIsUnlocked = Common.isUnlocked(mContext);
-	    			mReady = true;
+	    			mBootCompleted = true;
 	    			
 	    			mContext.unregisterReceiver(this);
 	    		}
@@ -333,6 +440,10 @@ public class PhoneWindowManager extends XC_MethodHook {
     	);
 	}
 
+	private String getParam(int keyCode, Boolean down) {
+			return ": " + keyCode + " " + mKeyFlags.mKeyPrimary + "/" + mKeyFlags.mKeySecondary + ": " + down + " " + mKeyFlags.ACTION_DONE + " " + mKeyFlags.mKeyRepeat;
+    }
+	
 	/**
 	 * Gingerbread uses arguments interceptKeyBeforeQueueing(Long whenNanos, Integer action, Integer flags, Integer keyCode, Integer scanCode, Integer policyFlags, Boolean isScreenOn)
 	 * ICS/JellyBean uses arguments interceptKeyBeforeQueueing(KeyEvent event, Integer policyFlags, Boolean isScreenOn)
@@ -341,7 +452,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		/*
 		 * Do nothing until the device is done booting
 		 */
-		if (!mReady) {
+		if (!mBootCompleted) {
 			param.setResult(ACTION_DISABLE);
 			
 			return;
@@ -351,7 +462,9 @@ public class PhoneWindowManager extends XC_MethodHook {
 		final int policyFlags = (Integer) (SDK_NUMBER <= 10 ? param.args[5] : param.args[1]);
 		final int keyCode = (Integer) (SDK_NUMBER <= 10 ? param.args[3] : ((KeyEvent) param.args[0]).getKeyCode());
 		final boolean isScreenOn = (Boolean) (SDK_NUMBER <= 10 ? param.args[6] : param.args[2]);
-		final boolean down = action == KeyEvent.ACTION_DOWN;
+		final boolean down = (action == KeyEvent.ACTION_DOWN);
+		final long downTime = (long) (SDK_NUMBER <= 10 ? SystemClock.uptimeMillis() : ((KeyEvent) param.args[0]).getDownTime());
+		final long eventTime = (long) (SDK_NUMBER <= 10 ? SystemClock.uptimeMillis() : ((KeyEvent) param.args[0]).getEventTime());
 		
 		boolean setup = false;
 		
@@ -361,10 +474,10 @@ public class PhoneWindowManager extends XC_MethodHook {
 		 * reasons create a loop or break something.
 		 */
 		if ((policyFlags & FLAG_INJECTED) != 0) {
-			if(DEBUG && down)Common.log(TAG, "Queueing: Key code " + keyCode + " was injected, skipping");
+			if(DEBUG)Common.log(TAG, "Queueing: Key code was injected, passing on" + getParam(keyCode, down));
 			
 			if (mKeyFlags.INJECTED) {
-				param.args[ (SDK_NUMBER <= 10 ? 5 : 1) ] = policyFlags ^ FLAG_INJECTED;
+				param.args[ (SDK_NUMBER <= 10 ? 5 : 1) ] = (policyFlags ^ FLAG_INJECTED);
 				
 				if (!down) {
 					mKeyFlags.INJECTED = false;
@@ -373,16 +486,18 @@ public class PhoneWindowManager extends XC_MethodHook {
 			
 			return;
 		}
+		//Complete on any (non injected) key up, also new events
+		runPendingUpKeys(0);
 		
 		/*
 		 * During the first key down while the screen is off,
 		 * we will reset everything to avoid issues if the screen was turned off by 
 		 * a virtual key. Those keys does not execute key up when the screen is off. 
 		 */
-		if (down && ((!isScreenOn && isScreenOn != mWasScreenOn) || mKeyFlags.RESET)) {
-			if(DEBUG)Common.log(TAG, "Queueing: Re-setting old flags");
+		if (down && ((!isScreenOn && isScreenOn != mKeyFlags.mWasScreenOn) /*|| mKeyFlags.RESET*/)) {
+			if(DEBUG)Common.log(TAG, "Queueing: Re-setting old flags" + getParam(keyCode, down));
 			
-			mKeyFlags.reset();
+			resetEvent();
 		}
 		
 		if (mInterceptKeycode && isScreenOn) {
@@ -399,108 +514,131 @@ public class PhoneWindowManager extends XC_MethodHook {
 			return;
 		}
 		
-		if (!down && !mKeyFlags.ONGOING) {
-			if(DEBUG)Common.log(TAG, "Queueing: The key code " + keyCode + " is not ours. Returning it to the original handler");
-			
-			return;
-			
-		} else if (!down) {
-			if (keyCode == mKeyPrimary || (mKeyFlags.MULTI && keyCode == mKeySecondary)) {
-				if(DEBUG)Common.log(TAG, "Queueing: Releasing " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key");
+		//Find if the key is out of sequence
+		//mKeyFlags.DOWN = down;
+		if (down) {
+			//Down
+			if (isOnGoing() && !mKeyFlags.ACTION_DONE && (keyCode == mKeyFlags.mKeyPrimary) && (mKeyFlags.mKeyRepeat == 0) && (mKeyFlags.tapAction != null)) {
+				//Primary pressed again, increase repeat (so we can check the order)
+				if(DEBUG)Common.log(TAG, "Queueing: Registering key repeat" + getParam(keyCode, down));
 				
-				mKeyFlags.DOWN = false;
-				
-				if (keyCode == mKeyPrimary && (mKeyFlags.MULTI || mKeyFlags.REPEAT)) {
-					mKeyFlags.RESET = true;
-					
-				} else if (keyCode == mKeySecondary && mKeyFlags.MULTI && mKeyFlags.REPEAT) {
-					mKeyFlags.REPEAT = false;
+				if (!isMulti()) {
+					mKeyFlags.mKeyRepeat++;
 				}
-
-			} else {
-				if(DEBUG)Common.log(TAG, "Queueing: The key code " + keyCode + " is not ours. Disabling it as we have an ongoing event");
 				
+			} else if (isOnGoing() && !mKeyFlags.ACTION_DONE && (keyCode == mKeyFlags.mKeySecondary) && (mKeyFlags.mKeyRepeat == 0) && (mKeyFlags.tapAction != null)) {
+					//The secondary completes the sequence
+					if(DEBUG)Common.log(TAG, "Queueing: Secondary key repeat" + getParam(keyCode, down));
+					
+					mKeyFlags.mKeyRepeat++;
+					
+			} else if (isOnGoing() && !mKeyFlags.ACTION_DONE && (keyCode != mKeyFlags.mKeyPrimary) && (mKeyFlags.mKeySecondary == 0) && (mKeyFlags.mKeyRepeat == 0)) {
+				//First down of a secondary key (if no multi for this combination, the secondary is checked as primary)
+				if(DEBUG)Common.log(TAG, "Queueing: Adding secondary key" + getParam(keyCode, down));
+				
+				resetEventForSecondary();
+				setup = true;
+				
+				//mKeyFlags.mInternalQuery2Args = param.args;
+				//mKeyFlags.mInternalQuery2Method = param.method;
+				
+				mKeyFlags.mKeySecondary = keyCode;
+				
+			} else {
+				//No current event found, start a new
+				if(DEBUG)Common.log(TAG, "Queueing: Starting new event" + getParam(keyCode, down)+mKeyFlags.tapAction);
+				
+				resetEvent();
+				setup = true;
+				
+				mKeyFlags.mWasScreenOn = isScreenOn;
+				mKeyFlags.originalDownTime = downTime;
+				mKeyFlags.upCount = 0;
+				//mKeyFlags.mInternalQueryArgs = param.args;
+				//mKeyFlags.mInternalQueryMethod = param.method;
+
+				mKeyFlags.mKeyPrimary = keyCode;
+				mKeyFlags.mKeySecondary = 0;
+			}
+		} else {
+			//up
+			if(!isOnGoing()) {
+  			    if(DEBUG)Common.log(TAG, "Queueing: The up key code is not ongoing. Returning it to the original handler" + getParam(keyCode, down));
+			
+			    return;
+   		    }
+
+			//Do not check that up multi key are in sequence, only down (ongoing)
+			if ((keyCode == mKeyFlags.mKeyPrimary) || (keyCode == mKeyFlags.mKeySecondary)) {
+				if(DEBUG)Common.log(TAG, "Queueing: Up" + getParam(keyCode, down)+ " " + mKeyFlags.upCount);
+				if(mKeyFlags.upCount == 0) {
+					mKeyFlags.firstUpTime = eventTime;
+				}
+				mKeyFlags.upCount++;
+			} else {
+				if(DEBUG)Common.log(TAG, "Queueing: The key up code is not ours. Disabling it as we have an ongoing event" + getParam(keyCode, down));
+				
+				//mKeyFlags.RESET = true;
 				param.setResult(ACTION_DISABLE);
 				
 				return;
 			}
 		}
 		
-		if (down) {
-			if (mKeyFlags.ONGOING && (keyCode == mKeyPrimary || keyCode == mKeySecondary) && mKeyFlags.HAS_TAP) {
-				if(DEBUG)Common.log(TAG, "Queueing: Registering key repeat flag");
-				
-				mKeyFlags.REPEAT = true;
-				mKeyFlags.DOWN = true;
-				
-			} else if (mKeyFlags.ONGOING && (mKeySecondary == 0 || !mKeyFlags.DOWN) && !mKeyFlags.REPEAT && mKeyFlags.HAS_MULTI) {
-				if(DEBUG)Common.log(TAG, "Queueing: Adding secondary key on " + keyCode);
-				
-				mKeyFlags.MULTI = true;
-				mKeyFlags.DOWN = true;
-				mKeyFlags.CANCEL = false;
-				mKeyFlags.DEFAULT = false;
-				
-				mKeySecondary = keyCode;
-				
-				setup = true;
-				
-			} else {
-				if(DEBUG)Common.log(TAG, "Queueing: Starting new event on key code " + keyCode);
-				
-				mKeyFlags.ONGOING = true;
-				mKeyFlags.DOWN = true;
-				
-				mKeyPrimary = keyCode;
-				mKeySecondary = 0;
-				mKeyPressDelay = Common.Remap.getPressDelay();
-				mKeyTapDelay = Common.Remap.getTapDelay();
-				
-				setup = true;
-			}
+		//If delayed click or long press is waiting, stop them
+		if (!mKeyFlags.ACTION_DONE) {
+			//Do not stop ongoing 
+			removeHandler();
 		}
 		
-		removeHandler();
-		
+		//Check if there is any (possible) action for a new key (-combination)
 		if (setup) {
-			if(DEBUG)Common.log(TAG, "Queueing: Setting up " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key");
-			
-			mKeyCode = Common.generateKeyCode(mKeyPrimary, mKeySecondary);
-			mWasScreenOn = isScreenOn;
-			
-			if (!Common.Remap.isKeyEnabled(mKeyCode, !isScreenOn)) {
-				if (!mKeyFlags.MULTI) {
-					if(DEBUG)Common.log(TAG, "Queueing: The " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key is not enabled, returning it to the original method");
-					
-					mKeyFlags.reset(); return;
-					
-				} else {
-					if(DEBUG)Common.log(TAG, "Queueing: The secondary key is not enabled. Converting it into a primary key and starting a new event");
-					
-					mKeyPrimary = mKeyCode = mKeySecondary;
-					mKeySecondary = 0;
-					mKeyFlags.MULTI = false;
-					
-					if (!Common.Remap.isKeyEnabled(mKeyCode, !isScreenOn)) {
-						if(DEBUG)Common.log(TAG, "Queueing: The " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key is not enabled, returning it to the original method");
+			if(DEBUG)Common.log(TAG, "Queueing: New event setup" + getParam(keyCode, down));
+
+			//preferences are related to a combined key code
+			int combinedKeyCode = Common.generateKeyCode(mKeyFlags.mKeyPrimary, mKeyFlags.mKeySecondary);
 						
-						mKeyFlags.reset(); return;
-					}
-				}
+			Boolean isKeyEnabled = Common.Remap.isKeyEnabled(combinedKeyCode, !isScreenOn);
+			if (!isKeyEnabled && isMulti() && (mKeyFlags.mKeyPrimary != mKeyFlags.mKeySecondary) && Common.Remap.isMultiEnabled(mContext, mKeyFlags.mKeyPrimary)) {
+				if(DEBUG)Common.log(TAG, "Queueing: The primary/secondary key has no actions. Converting secondary into a primary key and starting a new event" + getParam(keyCode, down));
+
+				mKeyFlags.mKeyPrimary = mKeyFlags.mKeySecondary;
+				mKeyFlags.mKeySecondary = 0;
+				//mKeyFlags.mInternalQueryArgs = mKeyFlags.mInternalQuery2Args;
+				//mKeyFlags.mInternalQueryMethod = mKeyFlags.mInternalQuery2Method;
+				combinedKeyCode = Common.generateKeyCode(mKeyFlags.mKeyPrimary, mKeyFlags.mKeySecondary);
+				isKeyEnabled = Common.Remap.isKeyEnabled(combinedKeyCode, !isScreenOn);
+				
+			}
+
+			if (!isKeyEnabled) {
+				if(DEBUG)Common.log(TAG, "Queueing: key is not enabled, returning it to the original method" + getParam(keyCode, down));
+
+				resetEvent();
+				return;
 			}
 			
-			if (mIsUnlocked) {
-				if(DEBUG)Common.log(TAG, "Queueing: Enabling Multi and Tap options");
-				
-				String tabAction = Common.Remap.getKeyTap(mContext, mKeyCode, !isScreenOn);
-				
-				mKeyFlags.HAS_MULTI = true;
-				mKeyFlags.HAS_TAP = (tabAction != null && !tabAction.equals("disabled"));
-				
-			} else {
-				if(DEBUG)Common.log(TAG, "Queueing: Disabling Multi and Tap options");
-				
-				mKeyFlags.HAS_MULTI = mKeyFlags.HAS_TAP = false;
+			//Get all the possible actions
+			mKeyFlags.clickAction = Common.Remap.getKeyClick(combinedKeyCode, !isScreenOn);
+		    if (mKeyFlags.clickAction != null && mKeyFlags.clickAction.equals("default")){
+		    	mKeyFlags.clickAction = null;
+		    }
+			mKeyFlags.tapAction = Common.Remap.getKeyTap(mContext, combinedKeyCode, !isScreenOn);
+			if (mKeyFlags.tapAction != null && mKeyFlags.tapAction.equals("default")){
+				mKeyFlags.tapAction = null;
+			}
+			mKeyFlags.pressAction = Common.Remap.getKeyPress(combinedKeyCode, !isScreenOn);
+		    if (mKeyFlags.pressAction != null && mKeyFlags.pressAction.equals("default")){
+		    	mKeyFlags.pressAction = null;
+		    }
+		    //only default actions is OK if there are multi actions for first key
+			if ((mKeyFlags.clickAction == null) && (mKeyFlags.pressAction == null) && (mKeyFlags.tapAction == null)) {
+				if (isMulti() || (!isMulti() && !Common.Remap.isMultiEnabled(mContext, mKeyFlags.mKeyPrimary))) {
+					if(DEBUG)Common.log(TAG, "Queueing: No action for an enabled key" + getParam(keyCode, down));
+
+					resetEvent();
+					return;
+				}
 			}
 			
 			if (!isScreenOn) {
@@ -516,69 +654,120 @@ public class PhoneWindowManager extends XC_MethodHook {
 				performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
 			}
 		}
-		
-		if (down) {
-			if (!mKeyFlags.REPEAT) {
-				mKeyAction = Common.Remap.getKeyPress(mKeyCode, !isScreenOn);
-				
-				if (mKeyAction.equals("default")) {
-					if(DEBUG)Common.log(TAG, "Queueing: Parsing long press event on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key to the dispatcher");
-					
-					mKeyFlags.DEFAULT = true;
-					mKeyFlags.DISPATCHED = false;
 
-					mInternalQueryArgs = param.args;
-					mInternalQueryMethod = param.method;
-					
-					param.setResult(ACTION_DISPATCH);
-					
-				} else {
-					if(DEBUG)Common.log(TAG, "Queueing: Invoking long press handler on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key");
-					
-					invokeHandler(mKeyPressDelay);
-					
-					param.setResult(ACTION_DISABLE);
-				}
-				
-			} else {
-				if(DEBUG)Common.log(TAG, "Queueing: Invoking tap handler on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key");
-				
-				mKeyAction = Common.Remap.getKeyTap(mContext, mKeyCode, !isScreenOn);
-				
-				invokeHandler(0);
-				
-				param.setResult(ACTION_DISABLE);
-			}
+		//Find the action for the event (disable/dispatch) as well as starting timers		
+		//For up events, no primary/secondary check (sequence checked already)
+		//Longpress is triggered from first down
+		//Click is relayed when possible: Down is sent if there is no other event,
+		//otherwise wait for up
+		//This means that if an action is set as click, you must configure longpress ore double tap to not always act on click
+		//The reason is that this allows for longpress passing from Click detection
+		if (mKeyFlags.ACTION_DONE) {
+			//Event already handled, no further invoking/dispatching
+			if(DEBUG)Common.log(TAG, "Queueing: Action done for" + getParam(keyCode, down));
+			param.setResult(ACTION_DISABLE);
 
 		} else {
-			if (!mKeyFlags.REPEAT && !mKeyFlags.CANCEL) {
-				if(DEBUG)Common.log(TAG, "Queueing: Invoking click handler on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key");
-				
-				mKeyFlags.DEFAULT = false;
+			if (down) {
+				//Key down, is sequence completed?
 
-				mKeyAction = Common.Remap.getKeyClick(mKeyCode, !isScreenOn);
-				
-				if (mKeyFlags.HAS_TAP) {
-					invokeHandler(mKeyTapDelay);
-					
-				} else {
-					invokeHandler(0);
-				}
-				
-				param.setResult(ACTION_DISABLE);
-				
-			} else {
-				if (mKeyFlags.DEFAULT) {
-					if(DEBUG)Common.log(TAG, "Queueing: Parsing long press release on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key to the dispatcher");
-					
-					mInternalQueryArgs = param.args;
-					mInternalQueryMethod = param.method;
-					
-					param.setResult(ACTION_DISPATCH);
-					
-				} else {
+				if((keyCode != mKeyFlags.mKeyPrimary) &&   !isMulti() ||
+				   (keyCode != mKeyFlags.mKeySecondary) &&  isMulti()) {
+
+					if(DEBUG)Common.log(TAG, "Queueing: Sequence incomplete" + getParam(keyCode, down));
 					param.setResult(ACTION_DISABLE);
+					
+				} else {
+					if (mKeyFlags.mKeyRepeat == 0) {
+//TODO: Replace handling
+//						if ((mKeyFlags.clickAction != null) && (mKeyFlags.pressAction == null) && (mKeyFlags.tapAction == null)) {
+//							if(DEBUG)Common.log(TAG, "Queueing: Invoking click (no tap/press)" + getParam(keyCode, down));
+//
+//							mKeyFlags.ACTION_DONE = true;
+//							param.setResult(ACTION_DISABLE);
+//							invokeHandler(0, mKeyFlags.clickAction, down);
+//						
+//						} else {
+						{
+							{//if (mKeyFlags.pressAction != null) {
+								//There is a long press event for the key
+								if(DEBUG)Common.log(TAG, "Queueing: Invoking long press handler" + getParam(keyCode, down));
+
+								//Note: This also affects "standard" actions like Back, Menu
+								//Double long press gives long press action
+								Boolean immediateUp = !down;
+								invokeHandler(pressDelay(), mKeyFlags.pressAction, !down);
+								param.setResult(ACTION_DISABLE);
+							}
+						}
+
+					} else if (this.mKeyFlags.mKeyRepeat == 1) {
+						//Second down
+						//Default means no detection, i.e. only the second click is handled
+						if (mKeyFlags.tapAction != null) {
+							if(DEBUG)Common.log(TAG, "Queueing: Invoking tap" + getParam(keyCode, down));
+
+							//Note: This also affects "standard" actions like Back, Menu
+							//long press gives long press action
+							Boolean immediateUp = !down;
+							invokeHandler(0, mKeyFlags.tapAction, immediateUp);
+							param.setResult(ACTION_DISABLE);
+						} else {
+			    			android.util.Log.i(TAG, "Queueing: Unexpected no tap action" + getParam(keyCode, down));
+						}
+					} else {
+		    			android.util.Log.i(TAG, "Queueing: Unexpected repeat" + getParam(keyCode, down));
+					}
 				}
+			} else {
+				//All actions on Up cannot handle delays, so long press cannot be relayed
+
+				if (mKeyFlags.mKeyRepeat == 0) {
+					//First up, nothing done for the event: This is a click or tap
+					//For multi events this may run at first up and set ACTION_DONE or the handler is cancelled and triggered again
+					int keyTapDelay = 0;
+					if (mKeyFlags.tapAction != null) {
+						//"Normal" is 1/3 of standard Android time. 
+						//TODO: Add system configuration or increase defaults?
+					    keyTapDelay = 3*tapDelay();
+					    if (isMulti()) {
+					    	keyTapDelay*= 3/2;
+					    }
+					    keyTapDelay -= (int)(SystemClock.uptimeMillis() - mKeyFlags.firstUpTime); 
+					}
+					if (keyTapDelay < 0) {
+						keyTapDelay = 0;
+				    }
+
+					if(DEBUG)Common.log(TAG, "Queueing: Invoking click/tap handler ("+keyTapDelay+")" + getParam(keyCode, down));
+					//For multi we delay if this is the first up (so it is possible to get click and longpress for click)
+					Boolean immediateUp = !down && (!isMulti() || isMulti() && (mKeyFlags.upCount > 0));
+					invokeHandler(keyTapDelay, mKeyFlags.clickAction, immediateUp );
+				}
+				
+				//No dispatching for ongoing up events
+                param.setResult(ACTION_DISABLE);
+					
+//previous old default long press down
+//				} else {
+//					if (mKeyFlags.pressAction == null) {
+//						if(DEBUG)Common.log(TAG, "Queueing: Passing long press release to the dispatcher" + getParam(keyCode, down));
+//
+//						param.setResult(ACTION_DISPATCH);
+//
+//					} else {
+//						param.setResult(ACTION_DISABLE);
+//					}
+//				}
+/*
+ * 								if(DEBUG)Common.log(TAG, "Queueing: Passing long press event to the dispatcher" + getParam(keyCode, down));
+
+								mKeyFlags.DISPATCH_ORIG_EVENT = true;
+
+								param.setResult(ACTION_DISPATCH);
+
+							} else {
+*/
 			}
 		}
 	}
@@ -588,8 +777,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 	 * ICS/JellyBean uses arguments interceptKeyBeforeDispatching(WindowState win, KeyEvent event, Integer policyFlags)
 	 */
 	private void hook_interceptKeyBeforeDispatching(final MethodHookParam param) {
-		Object dispatchDisabled = SDK_NUMBER <= 10 ? true : -1;
-		
 		final int keyCode = (Integer) (SDK_NUMBER <= 10 ? param.args[3] : ((KeyEvent) param.args[1]).getKeyCode());
 		final int action = (Integer) (SDK_NUMBER <= 10 ? param.args[1] : ((KeyEvent) param.args[1]).getAction());
 		final int repeatCount = (Integer) (SDK_NUMBER <= 10 ? param.args[6] : ((KeyEvent) param.args[1]).getRepeatCount());
@@ -597,81 +784,94 @@ public class PhoneWindowManager extends XC_MethodHook {
 		final boolean down = action == KeyEvent.ACTION_DOWN;
 		
 		if ((policyFlags & FLAG_INJECTED) != 0) {
-			if(DEBUG && down)Common.log(TAG, "Dispatching: Key code " + keyCode + " was injected, skipping");
-			
+			if(DEBUG)Common.log(TAG, "Dispatching: Key code was injected, passing on" + getParam(keyCode, down));
 			if (mKeyFlags.INJECTED) {
-				param.args[ (SDK_NUMBER <= 10 ? 7 : 2) ] = policyFlags ^ FLAG_INJECTED;
+				param.args[ (SDK_NUMBER <= 10 ? 7 : 2) ] = (policyFlags ^ FLAG_INJECTED);
 			}
 			
 			return;
 		}
 		
-		if (mKeyFlags.ONGOING) {
-			if (!mKeyFlags.DEFAULT) {
-				if(DEBUG && down)Common.log(TAG, "Dispatching: Disabling dispatching on key code " + keyCode);
-				
-				param.setResult(dispatchDisabled);
-				
-			} else {
-				if (!mKeyFlags.DISPATCHED && repeatCount == 0 && down) {
-					if(DEBUG && down)Common.log(TAG, "Dispatching: Waiting for long press default action to be ready on key code " + mKeyPrimary);
-					
-					mKeyFlags.DISPATCHED = true;
-					
-					if (SDK_NUMBER <= 10) {
-						try {
-							Thread.sleep(mKeyTapDelay + ((int) mKeyTapDelay / 2));
-							
-						} catch (Throwable e) {}
-						
-						if (!mKeyFlags.DOWN || !mKeyFlags.DEFAULT) {
-							param.setResult(dispatchDisabled); return;
-						}
-						
-					} else {
-						param.setResult(mKeyTapDelay + ((int) mKeyTapDelay / 2)); return;
-					}
-				}
-				
-				if (mKeySecondary > 0 && mKeySecondary != keyCode) {
-					param.setResult(dispatchDisabled); return;
-				}
-				
-				if ((repeatCount == 0 && down) || !down) {
-					if(DEBUG && down)Common.log(TAG, "Dispatching: Invoking long press default action on key code " + keyCode);
+		if (isOnGoing()) {
+			if(DEBUG)Common.log(TAG, "Dispatching xxx" + getParam(keyCode, down));
+			param.setResult(ACTION_DISPATCH_DISABLED);
+/*
+ 			//			if (!mKeyFlags.LONGPRESS_DEFAULT_ACTION) {
+			//				if(DEBUG && down)Common.log(TAG, "Dispatching: Disabling dispatching on key code " + keyCode);
+			//				
+			//				param.setResult(ACTION_DISPATCH_DISABLED);
+			//				
+			//			} else 			{
+			if (mKeyFlags.DISPATCH_ORIG_EVENT) {
+				if(DEBUG && down)Common.log(TAG, "Dispatching: Waiting for default long press action to be ready on key code " + mKeyFlags.mKeyPrimary);
 
-					if (down) {
-						mKeyFlags.REPEAT = true;
-						mKeyFlags.CANCEL = true;
+				//All other ongoing events are Disabled, this is passed on with original parameters
+				//xxx second key
+				mKeyFlags.DISPATCH_ORIG_EVENT = false;
+				int keyTapDelay = tapDelay();
+				int delay = keyTapDelay + (keyTapDelay / 2);
+				if (SDK_NUMBER <= 10) {
+					try {
+						Thread.sleep(delay);
+
+					} catch (Throwable e) {}
+
+					//xxx if (!mKeyFlags.DOWN || !mKeyFlags.LONGPRESS_DEFAULT_ACTION)
+					{
+						param.setResult(ACTION_DISPATCH_DISABLED);
+						return;
 					}
-					
-					try {
-						mInternalQueryResult = (Integer) XposedBridge.invokeOriginalMethod(mInternalQueryMethod, mHookedReference.get(), mInternalQueryArgs);
-						
-					} catch (Throwable e) { e.printStackTrace(); }
-				}
-				
-				if (mInternalQueryResult != ACTION_DISPATCH) {
-					if(DEBUG && down)Common.log(TAG, "Dispatching: Disabling dispatching on the key code " + keyCode);
-					
-					param.setResult(dispatchDisabled);
-					
+
 				} else {
-					if(DEBUG && down)Common.log(TAG, "Dispatching: Parsing the key code " + keyCode + " to the original dispatcher");
-					
-					try {
-						param.setResult(
-								XposedBridge.invokeOriginalMethod(param.method, mHookedReference.get(), param.args)
-						);
-						
-					} catch (Throwable e) { e.printStackTrace(); }
+					param.setResult(delay);
+					return;
 				}
 			}
-			
+
+			//xxx dispatch for ongoing?
+			if (mKeyFlags.mKeySecondary > 0 && mKeyFlags.mKeySecondary != keyCode) {
+				if(DEBUG)Common.log(TAG, "Dispatching: Ignoring secondary for ongoing" + getParam(keyCode, down));
+				param.setResult(ACTION_DISPATCH_DISABLED);
+				return;
+			}
+
+			int mInternalQueryResult = ACTION_DISPATCH;
+			if ((repeatCount == 0 && down) || !down) {
+				if(DEBUG && down)Common.log(TAG, "Dispatching: Invoking long press default action" + getParam(keyCode, down));
+
+				if (down) {
+					//mKeyFlags.mKeyRepeat++;
+					//xxx mKeyFlags.ACTION_DONE = true;
+				}
+
+				try {
+					mInternalQueryResult = (Integer) XposedBridge.invokeOriginalMethod(mKeyFlags.mInternalQueryMethod, mHookedReference.get(), mKeyFlags.mInternalQueryArgs);
+					if(isMulti()) {
+					                                 XposedBridge.invokeOriginalMethod(mKeyFlags.mInternalQuery2Method, mHookedReference.get(), mKeyFlags.mInternalQuery2Args);
+					}
+				} catch (Throwable e) { e.printStackTrace(); }
+			}
+
+			if (mInternalQueryResult != ACTION_DISPATCH) {
+				if(DEBUG)Common.log(TAG, "Dispatching: Disabling dispatching" + getParam(keyCode, down));
+
+				param.setResult(ACTION_DISPATCH_DISABLED);
+
+			} else {
+				if(DEBUG)Common.log(TAG, "Dispatching: Passing to the original dispatcher" + getParam(keyCode, down));
+
+				try {
+					param.setResult(
+							XposedBridge.invokeOriginalMethod(param.method, mHookedReference.get(), param.args)
+							);
+
+				} catch (Throwable e) { e.printStackTrace(); }
+			}
+*/			
 			return;
 			
 		} else {
-			if(DEBUG && down)Common.log(TAG, "Dispatching: The key code " + keyCode + " is not on going, skipping");
+			if(DEBUG && down)Common.log(TAG, "Dispatching xxx: The key code is not ongoing, passing on" + getParam(keyCode, down));
 		}
 	}
 
@@ -682,15 +882,27 @@ public class PhoneWindowManager extends XC_MethodHook {
 		mContext.sendBroadcast(intent);
 	}
 	
+	protected void runPendingUpKeys(Integer timeout) {
+		if(DEBUG)Common.log(TAG, "Run pending key up: " + mPendingKeys.toString());
+		if (timeout > 0) {
+			mHandler.postDelayed(mPostponedUpKeyRunnable, timeout);
+			
+		} else {
+			mHandler.post(mPostponedUpKeyRunnable);
+		}
+	}
+	
 	protected void removeHandler() {
-		if (mKeyFlags.ONGOING) {
+		if (isOnGoing()) {
 			if(DEBUG)Common.log(TAG, "Removing any existing pending handlers");
 			
 			mHandler.removeCallbacks(mMappingRunnable);
 		}
 	}
 	
-	protected void invokeHandler(Integer timeout) {
+	protected void invokeHandler(Integer timeout, String action, Boolean immediateUp) {
+		mMappingRunnable.keyAction = action;
+		mMappingRunnable.immediateUp = immediateUp;
 		if (timeout > 0) {
 			mHandler.postDelayed(mMappingRunnable, timeout);
 			
@@ -776,11 +988,11 @@ public class PhoneWindowManager extends XC_MethodHook {
 		}
 	}
 
-	private void openGlobalActionsDialog() {
+    private void openGlobalActionsDialog() {
 		XposedTools.callMethod(mHookedReference.get(), "showGlobalActionsDialog");
 	}
 	
-	Method xPerformHapticFeedback;
+	private Method xPerformHapticFeedback;
 	private void performHapticFeedback(Integer effectId) {
         try {
             if (xPerformHapticFeedback == null) {
@@ -806,7 +1018,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 	Method xInputEvent;
 	Method xInputManager;
 	@SuppressLint("InlinedApi")
-	private void triggerKeyEvent(final int keyCode) {
+	private void triggerKeyEvent(final int keyCode, long timeDown, Boolean up) {
 		try {
 			if (xInputEvent == null) {
 				if (SDK_NUMBER >= 16) {
@@ -819,29 +1031,43 @@ public class PhoneWindowManager extends XC_MethodHook {
 			}
 			
 			KeyEvent downEvent = null;
+			KeyEvent upEvent = null;
 			
-			if (SDK_NUMBER >= 10) {
-				long now = SystemClock.uptimeMillis();
-				
-		        downEvent = new KeyEvent(now, now, KeyEvent.ACTION_DOWN,
-		        		keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
-		                	KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
-	
-			} else {
-				downEvent = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
+			if(timeDown > 0)
+			{
+				if (SDK_NUMBER >= 10) {
+					long now = SystemClock.uptimeMillis();
+
+					downEvent = new KeyEvent(timeDown, now, KeyEvent.ACTION_DOWN,
+							keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+							KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
+
+				} else {
+					downEvent = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
+				}
 			}
-			
-			KeyEvent upEvent = KeyEvent.changeAction(downEvent, KeyEvent.ACTION_UP);
+			if(up) {
+				if (SDK_NUMBER >= 10) {
+					long now = SystemClock.uptimeMillis();
+
+					upEvent = new KeyEvent(now, now, KeyEvent.ACTION_UP,
+							keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+							KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
+
+				} else {
+					upEvent = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
+				}
+			}
 			
 			if (SDK_NUMBER >= 16) {
 				Object inputManager = xInputManager.invoke(null);
 				
-				xInputEvent.invoke(inputManager, downEvent, INJECT_INPUT_EVENT_MODE_ASYNC);
-				xInputEvent.invoke(inputManager, upEvent, INJECT_INPUT_EVENT_MODE_ASYNC);
+				if (downEvent != null)xInputEvent.invoke(inputManager, downEvent, INJECT_INPUT_EVENT_MODE_ASYNC);
+				if (upEvent != null)xInputEvent.invoke(inputManager, upEvent, INJECT_INPUT_EVENT_MODE_ASYNC);
 				
 			} else {
-				xInputEvent.invoke(mWindowManager, downEvent);
-				xInputEvent.invoke(mWindowManager, upEvent);
+				if (downEvent != null)xInputEvent.invoke(mWindowManager, downEvent);
+				if (upEvent != null)xInputEvent.invoke(mWindowManager, upEvent);
 			}
 			
 		} catch (Throwable e) { e.printStackTrace(); }
@@ -959,6 +1185,39 @@ public class PhoneWindowManager extends XC_MethodHook {
 		}
 	}
 	
+	//From GravityBox
+	@SuppressLint("NewApi")
+	private void switchToLastApp() {
+		int lastAppId = 0;
+		int looper = 1;
+		String packageName;
+		final Intent intent = new Intent(Intent.ACTION_MAIN);
+		final ActivityManager am = (ActivityManager) mContext
+				.getSystemService(Context.ACTIVITY_SERVICE);
+		String defaultHomePackage = "com.android.launcher";
+		intent.addCategory(Intent.CATEGORY_HOME);
+		final ResolveInfo res = mContext.getPackageManager().resolveActivity(intent, 0);
+		if (res.activityInfo != null && !res.activityInfo.packageName.equals("android")) {
+			defaultHomePackage = res.activityInfo.packageName;
+		}
+		List <ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(5);
+		// lets get enough tasks to find something to switch to
+		// Note, we'll only get as many as the system currently has - up to 5
+		while ((lastAppId == 0) && (looper < tasks.size())) {
+			packageName = tasks.get(looper).topActivity.getPackageName();
+			if (!packageName.equals(defaultHomePackage) && !packageName.equals("com.android.systemui")) {
+				lastAppId = tasks.get(looper).id;
+			}
+			looper++;
+		}
+		if (lastAppId != 0) {
+			//SDK v 12 for MOVE_TASK_NO_USER_ACTION: Conditional check
+			am.moveTaskToFront(lastAppId, ActivityManager.MOVE_TASK_NO_USER_ACTION);
+		} else {
+			Toast.makeText(mContext, "No previous app", Toast.LENGTH_SHORT).show();
+		}
+	}
+
 	private void killForegroundApplication() {
 		try {
 	        final Intent intent = new Intent(Intent.ACTION_MAIN);
@@ -986,7 +1245,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 	        					XposedTools.callMethod_UserCurrent(activityManager, "forceStopPackage", pkg);
 	        				}
 	        			}
-	        			
 	        		} else {
 	        			XposedTools.callMethod(mProcessClass, "killProcess", appInfo.pid);
 	        		}
