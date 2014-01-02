@@ -88,7 +88,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		
 	private static int FLAG_INJECTED;
 	private static int FLAG_VIRTUAL;
-	private static int ACTION_DISPATCH;
+	//private static int ACTION_DISPATCH;
 	
 	private final int ACTION_DISABLE = 0;
 	private final Object ACTION_DISPATCH_DISABLED = (SDK_NUMBER <= 10 ? true : -1);
@@ -119,38 +119,20 @@ public class PhoneWindowManager extends XC_MethodHook {
 		protected int mKeyRepeat = 0;
 		protected Boolean mWasScreenOn = true;
 		
-		//public volatile Boolean DOWN; //Directions of key, could be overridden
-		public volatile Boolean ACTION_DONE; //Cancel processing of further events for event (except pending up keys)
-		//public volatile Boolean RESET; //Set when action is done and when no action is possible
-		//public volatile Boolean ONGOING; //Any pending events
-		//public volatile Boolean LONGPRESS_DEFAULT_ACTION; //default handling for key event (set on first down)
-		//public volatile Boolean REPEAT; //tap detection
-		//public volatile Boolean MULTI; // Same as (mKeySecondary != 0)
-		public volatile Boolean INJECTED; //Key injected by this module
-		//public volatile Boolean DISPATCH_ORIG_EVENT;  //long press delay dispatch is ongoing
-		//public volatile Boolean HAS_TAP; //tap is enabled (set from configuration for primary key)
-		//public volatile Boolean HAS_MULTI; //multi is enabled (static from configuration)
+		public volatile Boolean ACTION_DONE; //Wait for complete events and pending up keys
+		public volatile Boolean INJECTED; //Key injected by this event
 		//cache actions. null is same as "default"
 		public String clickAction;
 		public String tapAction;
 		public String pressAction;
-		//Time at first down
-		public long originalDownTime;
+		
+		public long originalDownTime; //Time at first down
 		public int upCount;
 		public long firstUpTime;
 		
 		public void reset() {
-			//DOWN = false;
 			ACTION_DONE = false;
-			//RESET = false;
-			//ONGOING = false;
-			//LONGPRESS_DEFAULT_ACTION = false;
-			//REPEAT = false;
-			//MULTI = false;
 			INJECTED = false;
-			//DISPATCH_ORIG_EVENT = false;
-			//HAS_TAP = false;
-			//HAS_MULTI = false;
 			clickAction = null;
 			tapAction = null;
 			pressAction = null;
@@ -228,7 +210,7 @@ public class PhoneWindowManager extends XC_MethodHook {
         	//Cancel further processing
             mKeyFlags.ACTION_DONE = true;
         	
-        	if ((mKeyFlags.mKeyRepeat > 0)/* || mKeyFlags.DOWN*/) {
+        	if ((mKeyFlags.mKeyRepeat > 0)) {
         		performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
         	}
         	
@@ -236,8 +218,7 @@ public class PhoneWindowManager extends XC_MethodHook {
         		if(DEBUG)Common.log(TAG, "Handler: Action is disabled, skipping");
         		
         		// Disable the button
-        		
-        	} else if (keyAction.equals("poweron")) { 
+         	} else if (keyAction.equals("poweron")) { 
         		if(DEBUG)Common.log(TAG, "Handler: Invoking forced power on");
 
         		if (SDK_NUMBER >= 17) {
@@ -295,11 +276,9 @@ public class PhoneWindowManager extends XC_MethodHook {
         	} else {
         		int[] keyArray;
             	if (keyAction.equals("default")) {
-            		//TODO: only for multi keys?
             		keyArray = new int[2];
             		keyArray[0] = mKeyFlags.mKeyPrimary;
             		keyArray[1] = mKeyFlags.mKeySecondary;
-            		//isKeyRepeat() will just trigger one key trigger
             	} else {
             		//Action was one or more key codes
         			String[] keyArray2 = keyAction.split(",");
@@ -316,7 +295,6 @@ public class PhoneWindowManager extends XC_MethodHook {
         		}
         		mKeyFlags.INJECTED = true;
     			
-				//immediateUp=true;
 				for (Integer keyCode: keyArray) {
     				if (keyCode > 0) {
     					triggerKeyEvent(keyCode, mKeyFlags.originalDownTime, immediateUp);
@@ -380,7 +358,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 
 		FLAG_INJECTED = (Integer) XposedTools.getField(mWindowManagerPolicyClass, "FLAG_INJECTED");
 		FLAG_VIRTUAL = (Integer) XposedTools.getField(mWindowManagerPolicyClass, "FLAG_VIRTUAL");
-		ACTION_DISPATCH = (Integer) XposedTools.getField(mWindowManagerPolicyClass, "ACTION_PASS_TO_USER");
+		//ACTION_DISPATCH = (Integer) XposedTools.getField(mWindowManagerPolicyClass, "ACTION_PASS_TO_USER");
 	}
 	
 	/**
@@ -487,7 +465,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		 * we will reset everything to avoid issues if the screen was turned off by 
 		 * a virtual key. Those keys does not execute key up when the screen is off. 
 		 */
-		if (down && ((!isScreenOn && isScreenOn != mKeyFlags.mWasScreenOn) /*|| mKeyFlags.RESET*/)) {
+		if (down && ((!isScreenOn && isScreenOn != mKeyFlags.mWasScreenOn))) {
 			if(DEBUG)Common.log(TAG, "Queueing: Re-setting old flags" + getParam(keyCode, down));
 			
 			resetEvent();
@@ -508,7 +486,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 		}
 		
 		//Find if the key is out of sequence
-		//mKeyFlags.DOWN = down;
 		if (down) {
 			//Down
 			if (isOnGoing() && !mKeyFlags.ACTION_DONE && (keyCode == mKeyFlags.mKeyPrimary) && (mKeyFlags.mKeyRepeat == 0) && (mKeyFlags.tapAction != null)) {
@@ -566,7 +543,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 			} else {
 				if(DEBUG)Common.log(TAG, "Queueing: The key up code is not ours. Disabling it as we have an ongoing event" + getParam(keyCode, down));
 				
-				//mKeyFlags.RESET = true;
 				param.setResult(ACTION_DISABLE);
 				
 				return;
@@ -664,27 +640,14 @@ public class PhoneWindowManager extends XC_MethodHook {
 					
 				} else {
 					if (mKeyFlags.mKeyRepeat == 0) {
-//TODO: Replace handling
-//						if ((mKeyFlags.clickAction != null) && (mKeyFlags.pressAction == null) && (mKeyFlags.tapAction == null)) {
-//							if(DEBUG)Common.log(TAG, "Queueing: Invoking click (no tap/press)" + getParam(keyCode, down));
-//
-//							mKeyFlags.ACTION_DONE = true;
-//							param.setResult(ACTION_DISABLE);
-//							invokeHandler(0, mKeyFlags.clickAction, down);
-//						
-//						} else {
-						{
-							{//if (mKeyFlags.pressAction != null) {
-								//There is a long press event for the key
-								if(DEBUG)Common.log(TAG, "Queueing: Invoking long press handler" + getParam(keyCode, down));
+						//Possible long press event for the key
+						if(DEBUG)Common.log(TAG, "Queueing: Invoking long press handler" + getParam(keyCode, down));
 
-								//Note: This also affects "standard" actions like Back, Menu
-								//Double long press gives long press action
-								Boolean immediateUp = !down;
-								invokeHandler(pressDelay(), mKeyFlags.pressAction, !down);
-								param.setResult(ACTION_DISABLE);
-							}
-						}
+						//Note: This also affects "standard" actions like Back, Menu
+						//Double long press gives long press action
+						Boolean immediateUp = !down;
+						invokeHandler(pressDelay(), mKeyFlags.pressAction, !down);
+						param.setResult(ACTION_DISABLE);
 
 					} else if (this.mKeyFlags.mKeyRepeat == 1) {
 						//Second down
@@ -736,6 +699,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		}
 	}
 
+	//This hook should no longer be needed, should be removed
 	/**
 	 * Gingerbread uses arguments interceptKeyBeforeDispatching(WindowState win, Integer action, Integer flags, Integer keyCode, Integer scanCode, Integer metaState, Integer repeatCount, Integer policyFlags)
 	 * ICS/JellyBean uses arguments interceptKeyBeforeDispatching(WindowState win, KeyEvent event, Integer policyFlags)
@@ -743,7 +707,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 	private void hook_interceptKeyBeforeDispatching(final MethodHookParam param) {
 		final int keyCode = (Integer) (SDK_NUMBER <= 10 ? param.args[3] : ((KeyEvent) param.args[1]).getKeyCode());
 		final int action = (Integer) (SDK_NUMBER <= 10 ? param.args[1] : ((KeyEvent) param.args[1]).getAction());
-		final int repeatCount = (Integer) (SDK_NUMBER <= 10 ? param.args[6] : ((KeyEvent) param.args[1]).getRepeatCount());
+		//final int repeatCount = (Integer) (SDK_NUMBER <= 10 ? param.args[6] : ((KeyEvent) param.args[1]).getRepeatCount());
 		final int policyFlags = (Integer) (SDK_NUMBER <= 10 ? param.args[7] : param.args[2]);
 		final boolean down = action == KeyEvent.ACTION_DOWN;
 		
@@ -757,13 +721,10 @@ public class PhoneWindowManager extends XC_MethodHook {
 		}
 		
 		if (isOnGoing()) {
-			if(DEBUG)Common.log(TAG, "Dispatching xxx" + getParam(keyCode, down));
-			param.setResult(ACTION_DISPATCH_DISABLED);
-
- 			return;
+			android.util.Log.i(TAG, "Dispatching: Unexpected ongoing." + getParam(keyCode, down));
 			
 		} else {
-			if(DEBUG && down)Common.log(TAG, "Dispatching xxx: The key code is not ongoing, passing on" + getParam(keyCode, down));
+			android.util.Log.i(TAG, "Dispatching: Unexpected not ongoing." + getParam(keyCode, down));
 		}
 	}
 
