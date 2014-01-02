@@ -119,12 +119,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 		protected int mKeyRepeat = 0;
 		protected Boolean mWasScreenOn = true;
 		
-		//pass dispatch info from beforeQueue to beforeDispatch
-		//protected Object[] mInternalQueryArgs;
-		//protected Member mInternalQueryMethod;
-		//protected Object[] mInternalQuery2Args;
-		//protected Member mInternalQuery2Method;
-
 		//public volatile Boolean DOWN; //Directions of key, could be overridden
 		public volatile Boolean ACTION_DONE; //Cancel processing of further events for event (except pending up keys)
 		//public volatile Boolean RESET; //Set when action is done and when no action is possible
@@ -175,7 +169,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 	protected void resetEventForSecondary() {
 		mKeyFlags.reset();
 		mKeyFlags.mKeyRepeat = 0;
-		//mKeyFlags.mInternalQueryResult = ACTION_DISABLE;
 	}
 	
 	//Previously public volatile Boolean MULTI = false;
@@ -539,9 +532,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 				resetEventForSecondary();
 				setup = true;
 				
-				//mKeyFlags.mInternalQuery2Args = param.args;
-				//mKeyFlags.mInternalQuery2Method = param.method;
-				
 				mKeyFlags.mKeySecondary = keyCode;
 				
 			} else {
@@ -554,8 +544,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 				mKeyFlags.mWasScreenOn = isScreenOn;
 				mKeyFlags.originalDownTime = downTime;
 				mKeyFlags.upCount = 0;
-				//mKeyFlags.mInternalQueryArgs = param.args;
-				//mKeyFlags.mInternalQueryMethod = param.method;
 
 				mKeyFlags.mKeyPrimary = keyCode;
 				mKeyFlags.mKeySecondary = 0;
@@ -604,11 +592,8 @@ public class PhoneWindowManager extends XC_MethodHook {
 
 				mKeyFlags.mKeyPrimary = mKeyFlags.mKeySecondary;
 				mKeyFlags.mKeySecondary = 0;
-				//mKeyFlags.mInternalQueryArgs = mKeyFlags.mInternalQuery2Args;
-				//mKeyFlags.mInternalQueryMethod = mKeyFlags.mInternalQuery2Method;
 				combinedKeyCode = Common.generateKeyCode(mKeyFlags.mKeyPrimary, mKeyFlags.mKeySecondary);
-				isKeyEnabled = Common.Remap.isKeyEnabled(combinedKeyCode, !isScreenOn);
-				
+				isKeyEnabled = Common.Remap.isKeyEnabled(combinedKeyCode, !isScreenOn);				
 			}
 
 			if (!isKeyEnabled) {
@@ -747,27 +732,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 				
 				//No dispatching for ongoing up events
                 param.setResult(ACTION_DISABLE);
-					
-//previous old default long press down
-//				} else {
-//					if (mKeyFlags.pressAction == null) {
-//						if(DEBUG)Common.log(TAG, "Queueing: Passing long press release to the dispatcher" + getParam(keyCode, down));
-//
-//						param.setResult(ACTION_DISPATCH);
-//
-//					} else {
-//						param.setResult(ACTION_DISABLE);
-//					}
-//				}
-/*
- * 								if(DEBUG)Common.log(TAG, "Queueing: Passing long press event to the dispatcher" + getParam(keyCode, down));
-
-								mKeyFlags.DISPATCH_ORIG_EVENT = true;
-
-								param.setResult(ACTION_DISPATCH);
-
-							} else {
-*/
 			}
 		}
 	}
@@ -795,80 +759,8 @@ public class PhoneWindowManager extends XC_MethodHook {
 		if (isOnGoing()) {
 			if(DEBUG)Common.log(TAG, "Dispatching xxx" + getParam(keyCode, down));
 			param.setResult(ACTION_DISPATCH_DISABLED);
-/*
- 			//			if (!mKeyFlags.LONGPRESS_DEFAULT_ACTION) {
-			//				if(DEBUG && down)Common.log(TAG, "Dispatching: Disabling dispatching on key code " + keyCode);
-			//				
-			//				param.setResult(ACTION_DISPATCH_DISABLED);
-			//				
-			//			} else 			{
-			if (mKeyFlags.DISPATCH_ORIG_EVENT) {
-				if(DEBUG && down)Common.log(TAG, "Dispatching: Waiting for default long press action to be ready on key code " + mKeyFlags.mKeyPrimary);
 
-				//All other ongoing events are Disabled, this is passed on with original parameters
-				//xxx second key
-				mKeyFlags.DISPATCH_ORIG_EVENT = false;
-				int keyTapDelay = tapDelay();
-				int delay = keyTapDelay + (keyTapDelay / 2);
-				if (SDK_NUMBER <= 10) {
-					try {
-						Thread.sleep(delay);
-
-					} catch (Throwable e) {}
-
-					//xxx if (!mKeyFlags.DOWN || !mKeyFlags.LONGPRESS_DEFAULT_ACTION)
-					{
-						param.setResult(ACTION_DISPATCH_DISABLED);
-						return;
-					}
-
-				} else {
-					param.setResult(delay);
-					return;
-				}
-			}
-
-			//xxx dispatch for ongoing?
-			if (mKeyFlags.mKeySecondary > 0 && mKeyFlags.mKeySecondary != keyCode) {
-				if(DEBUG)Common.log(TAG, "Dispatching: Ignoring secondary for ongoing" + getParam(keyCode, down));
-				param.setResult(ACTION_DISPATCH_DISABLED);
-				return;
-			}
-
-			int mInternalQueryResult = ACTION_DISPATCH;
-			if ((repeatCount == 0 && down) || !down) {
-				if(DEBUG && down)Common.log(TAG, "Dispatching: Invoking long press default action" + getParam(keyCode, down));
-
-				if (down) {
-					//mKeyFlags.mKeyRepeat++;
-					//xxx mKeyFlags.ACTION_DONE = true;
-				}
-
-				try {
-					mInternalQueryResult = (Integer) XposedBridge.invokeOriginalMethod(mKeyFlags.mInternalQueryMethod, mHookedReference.get(), mKeyFlags.mInternalQueryArgs);
-					if(isMulti()) {
-					                                 XposedBridge.invokeOriginalMethod(mKeyFlags.mInternalQuery2Method, mHookedReference.get(), mKeyFlags.mInternalQuery2Args);
-					}
-				} catch (Throwable e) { e.printStackTrace(); }
-			}
-
-			if (mInternalQueryResult != ACTION_DISPATCH) {
-				if(DEBUG)Common.log(TAG, "Dispatching: Disabling dispatching" + getParam(keyCode, down));
-
-				param.setResult(ACTION_DISPATCH_DISABLED);
-
-			} else {
-				if(DEBUG)Common.log(TAG, "Dispatching: Passing to the original dispatcher" + getParam(keyCode, down));
-
-				try {
-					param.setResult(
-							XposedBridge.invokeOriginalMethod(param.method, mHookedReference.get(), param.args)
-							);
-
-				} catch (Throwable e) { e.printStackTrace(); }
-			}
-*/			
-			return;
+ 			return;
 			
 		} else {
 			if(DEBUG && down)Common.log(TAG, "Dispatching xxx: The key code is not ongoing, passing on" + getParam(keyCode, down));
