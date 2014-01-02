@@ -517,38 +517,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 			}
 		}
 		
-		if (!down) {
-			if (!mKeyFlags.REPEAT && !mKeyFlags.CANCEL) {
-				if(DEBUG)Common.log(TAG, "Queueing: Invoking click handler on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key");
-				
-				mKeyFlags.DEFAULT = false;
-
-				mKeyAction = Common.Remap.getKeyClick(mKeyCode, !isScreenOn);
-				
-				if (mKeyFlags.HAS_TAP) {
-					invokeHandler(mKeyTapDelay);
-					
-				} else {
-					invokeHandler(0);
-				}
-				
-				param.setResult(ACTION_DISABLE);
-				
-			} else {
-				if (mKeyFlags.DEFAULT) {
-					if(DEBUG)Common.log(TAG, "Queueing: Parsing long press release on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key to the dispatcher");
-					
-					mInternalQueryArgs = param.args;
-					mInternalQueryMethod = param.method;
-					
-					param.setResult(ACTION_DISPATCH);
-					
-				} else {
-					param.setResult(ACTION_DISABLE);
-				}
-			}
-			
-		} else {
+		if (down) {
 			if (!mKeyFlags.REPEAT) {
 				mKeyAction = Common.Remap.getKeyPress(mKeyCode, !isScreenOn);
 				
@@ -579,6 +548,37 @@ public class PhoneWindowManager extends XC_MethodHook {
 				invokeHandler(0);
 				
 				param.setResult(ACTION_DISABLE);
+			}
+
+		} else {
+			if (!mKeyFlags.REPEAT && !mKeyFlags.CANCEL) {
+				if(DEBUG)Common.log(TAG, "Queueing: Invoking click handler on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key");
+				
+				mKeyFlags.DEFAULT = false;
+
+				mKeyAction = Common.Remap.getKeyClick(mKeyCode, !isScreenOn);
+				
+				if (mKeyFlags.HAS_TAP) {
+					invokeHandler(mKeyTapDelay);
+					
+				} else {
+					invokeHandler(0);
+				}
+				
+				param.setResult(ACTION_DISABLE);
+				
+			} else {
+				if (mKeyFlags.DEFAULT) {
+					if(DEBUG)Common.log(TAG, "Queueing: Parsing long press release on the " + (keyCode == mKeyPrimary ? "primary" : "secondary") + " key to the dispatcher");
+					
+					mInternalQueryArgs = param.args;
+					mInternalQueryMethod = param.method;
+					
+					param.setResult(ACTION_DISPATCH);
+					
+				} else {
+					param.setResult(ACTION_DISABLE);
+				}
 			}
 		}
 	}
