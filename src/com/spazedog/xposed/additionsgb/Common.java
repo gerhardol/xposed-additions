@@ -347,52 +347,11 @@ public final class Common {
 		private Vibrator mVibrator;
 		private Context mContext;
 		
-		/* Unused
-		private long[] mLongpressPattern = null;
-		private long[] mVirtualPattern = null;
-	   */	
 		public HapticFeedbackLw(Context context) {
 			mVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
 			mContext = context;
-			//TODO: Temporary: Cannot compile with internal references
-			/* Unused
-			
-			for (int i=0; i < 2; i++) {
-				int[] ar = context.getResources().getIntArray( i==0 ? com.android.internal.R.array.config_longPressVibePattern : com.android.internal.R.array.config_virtualKeyVibePattern );
-				
-				if (ar == null) {
-					continue;
-				}
-				
-				if (i == 0) mLongpressPattern = new long[ar.length];
-				else mVirtualPattern = new long[ar.length];
-
-				for (int x=0; x<ar.length; x++) {
-					if (i == 0) mLongpressPattern[x] = ar[x];
-					else mVirtualPattern[x] = ar[x];
-				}
-			}
-			*/
 		}
 		
-/* Unused
-  		public boolean vibrate(int effectId, boolean always) {
-			long[] pattern = null;
-			
-	        switch (effectId) {
-	            case HapticFeedbackConstants.LONG_PRESS:
-	                pattern = mLongpressPattern;
-	                break;
-	            case HapticFeedbackConstants.VIRTUAL_KEY:
-	                pattern = mVirtualPattern;
-	                break;
-	            default:
-	                return false;
-	        }
-	        
-	        return vibrate(pattern, always);
-		}
-*/		
 		@SuppressLint("NewApi")
 		public boolean vibrate(long[] pattern, boolean always) {
 			if (android.os.Build.VERSION.SDK_INT >= 11 && !mVibrator.hasVibrator()) {
