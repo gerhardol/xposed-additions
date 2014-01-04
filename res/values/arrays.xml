@@ -118,6 +118,7 @@
 		<item>Disabled</item>
 		<item>Power</item>
 		<item>Power Forced</item>
+		<item>Camera</item>
 		<item>Volume Up</item>
 		<item>Volume Down</item>
 		<item>Media Play/Pause</item>
@@ -133,6 +134,7 @@
 		<item>disabled</item>
 		<item>26</item>
 		<item>poweron</item>
+		<item>27</item>
 		<item>24</item>
 		<item>25</item>
 		<item>85</item>
