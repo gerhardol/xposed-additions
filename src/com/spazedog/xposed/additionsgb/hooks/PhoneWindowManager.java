@@ -194,6 +194,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 	
 	class KeyActionRunnable implements Runnable {
 		public String keyAction;
+		public Boolean downIsNow;
 		public Boolean immediateUp;
 		
         @SuppressLint("NewApi")
@@ -297,7 +298,11 @@ public class PhoneWindowManager extends XC_MethodHook {
     			
 				for (Integer keyCode: keyArray) {
     				if (keyCode > 0) {
-    					triggerKeyEvent(keyCode, mKeyFlags.originalDownTime, immediateUp);
+    					Long dTime = mKeyFlags.originalDownTime;
+    					if(downIsNow) {
+    						dTime = SystemClock.uptimeMillis();
+    					}
+    					triggerKeyEvent(keyCode, dTime, immediateUp);
     				}
             	}
 				if (mPendingKeys.size() > 0) {
@@ -308,7 +313,7 @@ public class PhoneWindowManager extends XC_MethodHook {
     			if(!immediateUp) {
     				//Caller waits for user to release a button before sending up
     				for (Integer keyCode: keyArray) {
-    					if (!mPendingKeys.contains(keyCode)) {
+    					if (keyCode > 0 && !mPendingKeys.contains(keyCode)) {
     						mPendingKeys.add(keyCode);
     					}
     				}
@@ -646,7 +651,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 						//Note: This also affects "standard" actions like Back, Menu
 						//Double long press gives long press action
 						Boolean immediateUp = !down;
-						invokeHandler(pressDelay(), mKeyFlags.pressAction, !down);
+						invokeHandler(pressDelay(), mKeyFlags.pressAction, true, !down);
 						param.setResult(ACTION_DISABLE);
 
 					} else if (this.mKeyFlags.mKeyRepeat == 1) {
@@ -658,7 +663,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 							//Note: This also affects "standard" actions like Back, Menu
 							//long press gives long press action
 							Boolean immediateUp = !down;
-							invokeHandler(0, mKeyFlags.tapAction, immediateUp);
+							invokeHandler(0, mKeyFlags.tapAction, false, immediateUp);
 							param.setResult(ACTION_DISABLE);
 						} else {
 			    			android.util.Log.i(TAG, "Queueing: Unexpected no tap action" + getParam(keyCode, down));
@@ -690,7 +695,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 					if(DEBUG)Common.log(TAG, "Queueing: Invoking click/tap handler ("+keyTapDelay+")" + getParam(keyCode, down));
 					//For multi we delay if this is the first up (so it is possible to get click and longpress for click)
 					Boolean immediateUp = !down && (!isMulti() || isMulti() && (mKeyFlags.upCount > 0));
-					invokeHandler(keyTapDelay, mKeyFlags.clickAction, immediateUp );
+					invokeHandler(keyTapDelay, mKeyFlags.clickAction, false, immediateUp );
 				}
 				
 				//No dispatching for ongoing up events
@@ -721,9 +726,11 @@ public class PhoneWindowManager extends XC_MethodHook {
 		}
 		
 		if (isOnGoing()) {
+			//Occurs for long press, dispatching without queueing
 			android.util.Log.i(TAG, "Dispatching: Unexpected ongoing." + getParam(keyCode, down));
 			
 		} else {
+			
 			android.util.Log.i(TAG, "Dispatching: Unexpected not ongoing." + getParam(keyCode, down));
 		}
 	}
@@ -753,9 +760,11 @@ public class PhoneWindowManager extends XC_MethodHook {
 		}
 	}
 	
-	protected void invokeHandler(Integer timeout, String action, Boolean immediateUp) {
+	protected void invokeHandler(Integer timeout, String action, Boolean downTimeIsNow, Boolean immediateUp) {
 		mMappingRunnable.keyAction = action;
+		mMappingRunnable.downIsNow = downTimeIsNow;
 		mMappingRunnable.immediateUp = immediateUp;
+
 		if (timeout > 0) {
 			mHandler.postDelayed(mMappingRunnable, timeout);
 			
@@ -889,7 +898,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 			if(timeDown > 0)
 			{
 				if (SDK_NUMBER >= 10) {
-					long now = SystemClock.uptimeMillis();
+					long now = mKeyFlags.originalDownTime;
 
 					downEvent = new KeyEvent(timeDown, now, KeyEvent.ACTION_DOWN,
 							keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
