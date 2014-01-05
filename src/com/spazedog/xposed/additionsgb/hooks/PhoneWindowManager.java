@@ -25,6 +25,7 @@ import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Surface;
+import android.view.ViewConfiguration;
 import android.widget.Toast;
 
 import com.android.internal.statusbar.IStatusBarService;
@@ -317,9 +318,9 @@ public class PhoneWindowManager extends XC_MethodHook {
     						mPendingKeys.add(keyCode);
     					}
     				}
-    				//The delayed key up is triggered by any key press,
-    				//but should latest be triggered as long press (pressDelay here must match system)
-    				runPendingUpKeys(pressDelay()*5/4);
+    				//There must be a delayed key up, triggered by any key press,
+    				//safety triggered as long press (not pressDelay() here, must match system)
+    				runPendingUpKeys(ViewConfiguration.getLongPressTimeout()*11/10);
     			}
         	}
         }
