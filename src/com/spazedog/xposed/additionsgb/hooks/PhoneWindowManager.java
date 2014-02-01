@@ -9,6 +9,7 @@ import java.util.List;
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.ActivityManager.RunningAppProcessInfo;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -33,6 +34,7 @@ import com.spazedog.xposed.additionsgb.Common;
 import com.spazedog.xposed.additionsgb.tools.XposedTools;
 
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 
 public class PhoneWindowManager extends XC_MethodHook {
 	
@@ -274,7 +276,21 @@ public class PhoneWindowManager extends XC_MethodHook {
         		if(DEBUG)Common.log(TAG, "Handler: Invoking kill foreground application");
         		
         		killForegroundApplication();
+//        	} else if (keyAction.equals("4")) {
+//        		if(DEBUG)Common.log(TAG, "Handler: Invoking back");
+//TODO: Direct back invoke, for devices that ignore Back key (Omate TrueSmart)        		
+//        		onBackPressed();
+        	} else if (keyAction.startsWith("application:")) {
+        		if(DEBUG)Common.log(TAG, "Handler: Starting application");
         		
+        		int i = keyAction.indexOf(':',("application:").length());
+        		String s = "";
+        		if (i>= 0) {
+        			s=keyAction.substring(i);
+        		}
+        		//Error handling in runCustomApp
+        		runCustomApp(s);
+        		        		
         	} else {
         		int[] keyArray;
             	if (keyAction.equals("default")) {
@@ -282,6 +298,15 @@ public class PhoneWindowManager extends XC_MethodHook {
             		keyArray[0] = mKeyFlags.mKeyPrimary;
             		keyArray[1] = mKeyFlags.mKeySecondary;
             	} else {
+            		if (keyAction.startsWith("keycode:")) {
+                		int i = keyAction.indexOf(':',("keycode:").length());
+                		if (i>= 0) {
+                			keyAction=keyAction.substring(i);
+                		} else {
+			    			android.util.Log.i(TAG, "Handler: Unexpected no keyAction" + keyAction);
+                			keyAction="";
+                		}
+                	}
             		//Action was one or more key codes
         			String[] keyArray2 = keyAction.split(",");
             		keyArray = new int[keyArray2.length];
@@ -1115,5 +1140,22 @@ public class PhoneWindowManager extends XC_MethodHook {
 	        }
 	        
 		} catch (Throwable e) { e.printStackTrace(); }
+	}
+	
+	private void runCustomApp(String app) {
+        try {
+            if (app == null || app.isEmpty()) {
+                Toast.makeText(mContext, "No app configured", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Intent i = Intent.parseUri(app, 0);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            mContext.startActivity(i);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(mContext, "Cannot start app:"+app, Toast.LENGTH_SHORT).show();
+        } catch (Throwable t) {
+            XposedBridge.log(t);
+        }
 	}
 }
