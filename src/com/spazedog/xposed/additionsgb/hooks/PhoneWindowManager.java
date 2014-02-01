@@ -125,9 +125,12 @@ public class PhoneWindowManager extends XC_MethodHook {
 		public volatile Boolean ACTION_DONE; //Wait for complete events and pending up keys
 		public volatile Boolean INJECTED; //Key injected by this event
 		//cache actions. null is same as "default"
-		public String clickAction;
-		public String tapAction;
-		public String pressAction;
+		public String tap1Action;
+		public String tap2Action;
+		//public String tap3Action;
+		public String press1Action;
+		//public String press2Action;
+		//public String press3Action;
 		
 		public long originalDownTime; //Time at first down
 		public int upCount;
@@ -136,9 +139,9 @@ public class PhoneWindowManager extends XC_MethodHook {
 		public void reset() {
 			ACTION_DONE = false;
 			INJECTED = false;
-			clickAction = null;
-			tapAction = null;
-			pressAction = null;
+			tap1Action = null;
+			tap2Action = null;
+			press1Action = null;
 			firstUpTime = 0;
 		}
 	}
@@ -519,7 +522,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		//Find if the key is out of sequence
 		if (down) {
 			//Down
-			if (isOnGoing() && !mKeyFlags.ACTION_DONE && (keyCode == mKeyFlags.mKeyPrimary) && (mKeyFlags.mKeyRepeat == 0) && (mKeyFlags.tapAction != null)) {
+			if (isOnGoing() && !mKeyFlags.ACTION_DONE && (keyCode == mKeyFlags.mKeyPrimary) && (mKeyFlags.mKeyRepeat == 0) && (mKeyFlags.tap2Action != null)) {
 				//Primary pressed again, increase repeat (so we can check the order)
 				if(DEBUG)Common.log(TAG, "Queueing: Registering key repeat" + getParam(keyCode, down));
 				
@@ -527,7 +530,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 					mKeyFlags.mKeyRepeat++;
 				}
 				
-			} else if (isOnGoing() && !mKeyFlags.ACTION_DONE && (keyCode == mKeyFlags.mKeySecondary) && (mKeyFlags.mKeyRepeat == 0) && (mKeyFlags.tapAction != null)) {
+			} else if (isOnGoing() && !mKeyFlags.ACTION_DONE && (keyCode == mKeyFlags.mKeySecondary) && (mKeyFlags.mKeyRepeat == 0) && (mKeyFlags.tap2Action != null)) {
 					//The secondary completes the sequence
 					if(DEBUG)Common.log(TAG, "Queueing: Secondary key repeat" + getParam(keyCode, down));
 					
@@ -544,7 +547,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 				
 			} else {
 				//No current event found, start a new
-				if(DEBUG)Common.log(TAG, "Queueing: Starting new event" + getParam(keyCode, down)+mKeyFlags.tapAction);
+				if(DEBUG)Common.log(TAG, "Queueing: Starting new event" + getParam(keyCode, down)+mKeyFlags.tap2Action);
 				
 				resetEvent();
 				setup = true;
@@ -611,20 +614,20 @@ public class PhoneWindowManager extends XC_MethodHook {
 			}
 			
 			//Get all the possible actions
-			mKeyFlags.clickAction = Common.Remap.getKeyClick(combinedKeyCode, !isScreenOn);
-		    if (mKeyFlags.clickAction != null && mKeyFlags.clickAction.equals("default")){
-		    	mKeyFlags.clickAction = null;
+			mKeyFlags.tap1Action = Common.Remap.getKeyTap1(combinedKeyCode, !isScreenOn);
+		    if (mKeyFlags.tap1Action != null && mKeyFlags.tap1Action.equals("default")){
+		    	mKeyFlags.tap1Action = null;
 		    }
-			mKeyFlags.tapAction = Common.Remap.getKeyTap(mContext, combinedKeyCode, !isScreenOn);
-			if (mKeyFlags.tapAction != null && mKeyFlags.tapAction.equals("default")){
-				mKeyFlags.tapAction = null;
+			mKeyFlags.tap2Action = Common.Remap.getKeyTap2(mContext, combinedKeyCode, !isScreenOn);
+			if (mKeyFlags.tap2Action != null && mKeyFlags.tap2Action.equals("default")){
+				mKeyFlags.tap2Action = null;
 			}
-			mKeyFlags.pressAction = Common.Remap.getKeyPress(combinedKeyCode, !isScreenOn);
-		    if (mKeyFlags.pressAction != null && mKeyFlags.pressAction.equals("default")){
-		    	mKeyFlags.pressAction = null;
+			mKeyFlags.press1Action = Common.Remap.getKeyPress1(combinedKeyCode, !isScreenOn);
+		    if (mKeyFlags.press1Action != null && mKeyFlags.press1Action.equals("default")){
+		    	mKeyFlags.press1Action = null;
 		    }
 		    //only default actions is OK if there are multi actions for first key
-			if ((mKeyFlags.clickAction == null) && (mKeyFlags.pressAction == null) && (mKeyFlags.tapAction == null)) {
+			if ((mKeyFlags.tap1Action == null) && (mKeyFlags.press1Action == null) && (mKeyFlags.tap2Action == null)) {
 				if (isMulti() || (!isMulti() && !Common.Remap.isMultiEnabled(mContext, mKeyFlags.mKeyPrimary))) {
 					if(DEBUG)Common.log(TAG, "Queueing: No action for an enabled key" + getParam(keyCode, down));
 
@@ -677,19 +680,19 @@ public class PhoneWindowManager extends XC_MethodHook {
 						//Note: This also affects "standard" actions like Back, Menu
 						//Double long press gives long press action
 						Boolean immediateUp = !down;
-						invokeHandler(pressDelay(), mKeyFlags.pressAction, true, !down);
+						invokeHandler(pressDelay(), mKeyFlags.press1Action, true, !down);
 						param.setResult(ACTION_DISABLE);
 
 					} else if (this.mKeyFlags.mKeyRepeat == 1) {
 						//Second down
 						//Default means no detection, i.e. only the second click is handled
-						if (mKeyFlags.tapAction != null) {
+						if (mKeyFlags.tap2Action != null) {
 							if(DEBUG)Common.log(TAG, "Queueing: Invoking tap" + getParam(keyCode, down));
 
 							//Note: This also affects "standard" actions like Back, Menu
 							//long press gives long press action
 							Boolean immediateUp = !down;
-							invokeHandler(0, mKeyFlags.tapAction, false, immediateUp);
+							invokeHandler(0, mKeyFlags.tap2Action, false, immediateUp);
 							param.setResult(ACTION_DISABLE);
 						} else {
 			    			android.util.Log.i(TAG, "Queueing: Unexpected no tap action" + getParam(keyCode, down));
@@ -705,7 +708,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 					//First up, nothing done for the event: This is a click or tap
 					//For multi events this may run at first up and set ACTION_DONE or the handler is cancelled and triggered again
 					int keyTapDelay = 0;
-					if (mKeyFlags.tapAction != null) {
+					if (mKeyFlags.tap2Action != null) {
 						//"Normal" is 1/3 of standard Android time. 
 						//TODO: Add system configuration or increase defaults?
 					    keyTapDelay = 3*tapDelay();
@@ -721,7 +724,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 					if(DEBUG)Common.log(TAG, "Queueing: Invoking click/tap handler ("+keyTapDelay+")" + getParam(keyCode, down));
 					//For multi we delay if this is the first up (so it is possible to get click and longpress for click)
 					Boolean immediateUp = !down && (!isMulti() || isMulti() && (mKeyFlags.upCount > 0));
-					invokeHandler(keyTapDelay, mKeyFlags.clickAction, false, immediateUp );
+					invokeHandler(keyTapDelay, mKeyFlags.tap1Action, false, immediateUp );
 				}
 				
 				//No dispatching for ongoing up events

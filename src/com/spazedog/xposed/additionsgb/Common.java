@@ -62,15 +62,15 @@ public final class Common {
 			return result;
 		}
 		
-		public static String getKeyClick(Integer code, Boolean screenIsOff) {
+		public static String getKeyTap1(Integer code, Boolean screenIsOff) {
 			return mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_CLICK : KEY_ON_ACTION_CLICK) + code, "default");
 		}
 		
-		public static String getKeyTap(Context context, Integer code, Boolean screenIsOff) {
+		public static String getKeyTap2(Context context, Integer code, Boolean screenIsOff) {
 			return isUnlocked(context) ? mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_TAP : KEY_ON_ACTION_TAP) + code, "default") : "default";
 		}
 		
-		public static String getKeyPress(Integer code, Boolean screenIsOff) {
+		public static String getKeyPress1(Integer code, Boolean screenIsOff) {
 			return mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_PRESS : KEY_ON_ACTION_PRESS) + code, "default");
 		}
 		
@@ -187,6 +187,7 @@ public final class Common {
 		if (curValue != null) {
 			for (int i=0; i < entryValues.length && i < entrySummaries.length; i++) {
 				if (entryValues[i].equals(curValue)) {
+					//TODO: handle application etc
 					preference.setSummary(entrySummaries[i]); break;
 				}
 			}
@@ -202,7 +203,7 @@ public final class Common {
 		
 		if (keyCode != null) {
 			switch (keyCode) {
-				case KeyEvent.KEYCODE_ZOOM_OUT: return "zoom Out";
+				case KeyEvent.KEYCODE_ZOOM_OUT: return "Zoom Out";
 				case KeyEvent.KEYCODE_ZOOM_IN: return "Zoom In";
 				case KeyEvent.KEYCODE_VOLUME_UP: return "Volume Up";
 				case KeyEvent.KEYCODE_VOLUME_DOWN: return "Volume Down";
