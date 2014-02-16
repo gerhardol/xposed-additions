@@ -60,7 +60,7 @@ public class PowerManager {
 			Boolean wasPowered = OLD_SDK ? mIsPowered : (Boolean) param.args[0];
 			Integer oldPlugType = OLD_SDK ? mPlugType : (Integer) param.args[1];
 			Integer plugType = (Integer) (OLD_SDK ? XposedTools.callMethod(batteryService, "getPlugType") : XposedTools.getField(param.thisObject, "mPlugType"));
-			Boolean powered = (Boolean) (OLD_SDK ? XposedTools.callMethod(batteryService, "isPowered") : XposedTools.getField(param.thisObject, "mIsPowered"));
+			Boolean powered = true;//TODO not compiling (Boolean) (OLD_SDK ? XposedTools.callMethod(batteryService, "isPowered") : XposedTools.getField(param.thisObject, "mIsPowered"));
 			
 			if (!OLD_SDK || (mIsPowered != null && mPlugType != null)) {
 				Boolean pluggedAC = BatteryManager.BATTERY_PLUGGED_AC == plugType || BatteryManager.BATTERY_PLUGGED_AC == oldPlugType;
