@@ -34,7 +34,7 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	private ListPreference mPrefOptions;
 	private PreferenceCategory mPrefButtons;
 	
-	private CheckBoxPreference mPrefOnEnaled;
+	private CheckBoxPreference mPrefOnEnabled;
 	private ListPreference mPrefOnTap1;
 	private ListPreference mPrefOnTap2;
 	private ListPreference mPrefOnTap3;
@@ -42,7 +42,7 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	private ListPreference mPrefOnPress2;
 	private ListPreference mPrefOnPress3;
 	
-	private CheckBoxPreference mPrefOffEnaled;
+	private CheckBoxPreference mPrefOffEnabled;
 	private ListPreference mPrefOffTap1;
 	private ListPreference mPrefOffTap2;
 	private ListPreference mPrefOffTap3;
@@ -158,20 +158,20 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	
     	mCategAwake = (PreferenceCategory) findPreference("category_remap_awake_actions");
 
-    	mPrefOnEnaled = new CheckBoxPreference(this);
-    	mPrefOnEnaled.setKey(Common.Remap.KEY_ON_ENABLED + mKeyCurrent);
-    	mPrefOnEnaled.setPersistent(false);
-    	mPrefOnEnaled.setTitle(R.string.preference_title_remap_enabled);
+    	mPrefOnEnabled = new CheckBoxPreference(this);
+    	mPrefOnEnabled.setKey(Common.Remap.KEY_ON_ENABLED + mKeyCurrent);
+    	mPrefOnEnabled.setPersistent(false);
+    	mPrefOnEnabled.setTitle(R.string.preference_title_remap_enabled);
     	if (mKeyPrimary > 0 && !Common.Remap.isKeyEnabled(mKeyPrimary, false)) {
-    		mPrefOnEnaled.setChecked(false);
-    		mPrefOnEnaled.setEnabled(false);
+    		mPrefOnEnabled.setChecked(false);
+    		mPrefOnEnabled.setEnabled(false);
     		
 			Toast.makeText(this, R.string.message_primary_disabled_awake, Toast.LENGTH_SHORT).show();
     		
     	} else {
-    		mPrefOnEnaled.setChecked(Common.Remap.isKeyEnabled(mKeyCurrent, false));
+    		mPrefOnEnabled.setChecked(Common.Remap.isKeyEnabled(mKeyCurrent, false));
     	}
-    	mCategAwake.addPreference(mPrefOnEnaled);
+    	mCategAwake.addPreference(mPrefOnEnabled);
     	
     	mPrefOnTap1 = new ListPreference(this);
     	mPrefOnTap1.setKey(Common.Remap.KEY_ON_ACTION_TAP1 + mKeyCurrent);
@@ -227,18 +227,18 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	mPrefOnPress3.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_ON, 2));
     	mPrefOnPress3.setOnPreferenceChangeListener(this);
     	
-    	mPrefOffEnaled = new CheckBoxPreference(this);
-    	mPrefOffEnaled.setKey(Common.Remap.KEY_OFF_ENABLED + mKeyCurrent);
-    	mPrefOffEnaled.setPersistent(false);
-    	mPrefOffEnaled.setTitle(R.string.preference_title_remap_enabled);
+    	mPrefOffEnabled = new CheckBoxPreference(this);
+    	mPrefOffEnabled.setKey(Common.Remap.KEY_OFF_ENABLED + mKeyCurrent);
+    	mPrefOffEnabled.setPersistent(false);
+    	mPrefOffEnabled.setTitle(R.string.preference_title_remap_enabled);
     	if (mKeyPrimary > 0 && !Common.Remap.isKeyEnabled(mKeyPrimary, true)) {
-    		mPrefOffEnaled.setChecked(false);
-    		mPrefOffEnaled.setEnabled(false);
+    		mPrefOffEnabled.setChecked(false);
+    		mPrefOffEnabled.setEnabled(false);
     	
     	} else {
-    		mPrefOffEnaled.setChecked(Common.Remap.isKeyEnabled(mKeyCurrent, true));
+    		mPrefOffEnabled.setChecked(Common.Remap.isKeyEnabled(mKeyCurrent, true));
     	}
-    	mCategSleep.addPreference(mPrefOffEnaled);
+    	mCategSleep.addPreference(mPrefOffEnabled);
     	
     	mPrefOffTap1 = new ListPreference(this);
     	mPrefOffTap1.setKey(Common.Remap.KEY_OFF_ACTION_TAP1 + mKeyCurrent);
@@ -327,8 +327,8 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	Common.updateListSummary(mPrefOffPress2, mRemapValues, mRemapNames);
     	Common.updateListSummary(mPrefOffPress3, mRemapValues, mRemapNames);
     	
-    	handleEnabledState(mPrefOnEnaled);
-    	handleEnabledState(mPrefOffEnaled);
+    	handleEnabledState(mPrefOnEnabled);
+    	handleEnabledState(mPrefOffEnabled);
 	}
 	
 	@Override
@@ -597,8 +597,8 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	
 	@Override
 	public boolean onPreferenceTreeClick(PreferenceScreen preferenceScreen, Preference preference) {
-		if (preference == mPrefOnEnaled  ||
-		    preference == mPrefOffEnaled) {
+		if (preference == mPrefOnEnabled  ||
+		    preference == mPrefOffEnabled) {
 			
 			Common.getSharedPreferences(this).edit().putBoolean(preference.getKey(), ((CheckBoxPreference) preference).isChecked()).apply();
 			
@@ -664,8 +664,8 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	}
 	
 	private void handleEnabledState(Preference preference) {
-		if (preference == mPrefOnEnaled) {
-			Boolean isEnabled = mPrefOnEnaled.isChecked();
+		if (preference == mPrefOnEnabled) {
+			Boolean isEnabled = mPrefOnEnabled.isChecked();
 			mPrefOnTap1.setEnabled( isEnabled );
 			mPrefOnTap2.setEnabled( isEnabled );
 			mPrefOnTap3.setEnabled( isEnabled );
@@ -673,8 +673,8 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 			mPrefOnPress2.setEnabled( isEnabled );
 			mPrefOnPress3.setEnabled( isEnabled );
 			
-		} else if (preference == mPrefOffEnaled) {
-			Boolean isEnabled = mPrefOffEnaled.isChecked();
+		} else if (preference == mPrefOffEnabled) {
+			Boolean isEnabled = mPrefOffEnabled.isChecked();
 			mPrefOffTap1.setEnabled( isEnabled );
 			mPrefOffTap2.setEnabled( isEnabled );
 			mPrefOffTap3.setEnabled( isEnabled );
