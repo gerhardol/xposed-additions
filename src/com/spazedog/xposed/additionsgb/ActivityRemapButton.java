@@ -96,9 +96,7 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	List<String> newValues = new ArrayList<String>();
     	
     	for (int i=0; i < listNames.length; i++) {
-    		if ((android.os.Build.VERSION.SDK_INT > 10 || (!listValues[i].equals("flipleft") && !listValues[i].equals("flipright"))) &&
-    				(android.os.Build.VERSION.SDK_INT > 11 || (!listValues[i].equals("recentapps"))) &&
-    				(mAdvancedSettings || (!listValues[i].equals("application") && !listValues[i].equals("keycode") && !listValues[i].equals("intent")))) {
+    		if (mAdvancedSettings || (!listValues[i].equals("application") && !listValues[i].equals("keycode") && !listValues[i].equals("intent"))) {
 	    		newNames.add(listNames[i]);
 	    		newValues.add(listValues[i]);
     		}

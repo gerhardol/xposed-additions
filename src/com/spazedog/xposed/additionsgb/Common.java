@@ -271,27 +271,25 @@ public final class Common {
 				case KeyEvent.KEYCODE_ASSIST: return "Assist";
 			}
 			
-			if (android.os.Build.VERSION.SDK_INT >= 12) {
-				String codeName = KeyEvent.keyCodeToString(keyCode);
-				
-				if (codeName.startsWith("KEYCODE_")) {
-					String[] codeWords = codeName.toLowerCase(Locale.US).split("_");
-					StringBuilder builder = new StringBuilder();
-					
-					for (int i=1; i < codeWords.length; i++) {
-						char[] codeChars = codeWords[i].trim().toCharArray();
-						
-						codeChars[0] = Character.toUpperCase(codeChars[0]);
-						
-						if (i > 1) {
-							builder.append(" ");
-						}
+			String codeName = KeyEvent.keyCodeToString(keyCode);
 
-						builder.append(codeChars);
+			if (codeName.startsWith("KEYCODE_")) {
+				String[] codeWords = codeName.toLowerCase(Locale.US).split("_");
+				StringBuilder builder = new StringBuilder();
+
+				for (int i=1; i < codeWords.length; i++) {
+					char[] codeChars = codeWords[i].trim().toCharArray();
+
+					codeChars[0] = Character.toUpperCase(codeChars[0]);
+
+					if (i > 1) {
+						builder.append(" ");
 					}
-					
-					return builder.toString();
+
+					builder.append(codeChars);
 				}
+
+				return builder.toString();
 			}
 		}
 		
@@ -382,7 +380,7 @@ public final class Common {
 		
 		@SuppressLint("NewApi")
 		public boolean vibrate(long[] pattern, boolean always) {
-			if (android.os.Build.VERSION.SDK_INT >= 11 && !mVibrator.hasVibrator()) {
+			if (!mVibrator.hasVibrator()) {
 				return false;
 			}
 			final boolean hapticEnabled = Settings.System.getInt(mContext.getContentResolver(), Settings.System.HAPTIC_FEEDBACK_ENABLED, 0) != 0;

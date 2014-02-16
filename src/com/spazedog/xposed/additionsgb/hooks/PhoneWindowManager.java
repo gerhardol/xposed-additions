@@ -94,7 +94,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 	//private static int ACTION_DISPATCH;
 	
 	private final int ACTION_DISABLE = 0;
-	private final Object ACTION_DISPATCH_DISABLED = (SDK_NUMBER <= 10 ? true : -1);
+	private final Object ACTION_DISPATCH_DISABLED = -1;
 	
 	private static int INJECT_INPUT_EVENT_MODE_ASYNC;
 	
@@ -467,13 +467,13 @@ public class PhoneWindowManager extends XC_MethodHook {
 			return;
 		}
 		
-		final int action = (Integer) (SDK_NUMBER <= 10 ? param.args[1] : ((KeyEvent) param.args[0]).getAction());
-		final int policyFlags = (Integer) (SDK_NUMBER <= 10 ? param.args[5] : param.args[1]);
-		final int keyCode = (Integer) (SDK_NUMBER <= 10 ? param.args[3] : ((KeyEvent) param.args[0]).getKeyCode());
-		final boolean isScreenOn = (Boolean) (SDK_NUMBER <= 10 ? param.args[6] : param.args[2]);
+		final int action = (Integer) ((KeyEvent) param.args[0]).getAction();
+		final int policyFlags = (Integer) (param.args[1]);
+		final int keyCode = (Integer) ((KeyEvent) param.args[0]).getKeyCode();
+		final boolean isScreenOn = (Boolean) (param.args[2]);
 		final boolean down = (action == KeyEvent.ACTION_DOWN);
-		final long downTime = (long) (SDK_NUMBER <= 10 ? SystemClock.uptimeMillis() : ((KeyEvent) param.args[0]).getDownTime());
-		final long eventTime = (long) (SDK_NUMBER <= 10 ? SystemClock.uptimeMillis() : ((KeyEvent) param.args[0]).getEventTime());
+		final long downTime = (long) ((KeyEvent) param.args[0]).getDownTime();
+		final long eventTime = (long) ((KeyEvent) param.args[0]).getEventTime();
 		
 		boolean setup = false;
 		
@@ -486,7 +486,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 			if(DEBUG)Common.log(TAG, "Queueing: Key code was injected, passing on" + getParam(keyCode, down));
 			
 			if (mKeyFlags.INJECTED) {
-				param.args[ (SDK_NUMBER <= 10 ? 5 : 1) ] = (policyFlags ^ FLAG_INJECTED);
+				param.args[1] = (policyFlags ^ FLAG_INJECTED);
 				
 				if (!down) {
 					mKeyFlags.INJECTED = false;
@@ -760,17 +760,21 @@ public class PhoneWindowManager extends XC_MethodHook {
 	 * ICS/JellyBean uses arguments interceptKeyBeforeDispatching(WindowState win, KeyEvent event, Integer policyFlags)
 	 */
 	private void hook_interceptKeyBeforeDispatching(final MethodHookParam param) {
-		final Object dispatchDisabled = SDK_NUMBER <= 10 ? true : -1;
-		final int keyCode = (Integer) (SDK_NUMBER <= 10 ? param.args[3] : ((KeyEvent) param.args[1]).getKeyCode());
-		final int action = (Integer) (SDK_NUMBER <= 10 ? param.args[1] : ((KeyEvent) param.args[1]).getAction());
-		//final int repeatCount = (Integer) (SDK_NUMBER <= 10 ? param.args[6] : ((KeyEvent) param.args[1]).getRepeatCount());
-		final int policyFlags = (Integer) (SDK_NUMBER <= 10 ? param.args[7] : param.args[2]);
+		final int keyCode = (Integer) ((KeyEvent) param.args[1]).getKeyCode();
+		final int action = (Integer) ((KeyEvent) param.args[1]).getAction();
+		//final int repeatCount = (Integer) ((KeyEvent) param.args[1]).getRepeatCount();
+		final int policyFlags = (Integer) (param.args[2]);
 		final boolean down = action == KeyEvent.ACTION_DOWN;
 		
+		String str ="";
+		//Temporary
+		for (Object o: param.args){
+			str+=" "+o;
+		}
 		if ((policyFlags & FLAG_INJECTED) != 0) {
-			if(DEBUG)Common.log(TAG, "Dispatching: Key code was injected, dispatching" + getParam(keyCode, down));
+			if(DEBUG)Common.log(TAG, "Dispatching: Key code was injected, dispatching" + getParam(keyCode, down)+str);
 			if (mKeyFlags.INJECTED) {
-				param.args[ (SDK_NUMBER <= 10 ? 7 : 2) ] = (policyFlags ^ FLAG_INJECTED);
+				param.args[2] = (policyFlags ^ FLAG_INJECTED);
 			}
 			
 			return;
@@ -778,12 +782,12 @@ public class PhoneWindowManager extends XC_MethodHook {
 		
 		if (isOnGoing()) {
 			//Occurs for long press, dispatching without queuing
-			android.util.Log.i(TAG, "Dispatching: Ongoing, no dispatching." + getParam(keyCode, down));
-			param.setResult(dispatchDisabled);
+			android.util.Log.i(TAG, "Dispatching: Ongoing, no dispatching." + getParam(keyCode, down)+str);
+			param.setResult(ACTION_DISPATCH_DISABLED);
 			return;
 		} else {
 			
-			android.util.Log.i(TAG, "Dispatching: Not ongoing, dispatching." + getParam(keyCode, down));
+			android.util.Log.i(TAG, "Dispatching: Not ongoing, dispatching." + getParam(keyCode, down)+str);
 		}
 	}
 
@@ -871,35 +875,19 @@ public class PhoneWindowManager extends XC_MethodHook {
 
 	private void openRecentAppsDialog() {
 		sendCloseSystemWindows("recentapps");
-		
-		if (SDK_NUMBER > 10) {
-			if (mRecentAppsTrigger == null) {
-				mRecentAppsTrigger = IStatusBarService.Stub.asInterface(
+
+		if (mRecentAppsTrigger == null) {
+			mRecentAppsTrigger = IStatusBarService.Stub.asInterface(
 					(IBinder) XposedTools.callMethod(
-						mServiceManagerClass,
-						"getService",
-						new Class<?>[]{String.class},
-						"statusbar"
-					)
-				);
-			}
-			
-			XposedTools.callMethod(mRecentAppsTrigger, "toggleRecentApps");
-			
-		} else {
-			if (mRecentAppsTrigger == null) {
-				mRecentAppsTrigger = XposedTools.callConstructor(
-						XposedTools.findClass("com.android.internal.policy.impl.RecentApplicationsDialog"),
-						new Class<?>[]{Context.class},
-						mContext
-				);
-			}
-			
-			try {
-				XposedTools.callMethod(mRecentAppsTrigger, "show");
-				
-			} catch (Throwable e) { e.printStackTrace(); }
+							mServiceManagerClass,
+							"getService",
+							new Class<?>[]{String.class},
+							"statusbar"
+							)
+					);
 		}
+
+		XposedTools.callMethod(mRecentAppsTrigger, "toggleRecentApps");
 	}
 
     private void openGlobalActionsDialog() {
@@ -949,28 +937,18 @@ public class PhoneWindowManager extends XC_MethodHook {
 			
 			if(timeDown > 0)
 			{
-				if (SDK_NUMBER >= 10) {
-					//long now = mKeyFlags.originalDownTime;
+				long now = mKeyFlags.originalDownTime;
 
-					downEvent = new KeyEvent(timeDown, timeDown, KeyEvent.ACTION_DOWN,
-							keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
-							KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
-
-				} else {
-					downEvent = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
-				}
+				downEvent = new KeyEvent(timeDown, now, KeyEvent.ACTION_DOWN,
+						keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+						KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
 			}
 			if(up) {
-				if (SDK_NUMBER >= 10) {
-					long now = SystemClock.uptimeMillis();
+				long now = SystemClock.uptimeMillis();
 
-					upEvent = new KeyEvent(now, now, KeyEvent.ACTION_UP,
-							keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
-							KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
-
-				} else {
-					upEvent = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
-				}
+				upEvent = new KeyEvent(now, now, KeyEvent.ACTION_UP,
+						keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+						KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
 			}
 			
 			if (SDK_NUMBER >= 16) {
@@ -1008,53 +986,26 @@ public class PhoneWindowManager extends XC_MethodHook {
 	
 	Method xRreezeRotation;
 	private void freezeRotation(Integer orientation) {
-		if (SDK_NUMBER > 10) {
-			try {
-				if (xRreezeRotation == null) {
-					xRreezeRotation = XposedTools.findMethod(mWindowManager.getClass(), "freezeRotation", Integer.TYPE);
-				}
-				
-				xRreezeRotation.invoke(mWindowManager, orientation);
-				
-			} catch (Throwable e) { e.printStackTrace(); }
-			
-		} else {
-			/*
-			 * TODO: Find a working way for locking Gingerbread in a specific orientation
-			 */
-			
-			/* if (orientation < 0) {
-				orientation = getRotation();
-			} */
-			
-			Settings.System.putInt(mContext.getContentResolver(),
-					Settings.System.ACCELEROMETER_ROTATION, 0);
-			
-			/* XposedHelpers.callMethod(
-					mWindowManager, 
-					"setRotationUnchecked",
-					new Class<?>[]{Integer.TYPE, Boolean.TYPE, Integer.TYPE},
-					orientation, false, 0
-			); */
-		}
+		try {
+			if (xRreezeRotation == null) {
+				xRreezeRotation = XposedTools.findMethod(mWindowManager.getClass(), "freezeRotation", Integer.TYPE);
+			}
+
+			xRreezeRotation.invoke(mWindowManager, orientation);
+
+		} catch (Throwable e) { e.printStackTrace(); }
 	}
 	
 	Method xThawRotation;
 	private void thawRotation() {
-		if (SDK_NUMBER > 10) {
-			try {
-				if (xThawRotation == null) {
-					xThawRotation = XposedTools.findMethod(mWindowManager.getClass(), "thawRotation");
-				}
-				
-				xThawRotation.invoke(mWindowManager);
-				
-			} catch (Throwable e) { e.printStackTrace(); }
-			
-		} else {
-			Settings.System.putInt(mContext.getContentResolver(), 
-					Settings.System.ACCELEROMETER_ROTATION, 1);
-		}
+		try {
+			if (xThawRotation == null) {
+				xThawRotation = XposedTools.findMethod(mWindowManager.getClass(), "thawRotation");
+			}
+
+			xThawRotation.invoke(mWindowManager);
+
+		} catch (Throwable e) { e.printStackTrace(); }
 	}
 	
 	private Integer getNextRotation(Integer position) {
