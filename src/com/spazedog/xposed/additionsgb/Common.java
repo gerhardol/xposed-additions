@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.SystemClock;
 import android.os.Vibrator;
 import android.preference.ListPreference;
 import android.provider.Settings;
@@ -31,15 +32,25 @@ public final class Common {
 	public static SharedPreferences mPreferences;
 	
 	public static final class Remap {
+		public static final boolean SCREEN_ON = false;
+		public static final boolean SCREEN_OFF = true;
+
+		//Some historic values for tap/press 
 		public static final String KEY_OFF_ENABLED = "keycode_enabled:off/";
-		public static final String KEY_OFF_ACTION_CLICK = "keycode_action_click:off/";
-		public static final String KEY_OFF_ACTION_TAP = "keycode_action_tap:off/";
-		public static final String KEY_OFF_ACTION_PRESS = "keycode_action_press:off/";
+		public static final String KEY_OFF_ACTION_TAP1 = "keycode_action_click:off/";
+		public static final String KEY_OFF_ACTION_TAP2 = "keycode_action_tap:off/";
+		public static final String KEY_OFF_ACTION_TAP3 = "keycode_action_tap3:off/";
+		public static final String KEY_OFF_ACTION_PRESS1 = "keycode_action_press:off/";
+		public static final String KEY_OFF_ACTION_PRESS2 = "keycode_action_press2:off/";
+		public static final String KEY_OFF_ACTION_PRESS3 = "keycode_action_press3:off/";
 		
 		public static final String KEY_ON_ENABLED = "keycode_enabled:on/";
-		public static final String KEY_ON_ACTION_CLICK = "keycode_action_click:on/";
-		public static final String KEY_ON_ACTION_TAP = "keycode_action_tap:on/";
-		public static final String KEY_ON_ACTION_PRESS = "keycode_action_press:on/";
+		public static final String KEY_ON_ACTION_TAP1 = "keycode_action_click:on/";
+		public static final String KEY_ON_ACTION_TAP2 = "keycode_action_tap:on/";
+		public static final String KEY_ON_ACTION_TAP3 = "keycode_action_tap3:on/";
+		public static final String KEY_ON_ACTION_PRESS1 = "keycode_action_press:on/";
+		public static final String KEY_ON_ACTION_PRESS2 = "keycode_action_press2:on/";
+		public static final String KEY_ON_ACTION_PRESS3 = "keycode_action_press3:on/";
 		
 		public static final String KEY_COLLECTION = "key_collection";
 		public static final String KEY_COLLECTION_SECONDARY = "key_collection/";
@@ -62,22 +73,38 @@ public final class Common {
 			return result;
 		}
 		
-		public static String getKeyTap1(Integer code, Boolean screenIsOff) {
-			return mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_CLICK : KEY_ON_ACTION_CLICK) + code, "default");
+		public static String getKeyTap(Context context, Integer code, Boolean screenIsOff, int noOfRepeats) {
+			if (noOfRepeats == 0)
+			{
+			    return mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_TAP1 : KEY_ON_ACTION_TAP1) + code, "default");
+			}
+			else if (noOfRepeats == 1)
+			{
+			    return isUnlocked(context) ? mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_TAP2 : KEY_ON_ACTION_TAP2) + code, "default")  : "default";
+			}
+			else if (noOfRepeats == 2)
+			{
+			    return isUnlocked(context) ? mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_TAP3 : KEY_ON_ACTION_TAP3) + code, "default") : "default";
+			}
+			return "default";
 		}
 		
-		public static String getKeyTap2(Context context, Integer code, Boolean screenIsOff) {
-			return isUnlocked(context) ? mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_TAP : KEY_ON_ACTION_TAP) + code, "default") : "default";
-		}
-		
-		public static String getKeyPress1(Integer code, Boolean screenIsOff) {
-			return mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_PRESS : KEY_ON_ACTION_PRESS) + code, "default");
+		public static String getKeyPress(Context context, Integer code, Boolean screenIsOff, int noOfRepeats) {
+			if (noOfRepeats == 0) {
+ 			    return mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_PRESS1 : KEY_ON_ACTION_PRESS1) + code, "default");
+			}
+			else if (noOfRepeats == 1) {
+ 			    return isUnlocked(context) ? mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_PRESS2 : KEY_ON_ACTION_PRESS2) + code, "default") : "default";
+			}
+			else if (noOfRepeats == 2) {
+ 			    return isUnlocked(context) ? mPreferences.getString((screenIsOff ? KEY_OFF_ACTION_PRESS3 : KEY_ON_ACTION_PRESS3) + code, "default") : "default";
+			}
+			return "default";
 		}
 		
 		public static Integer getPressDelay() {
 			return Integer.parseInt( mPreferences.getString(KEY_DELAY_PRESS, "500") );
 		}
-		
 		public static Integer getTapDelay() {
 			return Integer.parseInt( mPreferences.getString(KEY_DELAY_TAP, "150") );
 		}
@@ -338,7 +365,7 @@ public final class Common {
 	
 	public static Boolean isUnlocked(Context context) {
 		//TODO: Temporary license unlock
-		if ((new java.util.Date(114 + 1900, 2, 1)).compareTo(new java.util.Date())>0) {return true;}
+		if ((new java.util.Date(114 + 1900, 3, 1)).compareTo(new java.util.Date())>0) {return true;}
 		PackageManager manager = context.getPackageManager();
 		return manager.checkSignatures(PACKAGE_NAME, PACKAGE_NAME_PRO)
 	    		== PackageManager.SIGNATURE_MATCH;
@@ -380,11 +407,14 @@ public final class Common {
 		}
 	}
 	
+	private static int shortTime(){
+		return (int)(SystemClock.uptimeMillis() % 10000);
+	}
 	public static void log(String msg) {
 		if(DEBUG)log(PACKAGE_NAME, msg);
 	}
 	
 	public static void log(String tag, String msg) {
-		if(DEBUG)Log.d(tag, msg);
+		if(DEBUG)Log.d(tag, shortTime()+" "+msg);
 	}
 }

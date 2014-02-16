@@ -184,23 +184,35 @@ public class ActivityRemapSettings extends PreferenceActivity implements OnPrefe
 				editor.putString(Common.Remap.KEY_COLLECTION, TextUtils.join(",", keyList));
 				editor.remove(Common.Remap.KEY_COLLECTION_SECONDARY + keyCode);
 				editor.remove(Common.Remap.KEY_OFF_ENABLED + keyCode);
-				editor.remove(Common.Remap.KEY_OFF_ACTION_CLICK + keyCode);
-				editor.remove(Common.Remap.KEY_OFF_ACTION_TAP + keyCode);
-				editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_TAP1 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_TAP2 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_TAP3 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS1 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS2 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS3 + keyCode);
 				editor.remove(Common.Remap.KEY_ON_ENABLED + keyCode);
-				editor.remove(Common.Remap.KEY_ON_ACTION_CLICK + keyCode);
-				editor.remove(Common.Remap.KEY_ON_ACTION_TAP + keyCode);
-				editor.remove(Common.Remap.KEY_ON_ACTION_PRESS + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_TAP1 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_TAP2 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_TAP3 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_PRESS1 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_PRESS2 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_PRESS3 + keyCode);
 				
 				for (int i=0; i < seconds.length; i++) {
 					editor.remove(Common.Remap.KEY_OFF_ENABLED + seconds[i]);
-					editor.remove(Common.Remap.KEY_OFF_ACTION_CLICK + seconds[i]);
-					editor.remove(Common.Remap.KEY_OFF_ACTION_TAP + seconds[i]);
-					editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS + seconds[i]);
+					editor.remove(Common.Remap.KEY_OFF_ACTION_TAP1 + seconds[i]);
+					editor.remove(Common.Remap.KEY_OFF_ACTION_TAP2 + seconds[i]);
+					editor.remove(Common.Remap.KEY_OFF_ACTION_TAP3 + seconds[i]);
+					editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS1 + seconds[i]);
+					editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS2 + seconds[i]);
+					editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS3 + seconds[i]);
 					editor.remove(Common.Remap.KEY_ON_ENABLED + seconds[i]);
-					editor.remove(Common.Remap.KEY_ON_ACTION_CLICK + seconds[i]);
-					editor.remove(Common.Remap.KEY_ON_ACTION_TAP + seconds[i]);
-					editor.remove(Common.Remap.KEY_ON_ACTION_PRESS + seconds[i]);
+					editor.remove(Common.Remap.KEY_ON_ACTION_TAP1 + seconds[i]);
+					editor.remove(Common.Remap.KEY_ON_ACTION_TAP2 + seconds[i]);
+					editor.remove(Common.Remap.KEY_ON_ACTION_TAP3 + seconds[i]);
+					editor.remove(Common.Remap.KEY_ON_ACTION_PRESS1 + seconds[i]);
+					editor.remove(Common.Remap.KEY_ON_ACTION_PRESS2 + seconds[i]);
+					editor.remove(Common.Remap.KEY_ON_ACTION_PRESS3 + seconds[i]);
 				}
 				
 				editor.apply();

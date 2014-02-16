@@ -5,6 +5,8 @@ import java.util.List;
 
 import com.spazedog.xposed.additionsgb.DialogBroadcastReceiver.OnDialogListener;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
@@ -33,14 +35,20 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	private PreferenceCategory mPrefButtons;
 	
 	private CheckBoxPreference mPrefOnEnaled;
-	private ListPreference mPrefOnClick;
-	private ListPreference mPrefOnTap;
-	private ListPreference mPrefOnPress;
+	private ListPreference mPrefOnTap1;
+	private ListPreference mPrefOnTap2;
+	private ListPreference mPrefOnTap3;
+	private ListPreference mPrefOnPress1;
+	private ListPreference mPrefOnPress2;
+	private ListPreference mPrefOnPress3;
 	
 	private CheckBoxPreference mPrefOffEnaled;
-	private ListPreference mPrefOffClick;
-	private ListPreference mPrefOffTap;
-	private ListPreference mPrefOffPress;
+	private ListPreference mPrefOffTap1;
+	private ListPreference mPrefOffTap2;
+	private ListPreference mPrefOffTap3;
+	private ListPreference mPrefOffPress1;
+	private ListPreference mPrefOffPress2;
+	private ListPreference mPrefOffPress3;
 	
 	private PreferenceCategory mCategSleep;
 	private PreferenceCategory mCategAwake;
@@ -182,37 +190,73 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	}
     	mCategAwake.addPreference(mPrefOnEnaled);
     	
-    	mPrefOnClick = new ListPreference(this);
-    	mPrefOnClick.setKey(Common.Remap.KEY_ON_ACTION_CLICK + mKeyCurrent);
-    	mPrefOnClick.setPersistent(false);
-    	mPrefOnClick.setTitle(R.string.preference_title_remap_click);
-    	mPrefOnClick.setEntries(mRemapOnNames);
-    	mPrefOnClick.setEntryValues(mRemapOnValues);
-    	mPrefOnClick.setValue(Common.Remap.getKeyClick(mKeyCurrent, false));
-    	mPrefOnClick.setOnPreferenceChangeListener(this);
-    	mCategAwake.addPreference(mPrefOnClick);
+    	mPrefOnTap1 = new ListPreference(this);
+    	mPrefOnTap1.setKey(Common.Remap.KEY_ON_ACTION_TAP1 + mKeyCurrent);
+    	mPrefOnTap1.setPersistent(false);
+    	mPrefOnTap1.setTitle(R.string.preference_title_remap_tap1);
+    	mPrefOnTap1.setEntries(mRemapOnNames);
+    	mPrefOnTap1.setEntryValues(mRemapOnValues);
+    	mPrefOnTap1.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_ON, 0));
+    	mPrefOnTap1.setOnPreferenceChangeListener(this);
+    	mCategAwake.addPreference(mPrefOnTap1);
     	
-     	mPrefOnTap = new ListPreference(this);
-    	mPrefOnTap.setKey(Common.Remap.KEY_ON_ACTION_TAP + mKeyCurrent);
-    	mPrefOnTap.setPersistent(false);
-    	mPrefOnTap.setTitle(R.string.preference_title_remap_tap);
-    	mPrefOnTap.setEntries(mRemapOnNames);
-    	mPrefOnTap.setEntryValues(mRemapOnValues);
-    	mPrefOnTap.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, false));
-    	mPrefOnTap.setOnPreferenceChangeListener(this);
+     	mPrefOnTap2 = new ListPreference(this);
+    	mPrefOnTap2.setKey(Common.Remap.KEY_ON_ACTION_TAP2 + mKeyCurrent);
+    	mPrefOnTap2.setPersistent(false);
+    	mPrefOnTap2.setTitle(R.string.preference_title_remap_tap2);
+    	mPrefOnTap2.setEntries(mRemapOnNames);
+    	mPrefOnTap2.setEntryValues(mRemapOnValues);
+    	mPrefOnTap2.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_ON, 1));
+    	mPrefOnTap2.setOnPreferenceChangeListener(this);
     	if (isUnlocked) {
-    		mCategAwake.addPreference(mPrefOnTap);
+    		mCategAwake.addPreference(mPrefOnTap2);
     	}
     	
-    	mPrefOnPress = new ListPreference(this);
-    	mPrefOnPress.setKey(Common.Remap.KEY_ON_ACTION_PRESS + mKeyCurrent);
-    	mPrefOnPress.setPersistent(false);
-    	mPrefOnPress.setTitle(R.string.preference_title_remap_press);
-    	mPrefOnPress.setEntries(mRemapOnNames);
-    	mPrefOnPress.setEntryValues(mRemapOnValues);
-    	mPrefOnPress.setValue(Common.Remap.getKeyPress(mKeyCurrent, false));
-    	mPrefOnPress.setOnPreferenceChangeListener(this);
-    	mCategAwake.addPreference(mPrefOnPress);
+     	mPrefOnTap3 = new ListPreference(this);
+    	mPrefOnTap3.setKey(Common.Remap.KEY_ON_ACTION_TAP3 + mKeyCurrent);
+    	mPrefOnTap3.setPersistent(false);
+    	mPrefOnTap3.setTitle(R.string.preference_title_remap_tap3);
+    	mPrefOnTap3.setEntries(mRemapOnNames);
+    	mPrefOnTap3.setEntryValues(mRemapOnValues);
+    	mPrefOnTap3.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_ON, 2));
+    	mPrefOnTap3.setOnPreferenceChangeListener(this);
+    	if (isUnlocked) {
+    		mCategAwake.addPreference(mPrefOnTap3);
+    	}
+    	
+    	mPrefOnPress1 = new ListPreference(this);
+    	mPrefOnPress1.setKey(Common.Remap.KEY_ON_ACTION_PRESS1 + mKeyCurrent);
+    	mPrefOnPress1.setPersistent(false);
+    	mPrefOnPress1.setTitle(R.string.preference_title_remap_press1);
+    	mPrefOnPress1.setEntries(mRemapOnNames);
+    	mPrefOnPress1.setEntryValues(mRemapOnValues);
+    	mPrefOnPress1.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_ON, 0));
+    	mPrefOnPress1.setOnPreferenceChangeListener(this);
+    	mCategAwake.addPreference(mPrefOnPress1);
+    	
+    	mPrefOnPress2 = new ListPreference(this);
+    	mPrefOnPress2.setKey(Common.Remap.KEY_ON_ACTION_PRESS2 + mKeyCurrent);
+    	mPrefOnPress2.setPersistent(false);
+    	mPrefOnPress2.setTitle(R.string.preference_title_remap_press2);
+    	mPrefOnPress2.setEntries(mRemapOnNames);
+    	mPrefOnPress2.setEntryValues(mRemapOnValues);
+    	mPrefOnPress2.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_ON, 1));
+    	mPrefOnPress2.setOnPreferenceChangeListener(this);
+    	if (isUnlocked) {
+    		mCategAwake.addPreference(mPrefOnPress2);
+    	}    	
+    	
+    	mPrefOnPress3 = new ListPreference(this);
+    	mPrefOnPress3.setKey(Common.Remap.KEY_ON_ACTION_PRESS3 + mKeyCurrent);
+    	mPrefOnPress3.setPersistent(false);
+    	mPrefOnPress3.setTitle(R.string.preference_title_remap_press3);
+    	mPrefOnPress3.setEntries(mRemapOnNames);
+    	mPrefOnPress3.setEntryValues(mRemapOnValues);
+    	mPrefOnPress3.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_ON, 2));
+    	mPrefOnPress3.setOnPreferenceChangeListener(this);
+    	if (isUnlocked) {
+    		mCategAwake.addPreference(mPrefOnPress3);
+    	}    	
     	
     	mPrefOffEnaled = new CheckBoxPreference(this);
     	mPrefOffEnaled.setKey(Common.Remap.KEY_OFF_ENABLED + mKeyCurrent);
@@ -221,51 +265,93 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	if (mKeyPrimary > 0 && !Common.Remap.isKeyEnabled(mKeyPrimary, true)) {
     		mPrefOffEnaled.setChecked(false);
     		mPrefOffEnaled.setEnabled(false);
-    		
+    	
     	} else {
     		mPrefOffEnaled.setChecked(Common.Remap.isKeyEnabled(mKeyCurrent, true));
     	}
     	mCategSleep.addPreference(mPrefOffEnaled);
     	
-    	mPrefOffClick = new ListPreference(this);
-    	mPrefOffClick.setKey(Common.Remap.KEY_OFF_ACTION_CLICK + mKeyCurrent);
-    	mPrefOffClick.setPersistent(false);
-    	mPrefOffClick.setTitle(R.string.preference_title_remap_click);
-    	mPrefOffClick.setEntries(mRemapOffNames);
-    	mPrefOffClick.setEntryValues(mRemapOffValues);
-    	mPrefOffClick.setValue(Common.Remap.getKeyClick(mKeyCurrent, true));
-    	mPrefOffClick.setOnPreferenceChangeListener(this);
-    	mCategSleep.addPreference(mPrefOffClick);
+    	mPrefOffTap1 = new ListPreference(this);
+    	mPrefOffTap1.setKey(Common.Remap.KEY_OFF_ACTION_TAP1 + mKeyCurrent);
+    	mPrefOffTap1.setPersistent(false);
+    	mPrefOffTap1.setTitle(R.string.preference_title_remap_tap1);
+    	mPrefOffTap1.setEntries(mRemapOffNames);
+    	mPrefOffTap1.setEntryValues(mRemapOffValues);
+    	mPrefOffTap1.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 0));
+    	mPrefOffTap1.setOnPreferenceChangeListener(this);
+    	mCategSleep.addPreference(mPrefOffTap1);
     	
-    	mPrefOffTap = new ListPreference(this);
-    	mPrefOffTap.setKey(Common.Remap.KEY_OFF_ACTION_TAP + mKeyCurrent);
-    	mPrefOffTap.setPersistent(false);
-    	mPrefOffTap.setTitle(R.string.preference_title_remap_tap);
-    	mPrefOffTap.setEntries(mRemapOffNames);
-    	mPrefOffTap.setEntryValues(mRemapOffValues);
-    	mPrefOffTap.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, true));
-    	mPrefOffTap.setOnPreferenceChangeListener(this);
+    	mPrefOffTap2 = new ListPreference(this);
+    	mPrefOffTap2.setKey(Common.Remap.KEY_OFF_ACTION_TAP2 + mKeyCurrent);
+    	mPrefOffTap2.setPersistent(false);
+    	mPrefOffTap2.setTitle(R.string.preference_title_remap_tap2);
+    	mPrefOffTap2.setEntries(mRemapOffNames);
+    	mPrefOffTap2.setEntryValues(mRemapOffValues);
+    	mPrefOffTap2.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 1));
+    	mPrefOffTap2.setOnPreferenceChangeListener(this);
     	if (isUnlocked) {
-    		mCategSleep.addPreference(mPrefOffTap);
+    		mCategSleep.addPreference(mPrefOffTap2);
     	}
     	
-    	mPrefOffPress = new ListPreference(this);
-    	mPrefOffPress.setKey(Common.Remap.KEY_OFF_ACTION_PRESS + mKeyCurrent);
-    	mPrefOffPress.setPersistent(false);
-    	mPrefOffPress.setTitle(R.string.preference_title_remap_press);
-    	mPrefOffPress.setEntries(mRemapOffNames);
-    	mPrefOffPress.setEntryValues(mRemapOffValues);
-    	mPrefOffPress.setValue(Common.Remap.getKeyPress(mKeyCurrent, true));
-    	mPrefOffPress.setOnPreferenceChangeListener(this);
-    	mCategSleep.addPreference(mPrefOffPress);
+    	mPrefOffTap3 = new ListPreference(this);
+    	mPrefOffTap3.setKey(Common.Remap.KEY_OFF_ACTION_TAP3 + mKeyCurrent);
+    	mPrefOffTap3.setPersistent(false);
+    	mPrefOffTap3.setTitle(R.string.preference_title_remap_tap3);
+    	mPrefOffTap3.setEntries(mRemapOffNames);
+    	mPrefOffTap3.setEntryValues(mRemapOffValues);
+    	mPrefOffTap3.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 2));
+    	mPrefOffTap3.setOnPreferenceChangeListener(this);
+    	if (isUnlocked) {
+    		mCategSleep.addPreference(mPrefOffTap3);
+    	}
+    	
+    	mPrefOffPress1 = new ListPreference(this);
+    	mPrefOffPress1.setKey(Common.Remap.KEY_OFF_ACTION_PRESS1 + mKeyCurrent);
+    	mPrefOffPress1.setPersistent(false);
+    	mPrefOffPress1.setTitle(R.string.preference_title_remap_press1);
+    	mPrefOffPress1.setEntries(mRemapOffNames);
+    	mPrefOffPress1.setEntryValues(mRemapOffValues);
+    	mPrefOffPress1.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 0));
+    	mPrefOffPress1.setOnPreferenceChangeListener(this);
+    	mCategSleep.addPreference(mPrefOffPress1);
+    	
+    	mPrefOffPress2 = new ListPreference(this);
+    	mPrefOffPress2.setKey(Common.Remap.KEY_OFF_ACTION_PRESS2 + mKeyCurrent);
+    	mPrefOffPress2.setPersistent(false);
+    	mPrefOffPress2.setTitle(R.string.preference_title_remap_press2);
+    	mPrefOffPress2.setEntries(mRemapOffNames);
+    	mPrefOffPress2.setEntryValues(mRemapOffValues);
+    	mPrefOffPress2.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 1));
+    	mPrefOffPress2.setOnPreferenceChangeListener(this);
+    	if (isUnlocked) {
+    		mCategSleep.addPreference(mPrefOffPress2);
+    	}
+    	
+    	mPrefOffPress3 = new ListPreference(this);
+    	mPrefOffPress3.setKey(Common.Remap.KEY_OFF_ACTION_PRESS3 + mKeyCurrent);
+    	mPrefOffPress3.setPersistent(false);
+    	mPrefOffPress3.setTitle(R.string.preference_title_remap_press3);
+    	mPrefOffPress3.setEntries(mRemapOffNames);
+    	mPrefOffPress3.setEntryValues(mRemapOffValues);
+    	mPrefOffPress3.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 2));
+    	mPrefOffPress3.setOnPreferenceChangeListener(this);
+    	if (isUnlocked) {
+    		mCategSleep.addPreference(mPrefOffPress3);
+    	}
     	
     	Common.updateListSummary(mPrefOptions, mOptionsListValues, mOptionsListNames);
-    	Common.updateListSummary(mPrefOnClick, mRemapOnValues, mRemapOnNames);
-    	Common.updateListSummary(mPrefOnTap, mRemapOnValues, mRemapOnNames);
-    	Common.updateListSummary(mPrefOnPress, mRemapOnValues, mRemapOnNames);
-    	Common.updateListSummary(mPrefOffClick, mRemapOffValues, mRemapOffNames);
-    	Common.updateListSummary(mPrefOffTap, mRemapOffValues, mRemapOffNames);
-    	Common.updateListSummary(mPrefOffPress, mRemapOffValues, mRemapOffNames);
+    	Common.updateListSummary(mPrefOnTap1, mRemapOnValues, mRemapOnNames);
+    	Common.updateListSummary(mPrefOnTap2, mRemapOnValues, mRemapOnNames);
+    	Common.updateListSummary(mPrefOnTap3, mRemapOnValues, mRemapOnNames);
+    	Common.updateListSummary(mPrefOnPress1, mRemapOnValues, mRemapOnNames);
+   	    Common.updateListSummary(mPrefOnPress2, mRemapOnValues, mRemapOnNames);
+    	Common.updateListSummary(mPrefOnPress3, mRemapOnValues, mRemapOnNames);
+    	Common.updateListSummary(mPrefOffTap1, mRemapOffValues, mRemapOffNames);
+    	Common.updateListSummary(mPrefOffTap2, mRemapOffValues, mRemapOffNames);
+    	Common.updateListSummary(mPrefOffTap3, mRemapOnValues, mRemapOnNames);
+    	Common.updateListSummary(mPrefOffPress1, mRemapOnValues, mRemapOnNames);
+    	Common.updateListSummary(mPrefOffPress2, mRemapOnValues, mRemapOnNames);
+    	Common.updateListSummary(mPrefOffPress3, mRemapOffValues, mRemapOffNames);
     	
     	handleEnabledState(mPrefOnEnaled);
     	handleEnabledState(mPrefOffEnaled);
@@ -427,27 +513,103 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 			
 			return true;
 			
-		} else if (preference == mPrefOnClick || 
-					preference == mPrefOnTap ||
-					preference == mPrefOnPress || 
-					preference == mPrefOffClick || 
-					preference == mPrefOffTap || 
-					preference == mPrefOffPress) {
+		} else if (preference == mPrefOnTap1 || 
+				preference == mPrefOnTap2 ||
+				preference == mPrefOnTap3 ||
+				preference == mPrefOnPress1 || 
+				preference == mPrefOnPress2 || 
+				preference == mPrefOnPress3 || 
+				preference == mPrefOffTap1 || 
+				preference == mPrefOffTap2 || 
+				preference == mPrefOffTap3 || 
+				preference == mPrefOffPress1 ||
+				preference == mPrefOffPress2 ||
+				preference == mPrefOffPress3) {
 			
+			/*
+			String key = preference.getKey();
+			String val = (String) value;
+			if (preference == mPrefOnClick ||
+			 
+					preference == mPrefOnTap ||
+					preference == mPrefOnPress) {
+				//TODO
+				/*
+				if (val.startsWith("keycode:")) {
+					AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+					
+					, R.layout.custom_app_action);
+					dialog.setTitle(val);
+					dialog.setOnDialogListener(new OnDialogListener(){
+						
+						@Override
+						public void OnClose(DialogBroadcastReceiver dialog, Boolean positive) {
+							requestInterceptStop();
+							
+							dialog.destroy();
+							dialog = null;
+							
+							if (positive) {
+								if (mKeySecondaryCode != null && mKeySecondaryCode > 0) {
+									int keyCode = Common.generateKeyCode(mKeyCurrent, mKeySecondaryCode);
+									SharedPreferences sharedPreferences = Common.getSharedPreferences(ActivityRemapButton.this);
+									String[] keyArray = sharedPreferences.getString(Common.Remap.KEY_COLLECTION_SECONDARY+mKeyCurrent, "").split(",");
+									List<String> keyList = new ArrayList<String>();
+									
+									for (int i=0; i < keyArray.length; i++) {
+										if (keyArray[i] != null && keyArray[i].matches("^[0-9]+$")) {
+											keyList.add(keyArray[i]);
+										}
+									}
+									
+									if (!keyList.contains(keyCode)) {
+										keyList.add("" + keyCode);
+										
+										sharedPreferences.edit().putString(Common.Remap.KEY_COLLECTION_SECONDARY+mKeyCurrent, TextUtils.join(",", keyList)).apply();
+										
+										createKeyPreference(keyCode);
+										
+									} else {
+										Toast.makeText(ActivityRemapButton.this, R.string.alert_dialog_title_key_exists, Toast.LENGTH_LONG).show();
+									}
+								}
+							}
+						}
+			
+						@Override
+						public void OnOpen(DialogBroadcastReceiver dialog) {
+							if (mDialog == null) {
+								mDialog = dialog;
+							}
+						}
+					});
+					
+					mDialog.open();
+				
+					return true;
+				}
+			}
+			*/
 			Common.getSharedPreferences(this).edit().putString(preference.getKey(), (String) value).apply();
 			
 			((ListPreference) preference).setValue((String) value);
 			
-			if (preference == mPrefOnClick || 
-				preference == mPrefOnTap ||
-				preference == mPrefOnPress) {
-				
+			if (preference == mPrefOnTap1 || 
+					preference == mPrefOnTap2 || 
+					preference == mPrefOnTap3 ||
+					preference == mPrefOnPress1 ||
+					preference == mPrefOnPress2 ||
+					preference == mPrefOnPress3) {
+
 				Common.updateListSummary((ListPreference) preference, mRemapOnValues, mRemapOnNames);
-				
-			} else if (preference == mPrefOffClick || 
-					preference == mPrefOffTap ||
-					preference == mPrefOffPress) {
-				
+
+			} else if (preference == mPrefOffTap1 || 
+					preference == mPrefOffTap2 || 
+					preference == mPrefOffTap3 ||
+					preference == mPrefOffPress1 ||
+					preference == mPrefOffPress2 ||
+					preference == mPrefOffPress3) {
+
 				Common.updateListSummary((ListPreference) preference, mRemapOffValues, mRemapOffNames);
 			}
 			
@@ -498,13 +660,19 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 				editor.putString(Common.Remap.KEY_COLLECTION_SECONDARY + mKeyCurrent, TextUtils.join(",", keyList));
 				editor.remove(Common.Remap.KEY_COLLECTION_SECONDARY + keyCode);
 				editor.remove(Common.Remap.KEY_OFF_ENABLED + keyCode);
-				editor.remove(Common.Remap.KEY_OFF_ACTION_CLICK + keyCode);
-				editor.remove(Common.Remap.KEY_OFF_ACTION_TAP + keyCode);
-				editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_TAP1 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_TAP2 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_TAP3 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS1 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS2 + keyCode);
+				editor.remove(Common.Remap.KEY_OFF_ACTION_PRESS3 + keyCode);
 				editor.remove(Common.Remap.KEY_ON_ENABLED + keyCode);
-				editor.remove(Common.Remap.KEY_ON_ACTION_CLICK + keyCode);
-				editor.remove(Common.Remap.KEY_ON_ACTION_TAP + keyCode);
-				editor.remove(Common.Remap.KEY_ON_ACTION_PRESS + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_TAP1 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_TAP2 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_TAP3 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_PRESS1 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_PRESS2 + keyCode);
+				editor.remove(Common.Remap.KEY_ON_ACTION_PRESS3 + keyCode);
 				
 				editor.apply();
 				
@@ -524,15 +692,21 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
 	private void handleEnabledState(Preference preference) {
 		if (preference == mPrefOnEnaled) {
 			Boolean isEnabled = mPrefOnEnaled.isChecked();
-			mPrefOnClick.setEnabled( isEnabled );
-			mPrefOnTap.setEnabled( isEnabled );
-			mPrefOnPress.setEnabled( isEnabled );
+			mPrefOnTap1.setEnabled( isEnabled );
+			mPrefOnTap2.setEnabled( isEnabled );
+			mPrefOnTap3.setEnabled( isEnabled );
+			mPrefOnPress1.setEnabled( isEnabled );
+			mPrefOnPress2.setEnabled( isEnabled );
+			mPrefOnPress3.setEnabled( isEnabled );
 			
 		} else if (preference == mPrefOffEnaled) {
 			Boolean isEnabled = mPrefOffEnaled.isChecked();
-			mPrefOffClick.setEnabled( isEnabled );
-			mPrefOffTap.setEnabled( isEnabled );
-			mPrefOffPress.setEnabled( isEnabled );
+			mPrefOffTap1.setEnabled( isEnabled );
+			mPrefOffTap2.setEnabled( isEnabled );
+			mPrefOffTap3.setEnabled( isEnabled );
+			mPrefOffPress1.setEnabled( isEnabled );
+			mPrefOffPress2.setEnabled( isEnabled );
+			mPrefOffPress3.setEnabled( isEnabled );
 		}
 	}
 	

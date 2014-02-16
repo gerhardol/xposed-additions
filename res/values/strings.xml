@@ -40,9 +40,12 @@
 	<string name='key_removed'>The selected key has been removed</string>
 	
 	<string name='preference_title_remap_enabled'>Enable Re-map</string>
-	<string name='preference_title_remap_click'>Click Action</string>
-	<string name='preference_title_remap_tap'>Double Click Action</string>
-	<string name='preference_title_remap_press'>Long Press Action</string>
+	<string name='preference_title_remap_tap1'>Click Action</string>
+	<string name='preference_title_remap_tap2'>Double Click Action</string>
+	<string name='preference_title_remap_tap3'>Triple Click Action</string>
+	<string name='preference_title_remap_press1'>Long Press Action</string>
+	<string name='preference_title_remap_press2'>Second Long Press Action</string>
+	<string name='preference_title_remap_press3'>Third Long Press Action</string>
 	
 	<string name='config_updated'>The module configurations has been reloaded</string>
 	
