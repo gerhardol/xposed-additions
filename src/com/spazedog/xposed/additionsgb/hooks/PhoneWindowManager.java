@@ -464,7 +464,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 		 */
 		if (!mBootCompleted) {
 			param.setResult(ACTION_DISABLE);
-			
 			return;
 		}
 		
@@ -508,7 +507,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 			}
 			
 			param.setResult(ACTION_DISABLE);
-			
 			return;
 		}
 
@@ -606,7 +604,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 				if(DEBUG)Common.log(TAG, "Queueing: The key up code is not ours. Disabling it as we have an ongoing event" + getParam(keyCode, down));
 				
 				param.setResult(ACTION_DISABLE);
-				
 				return;
 			}
 		}
@@ -696,6 +693,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 			//Event already handled, no further invoking/dispatching
 			if(DEBUG)Common.log(TAG, "Queueing: Action already done for" + getParam(keyCode, down));
 			param.setResult(ACTION_DISABLE);
+			return;
 
 		} else if(mKeyFlags.mKeyRepeat >= Flags.maxTapActions) {
 			android.util.Log.i(TAG, "Queueing: Unexpected repeat" + getParam(keyCode, down));
@@ -715,10 +713,12 @@ public class PhoneWindowManager extends XC_MethodHook {
 					Boolean immediateUp = !down;
 					invokeHandler(pressDelay(), mKeyFlags.pressAction[mKeyFlags.mKeyRepeat], false, false);
 					param.setResult(ACTION_DISABLE);
+					return;
 				} else {
 
 					if(DEBUG)Common.log(TAG, "Queueing: Sequence incomplete" + getParam(keyCode, down));
 					param.setResult(ACTION_DISABLE);
+					return;
 				}
 			} else {
 				//All actions on Up cannot handle delays, so long press cannot be relayed
@@ -749,6 +749,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 
 				//No dispatching for ongoing up events
                 param.setResult(ACTION_DISABLE);
+    			return;
 			}
 		}
 	}
@@ -767,7 +768,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		final boolean down = action == KeyEvent.ACTION_DOWN;
 		
 		if ((policyFlags & FLAG_INJECTED) != 0) {
-			if(DEBUG)Common.log(TAG, "Dispatching: Key code was injected, passing on" + getParam(keyCode, down));
+			if(DEBUG)Common.log(TAG, "Dispatching: Key code was injected, dispatching" + getParam(keyCode, down));
 			if (mKeyFlags.INJECTED) {
 				param.args[ (SDK_NUMBER <= 10 ? 7 : 2) ] = (policyFlags ^ FLAG_INJECTED);
 			}
@@ -777,11 +778,12 @@ public class PhoneWindowManager extends XC_MethodHook {
 		
 		if (isOnGoing()) {
 			//Occurs for long press, dispatching without queuing
-			android.util.Log.i(TAG, "Dispatching: Ongoing." + getParam(keyCode, down));
+			android.util.Log.i(TAG, "Dispatching: Ongoing, no dispatching." + getParam(keyCode, down));
 			param.setResult(dispatchDisabled);
+			return;
 		} else {
 			
-			android.util.Log.i(TAG, "Dispatching: Not ongoing." + getParam(keyCode, down));
+			android.util.Log.i(TAG, "Dispatching: Not ongoing, dispatching." + getParam(keyCode, down));
 		}
 	}
 
