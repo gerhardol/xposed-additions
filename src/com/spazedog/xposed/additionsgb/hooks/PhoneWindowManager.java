@@ -700,25 +700,8 @@ public class PhoneWindowManager extends XC_MethodHook {
 			
 		} else {
 			if (down) {
-				//Key down, is (multi) sequence completed?
-
-				if((keyCode == mKeyFlags.mKeyPrimary)   && !isMulti() ||
-				   (keyCode == mKeyFlags.mKeySecondary) &&  isMulti()) {
-					
-					//Possible long press event for the key
-					if(DEBUG)Common.log(TAG, "Queueing: Invoking long press handler" + getParam(keyCode, down));
-
-					//TODO: Double long press gives long press action
-					Boolean immediateUp = !down;
-					invokeHandler(pressDelay(), mKeyFlags.pressAction[mKeyFlags.mKeyRepeat], false, false, true);
-					param.setResult(ACTION_DISABLE);
-					return;
-				} else {
-
-					if(DEBUG)Common.log(TAG, "Queueing: Sequence incomplete" + getParam(keyCode, down));
-					param.setResult(ACTION_DISABLE);
-					return;
-				}
+				//Down is handled in Dispatching, where long press is detected
+				//(so no ACTION_DISABLE)
 			} else {
 				//All actions on Up cannot handle delays, so long press cannot be relayed
 
@@ -762,6 +745,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		final int keyCode = (Integer) ((KeyEvent) param.args[1]).getKeyCode();
 		final int action = (Integer) ((KeyEvent) param.args[1]).getAction();
 		//final int repeatCount = (Integer) ((KeyEvent) param.args[1]).getRepeatCount();
+		final int flags = (Integer) ((KeyEvent) param.args[1]).getFlags();
 		final int policyFlags = (Integer) (param.args[2]);
 		final boolean down = action == KeyEvent.ACTION_DOWN;
 		
@@ -781,6 +765,28 @@ public class PhoneWindowManager extends XC_MethodHook {
 		
 		if (isOnGoing()) {
 			//Occurs for long press, dispatching without queuing
+			if (down) {
+				if((flags & KeyEvent.FLAG_LONG_PRESS) > 0) {
+					//Key down, is (multi) sequence completed?
+
+					if((keyCode == mKeyFlags.mKeyPrimary)   && !isMulti() ||
+					   (keyCode == mKeyFlags.mKeySecondary) &&  isMulti()) {
+
+						//Long press event for the key (combination) seen
+
+						//TODO: Double long press gives long press action
+						Boolean immediateUp = !down;
+						Boolean longPress = false;
+						int tmo = 0;//TBD pressDelay();
+						if (mKeyFlags.pressAction[mKeyFlags.mKeyRepeat] == null) {
+							tmo=0;
+							longPress = true;
+						}
+						if(DEBUG)Common.log(TAG, "Queueing: Invoking long press handler " + tmo + getParam(keyCode, down));
+						invokeHandler(tmo, mKeyFlags.pressAction[mKeyFlags.mKeyRepeat], false, immediateUp, longPress);
+					}
+				}
+			}
 			android.util.Log.i(TAG, "Dispatching: Ongoing, no dispatching." + getParam(keyCode, down)+str);
 			param.setResult(ACTION_DISPATCH_DISABLED);
 			return;
