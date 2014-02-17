@@ -91,7 +91,6 @@ public class PhoneWindowManager extends XC_MethodHook {
 		
 	private static int FLAG_INJECTED;
 	private static int FLAG_VIRTUAL;
-	//private static int ACTION_DISPATCH;
 	
 	private final int ACTION_DISABLE = 0;
 	private final Object ACTION_DISPATCH_DISABLED = -1;
@@ -197,7 +196,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 				}
 				for (Integer keyCode: mPendingKeys) {
 					if (keyCode > 0) {
-						triggerKeyEvent(keyCode, 0, true);
+						triggerKeyEvent(keyCode, -1, true, false);
 					}
 				}
 				mPendingKeys.clear();
@@ -209,6 +208,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		public String keyAction;
 		public Boolean downIsNow;
 		public Boolean immediateUp;
+		public Boolean longPress;
 		
         @SuppressLint("NewApi")
 		@Override
@@ -334,11 +334,11 @@ public class PhoneWindowManager extends XC_MethodHook {
     			
 				for (Integer keyCode: keyArray) {
     				if (keyCode > 0) {
-    					Long dTime = mKeyFlags.originalDownTime;
-    					if(downIsNow) {
-    						dTime = SystemClock.uptimeMillis();
+    					Long dTime = (long)0;
+    					if(!downIsNow) {
+    						dTime = mKeyFlags.originalDownTime;
     					}
-    					triggerKeyEvent(keyCode, dTime, immediateUp);
+    					triggerKeyEvent(keyCode, dTime, immediateUp, longPress && (keyAction == "default"));
     	    			if(!immediateUp && !mPendingKeys.contains(keyCode)) {
     	    				//Caller waits for user to release a button before sending up
     	    				mPendingKeys.add(keyCode);
@@ -708,10 +708,9 @@ public class PhoneWindowManager extends XC_MethodHook {
 					//Possible long press event for the key
 					if(DEBUG)Common.log(TAG, "Queueing: Invoking long press handler" + getParam(keyCode, down));
 
-					//Note: This also affects "standard" actions like Back, Menu
-					//Double long press gives long press action
+					//TODO: Double long press gives long press action
 					Boolean immediateUp = !down;
-					invokeHandler(pressDelay(), mKeyFlags.pressAction[mKeyFlags.mKeyRepeat], false, false);
+					invokeHandler(pressDelay(), mKeyFlags.pressAction[mKeyFlags.mKeyRepeat], false, false, true);
 					param.setResult(ACTION_DISABLE);
 					return;
 				} else {
@@ -742,7 +741,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 				if(DEBUG)Common.log(TAG, "Queueing: Invoking click/tap handler ("+keyTapDelay+","+moreActions+")" + getParam(keyCode, down));
 				//For multi we delay if this is the first up (so it is possible to get click and longpress for click)
 				Boolean immediateUp = !moreActions;
-				invokeHandler(keyTapDelay, mKeyFlags.tapAction[mKeyFlags.mKeyRepeat], true, immediateUp );
+				invokeHandler(keyTapDelay, mKeyFlags.tapAction[mKeyFlags.mKeyRepeat], true, immediateUp, false );
 
 				//Save time for next tap
 				mKeyFlags.upTime = eventTime;
@@ -816,10 +815,11 @@ public class PhoneWindowManager extends XC_MethodHook {
 		}
 	}
 	
-	protected void invokeHandler(Integer timeout, String action, Boolean downTimeIsNow, Boolean immediateUp) {
+	protected void invokeHandler(Integer timeout, String action, Boolean downTimeIsNow, Boolean immediateUp, Boolean defaultIsLongPress) {
 		mMappingRunnable.keyAction = action;
 		mMappingRunnable.downIsNow = downTimeIsNow;
 		mMappingRunnable.immediateUp = immediateUp;
+		mMappingRunnable.longPress = defaultIsLongPress;
 
 		if (timeout > 0) {
 			mHandler.postDelayed(mMappingRunnable, timeout);
@@ -920,7 +920,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 	Method xInputEvent;
 	Method xInputManager;
 	@SuppressLint("InlinedApi")
-	private void triggerKeyEvent(final int keyCode, long timeDown, Boolean up) {
+	private void triggerKeyEvent(final int keyCode, long timeDown, Boolean up, Boolean longPress) {
 		try {
 			if (xInputEvent == null) {
 				if (SDK_NUMBER >= 16) {
@@ -933,32 +933,46 @@ public class PhoneWindowManager extends XC_MethodHook {
 			}
 			
 			KeyEvent downEvent = null;
+			KeyEvent downEvent2 = null;
 			KeyEvent upEvent = null;
+			long now = SystemClock.uptimeMillis();
 			
+			//Temp workaround
+			if(timeDown >=0)
+			{
+				up = true;
+			if(timeDown == 0) {
+				timeDown = now;
+			}
 			if(timeDown > 0)
 			{
-				long now = mKeyFlags.originalDownTime;
-
 				downEvent = new KeyEvent(timeDown, now, KeyEvent.ACTION_DOWN,
 						keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
 						KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
+				if(longPress){
+					downEvent2 = new KeyEvent(timeDown, now, KeyEvent.ACTION_DOWN,
+							keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+							KeyEvent.FLAG_FROM_SYSTEM | 0x80, InputDevice.SOURCE_KEYBOARD);
+					
+				}
 			}
 			if(up) {
-				long now = SystemClock.uptimeMillis();
-
 				upEvent = new KeyEvent(now, now, KeyEvent.ACTION_UP,
 						keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
 						KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
+			}
 			}
 			
 			if (SDK_NUMBER >= 16) {
 				Object inputManager = xInputManager.invoke(null);
 				
 				if (downEvent != null)xInputEvent.invoke(inputManager, downEvent, INJECT_INPUT_EVENT_MODE_ASYNC);
+				if (downEvent2 != null)xInputEvent.invoke(inputManager, downEvent2, INJECT_INPUT_EVENT_MODE_ASYNC);
 				if (upEvent != null)xInputEvent.invoke(inputManager, upEvent, INJECT_INPUT_EVENT_MODE_ASYNC);
 				
 			} else {
 				if (downEvent != null)xInputEvent.invoke(mWindowManager, downEvent);
+				if (downEvent2 != null)xInputEvent.invoke(mWindowManager, downEvent2);
 				if (upEvent != null)xInputEvent.invoke(mWindowManager, upEvent);
 			}
 			
