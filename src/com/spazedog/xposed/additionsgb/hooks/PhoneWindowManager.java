@@ -327,7 +327,7 @@ public class PhoneWindowManager extends XC_MethodHook {
             	}
             	
         		if(DEBUG){
-        			String str = "Handler: Injecting key code(s) for " + mKeyFlags.mKeyPrimary + "/" + mKeyFlags.mKeySecondary + " " + immediateUp + "/" + downIsNow + ": "+java.util.Arrays.toString(keyArray);
+        			String str = "Handler: Injecting key code(s) for " + mKeyFlags.mKeyPrimary + "/" + mKeyFlags.mKeySecondary + " " + immediateUp + "/" + downIsNow + longPress+": "+java.util.Arrays.toString(keyArray);
         			Common.log(TAG, str);
         		}
         		mKeyFlags.INJECTED = true;
@@ -951,8 +951,8 @@ public class PhoneWindowManager extends XC_MethodHook {
 						KeyEvent.FLAG_FROM_SYSTEM, InputDevice.SOURCE_KEYBOARD);
 				if(longPress){
 					downEvent2 = new KeyEvent(timeDown, now, KeyEvent.ACTION_DOWN,
-							keyCode, 0, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
-							KeyEvent.FLAG_FROM_SYSTEM | 0x80, InputDevice.SOURCE_KEYBOARD);
+							keyCode, 1, 0, KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+							KeyEvent.FLAG_FROM_SYSTEM | KeyEvent.FLAG_LONG_PRESS, InputDevice.SOURCE_KEYBOARD);
 					
 				}
 			}
