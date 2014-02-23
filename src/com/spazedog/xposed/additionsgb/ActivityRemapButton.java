@@ -171,33 +171,6 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	}
     	mCategAwake.addPreference(mPrefOnEnabled);
     	
-    	mPrefOnTap1 = new ListPreference(this);
-    	mPrefOnTap1.setKey(Common.Remap.KEY_ON_ACTION_TAP1 + mKeyCurrent);
-    	mPrefOnTap1.setPersistent(false);
-    	mPrefOnTap1.setTitle(R.string.preference_title_remap_tap1);
-    	mPrefOnTap1.setEntries(mRemapNames);
-    	mPrefOnTap1.setEntryValues(mRemapValues);
-    	mPrefOnTap1.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_ON, 0));
-    	mPrefOnTap1.setOnPreferenceChangeListener(this);
-    	
-     	mPrefOnTap2 = new ListPreference(this);
-    	mPrefOnTap2.setKey(Common.Remap.KEY_ON_ACTION_TAP2 + mKeyCurrent);
-    	mPrefOnTap2.setPersistent(false);
-    	mPrefOnTap2.setTitle(R.string.preference_title_remap_tap2);
-    	mPrefOnTap2.setEntries(mRemapNames);
-    	mPrefOnTap2.setEntryValues(mRemapValues);
-    	mPrefOnTap2.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_ON, 1));
-    	mPrefOnTap2.setOnPreferenceChangeListener(this);
-    	
-     	mPrefOnTap3 = new ListPreference(this);
-    	mPrefOnTap3.setKey(Common.Remap.KEY_ON_ACTION_TAP3 + mKeyCurrent);
-    	mPrefOnTap3.setPersistent(false);
-    	mPrefOnTap3.setTitle(R.string.preference_title_remap_tap3);
-    	mPrefOnTap3.setEntries(mRemapNames);
-    	mPrefOnTap3.setEntryValues(mRemapValues);
-    	mPrefOnTap3.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_ON, 2));
-    	mPrefOnTap3.setOnPreferenceChangeListener(this);
-    	
     	mPrefOnPress1 = new ListPreference(this);
     	mPrefOnPress1.setKey(Common.Remap.KEY_ON_ACTION_PRESS1 + mKeyCurrent);
     	mPrefOnPress1.setPersistent(false);
@@ -206,6 +179,15 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	mPrefOnPress1.setEntryValues(mRemapValues);
     	mPrefOnPress1.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_ON, 0));
     	mPrefOnPress1.setOnPreferenceChangeListener(this);
+    	
+    	mPrefOnTap1 = new ListPreference(this);
+    	mPrefOnTap1.setKey(Common.Remap.KEY_ON_ACTION_TAP1 + mKeyCurrent);
+    	mPrefOnTap1.setPersistent(false);
+    	mPrefOnTap1.setTitle(R.string.preference_title_remap_tap1);
+    	mPrefOnTap1.setEntries(mRemapNames);
+    	mPrefOnTap1.setEntryValues(mRemapValues);
+    	mPrefOnTap1.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_ON, 0));
+    	mPrefOnTap1.setOnPreferenceChangeListener(this);
     	
     	mPrefOnPress2 = new ListPreference(this);
     	mPrefOnPress2.setKey(Common.Remap.KEY_ON_ACTION_PRESS2 + mKeyCurrent);
@@ -216,6 +198,15 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	mPrefOnPress2.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_ON, 1));
     	mPrefOnPress2.setOnPreferenceChangeListener(this);
     	
+     	mPrefOnTap2 = new ListPreference(this);
+    	mPrefOnTap2.setKey(Common.Remap.KEY_ON_ACTION_TAP2 + mKeyCurrent);
+    	mPrefOnTap2.setPersistent(false);
+    	mPrefOnTap2.setTitle(R.string.preference_title_remap_tap2);
+    	mPrefOnTap2.setEntries(mRemapNames);
+    	mPrefOnTap2.setEntryValues(mRemapValues);
+    	mPrefOnTap2.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_ON, 1));
+    	mPrefOnTap2.setOnPreferenceChangeListener(this);
+    	
     	mPrefOnPress3 = new ListPreference(this);
     	mPrefOnPress3.setKey(Common.Remap.KEY_ON_ACTION_PRESS3 + mKeyCurrent);
     	mPrefOnPress3.setPersistent(false);
@@ -224,6 +215,15 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	mPrefOnPress3.setEntryValues(mRemapValues);
     	mPrefOnPress3.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_ON, 2));
     	mPrefOnPress3.setOnPreferenceChangeListener(this);
+    	
+     	mPrefOnTap3 = new ListPreference(this);
+    	mPrefOnTap3.setKey(Common.Remap.KEY_ON_ACTION_TAP3 + mKeyCurrent);
+    	mPrefOnTap3.setPersistent(false);
+    	mPrefOnTap3.setTitle(R.string.preference_title_remap_tap3);
+    	mPrefOnTap3.setEntries(mRemapNames);
+    	mPrefOnTap3.setEntryValues(mRemapValues);
+    	mPrefOnTap3.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_ON, 2));
+    	mPrefOnTap3.setOnPreferenceChangeListener(this);
     	
     	mPrefOffEnabled = new CheckBoxPreference(this);
     	mPrefOffEnabled.setKey(Common.Remap.KEY_OFF_ENABLED + mKeyCurrent);
@@ -238,33 +238,6 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	}
     	mCategSleep.addPreference(mPrefOffEnabled);
     	
-    	mPrefOffTap1 = new ListPreference(this);
-    	mPrefOffTap1.setKey(Common.Remap.KEY_OFF_ACTION_TAP1 + mKeyCurrent);
-    	mPrefOffTap1.setPersistent(false);
-    	mPrefOffTap1.setTitle(R.string.preference_title_remap_tap1);
-    	mPrefOffTap1.setEntries(mRemapNames);
-    	mPrefOffTap1.setEntryValues(mRemapValues);
-    	mPrefOffTap1.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 0));
-    	mPrefOffTap1.setOnPreferenceChangeListener(this);
-    	
-    	mPrefOffTap2 = new ListPreference(this);
-    	mPrefOffTap2.setKey(Common.Remap.KEY_OFF_ACTION_TAP2 + mKeyCurrent);
-    	mPrefOffTap2.setPersistent(false);
-    	mPrefOffTap2.setTitle(R.string.preference_title_remap_tap2);
-    	mPrefOffTap2.setEntries(mRemapNames);
-    	mPrefOffTap2.setEntryValues(mRemapValues);
-    	mPrefOffTap2.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 1));
-    	mPrefOffTap2.setOnPreferenceChangeListener(this);
-    	
-    	mPrefOffTap3 = new ListPreference(this);
-    	mPrefOffTap3.setKey(Common.Remap.KEY_OFF_ACTION_TAP3 + mKeyCurrent);
-    	mPrefOffTap3.setPersistent(false);
-    	mPrefOffTap3.setTitle(R.string.preference_title_remap_tap3);
-    	mPrefOffTap3.setEntries(mRemapNames);
-    	mPrefOffTap3.setEntryValues(mRemapValues);
-    	mPrefOffTap3.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 2));
-    	mPrefOffTap3.setOnPreferenceChangeListener(this);
-    	
     	mPrefOffPress1 = new ListPreference(this);
     	mPrefOffPress1.setKey(Common.Remap.KEY_OFF_ACTION_PRESS1 + mKeyCurrent);
     	mPrefOffPress1.setPersistent(false);
@@ -274,6 +247,15 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	mPrefOffPress1.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 0));
     	mPrefOffPress1.setOnPreferenceChangeListener(this);
     	
+    	mPrefOffTap1 = new ListPreference(this);
+    	mPrefOffTap1.setKey(Common.Remap.KEY_OFF_ACTION_TAP1 + mKeyCurrent);
+    	mPrefOffTap1.setPersistent(false);
+    	mPrefOffTap1.setTitle(R.string.preference_title_remap_tap1);
+    	mPrefOffTap1.setEntries(mRemapNames);
+    	mPrefOffTap1.setEntryValues(mRemapValues);
+    	mPrefOffTap1.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 0));
+    	mPrefOffTap1.setOnPreferenceChangeListener(this);
+    	
     	mPrefOffPress2 = new ListPreference(this);
     	mPrefOffPress2.setKey(Common.Remap.KEY_OFF_ACTION_PRESS2 + mKeyCurrent);
     	mPrefOffPress2.setPersistent(false);
@@ -282,6 +264,15 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	mPrefOffPress2.setEntryValues(mRemapValues);
     	mPrefOffPress2.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 1));
     	mPrefOffPress2.setOnPreferenceChangeListener(this);
+
+    	mPrefOffTap2 = new ListPreference(this);
+    	mPrefOffTap2.setKey(Common.Remap.KEY_OFF_ACTION_TAP2 + mKeyCurrent);
+    	mPrefOffTap2.setPersistent(false);
+    	mPrefOffTap2.setTitle(R.string.preference_title_remap_tap2);
+    	mPrefOffTap2.setEntries(mRemapNames);
+    	mPrefOffTap2.setEntryValues(mRemapValues);
+    	mPrefOffTap2.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 1));
+    	mPrefOffTap2.setOnPreferenceChangeListener(this);
     	
     	mPrefOffPress3 = new ListPreference(this);
     	mPrefOffPress3.setKey(Common.Remap.KEY_OFF_ACTION_PRESS3 + mKeyCurrent);
@@ -291,6 +282,15 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	mPrefOffPress3.setEntryValues(mRemapValues);
     	mPrefOffPress3.setValue(Common.Remap.getKeyPress(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 2));
     	mPrefOffPress3.setOnPreferenceChangeListener(this);
+    	
+    	mPrefOffTap3 = new ListPreference(this);
+    	mPrefOffTap3.setKey(Common.Remap.KEY_OFF_ACTION_TAP3 + mKeyCurrent);
+    	mPrefOffTap3.setPersistent(false);
+    	mPrefOffTap3.setTitle(R.string.preference_title_remap_tap3);
+    	mPrefOffTap3.setEntries(mRemapNames);
+    	mPrefOffTap3.setEntryValues(mRemapValues);
+    	mPrefOffTap3.setValue(Common.Remap.getKeyTap(this, mKeyCurrent, Common.Remap.SCREEN_OFF, 2));
+    	mPrefOffTap3.setOnPreferenceChangeListener(this);
 
     	//Layout options
     	mCategAwake.addPreference(mPrefOnPress1);
@@ -312,18 +312,18 @@ public class ActivityRemapButton extends PreferenceActivity implements OnPrefere
     	}
 
     	Common.updateListSummary(mPrefOptions, mOptionsListValues, mOptionsListNames);
-    	Common.updateListSummary(mPrefOnTap1, mRemapValues, mRemapNames);
-    	Common.updateListSummary(mPrefOnTap2, mRemapValues, mRemapNames);
-    	Common.updateListSummary(mPrefOnTap3, mRemapValues, mRemapNames);
     	Common.updateListSummary(mPrefOnPress1, mRemapValues, mRemapNames);
+    	Common.updateListSummary(mPrefOnTap1, mRemapValues, mRemapNames);
    	    Common.updateListSummary(mPrefOnPress2, mRemapValues, mRemapNames);
+    	Common.updateListSummary(mPrefOnTap2, mRemapValues, mRemapNames);
     	Common.updateListSummary(mPrefOnPress3, mRemapValues, mRemapNames);
-    	Common.updateListSummary(mPrefOffTap1, mRemapValues, mRemapNames);
-    	Common.updateListSummary(mPrefOffTap2, mRemapValues, mRemapNames);
-    	Common.updateListSummary(mPrefOffTap3, mRemapValues, mRemapNames);
+    	Common.updateListSummary(mPrefOnTap3, mRemapValues, mRemapNames);
     	Common.updateListSummary(mPrefOffPress1, mRemapValues, mRemapNames);
+    	Common.updateListSummary(mPrefOffTap1, mRemapValues, mRemapNames);
     	Common.updateListSummary(mPrefOffPress2, mRemapValues, mRemapNames);
+    	Common.updateListSummary(mPrefOffTap2, mRemapValues, mRemapNames);
     	Common.updateListSummary(mPrefOffPress3, mRemapValues, mRemapNames);
+    	Common.updateListSummary(mPrefOffTap3, mRemapValues, mRemapNames);
     	
     	handleEnabledState(mPrefOnEnabled);
     	handleEnabledState(mPrefOffEnabled);
