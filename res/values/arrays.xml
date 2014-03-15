@@ -67,6 +67,7 @@
 		<item>Previous App</item>
 		<item>Power Menu</item>
 		<item>Orientation Toggle</item>
+		<item>Orientation Flip</item>
 		<item>Orientation Left</item>
 		<item>Orientation Right</item>
 		<item>Page Down</item>
@@ -101,6 +102,7 @@
 		<item>previousapp</item>
 		<item>powermenu</item>
 		<item>fliptoggle</item>
+		<item>flipflip</item>
 		<item>flipleft</item>
 		<item>flipright</item>
 		<item>93</item>

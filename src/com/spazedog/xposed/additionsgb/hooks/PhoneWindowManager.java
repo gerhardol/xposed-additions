@@ -130,6 +130,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		
 		public long originalDownTime; //Time at first down
 		public int upCount;
+		public long downTime;  //Time the button was pressed in this sequence, to determine long-long press
 		public long upTime;
 		
 		public void reset() {
@@ -139,6 +140,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 				tapAction[i] = null;
 				pressAction[i] = null;
 			}
+			downTime = 0;
 			upTime = 0;
 		}
 	}
@@ -266,6 +268,11 @@ public class PhoneWindowManager extends XC_MethodHook {
         		if(DEBUG)Common.log(TAG, "Handler: Invoking Power Menu dialog");
         		
         		openGlobalActionsDialog();
+        		
+        	} else if (keyAction.equals("flipflip")) {
+        		if(DEBUG)Common.log(TAG, "Handler: Invoking toggle orientation");
+        		
+        		rotateToggle();
         		
         	} else if (keyAction.equals("flipleft")) {
         		if(DEBUG)Common.log(TAG, "Handler: Invoking left orientation");
@@ -702,6 +709,9 @@ public class PhoneWindowManager extends XC_MethodHook {
 			if (down) {
 				//Down is handled in Dispatching, where long press is detected
 				//(so no ACTION_DISABLE)
+				//Save time for long-long press
+				mKeyFlags.downTime = eventTime;
+
 			} else {
 				//All actions on Up cannot handle delays, so long press cannot be relayed
 
@@ -748,6 +758,7 @@ public class PhoneWindowManager extends XC_MethodHook {
 		final int flags = (Integer) ((KeyEvent) param.args[1]).getFlags();
 		final int policyFlags = (Integer) (param.args[2]);
 		final boolean down = action == KeyEvent.ACTION_DOWN;
+		final long eventTime = (long) ((KeyEvent) param.args[0]).getEventTime();
 		
 		String str ="";
 		//Temporary
@@ -784,6 +795,9 @@ public class PhoneWindowManager extends XC_MethodHook {
 						}
 						if(DEBUG)Common.log(TAG, "Queueing: Invoking long press handler " + tmo + getParam(keyCode, down));
 						invokeHandler(tmo, mKeyFlags.pressAction[mKeyFlags.mKeyRepeat], false, immediateUp, longPress);
+					} else if (mKeyFlags.ACTION_DONE && mPendingKeys.size() > 0 && (eventTime - mKeyFlags.downTime) > pressDelay()*3 ) {
+						//xxx make sure only once
+						
 					}
 				}
 			}
@@ -1039,9 +1053,17 @@ public class PhoneWindowManager extends XC_MethodHook {
 
 		surface = getRotation();
 		
-		for (int i=0; i < positions.length; i++) {
-			if ((int) positions[i] == (int) surface) {
-				current = i + position; break;
+		if(position==0) {
+			if ((int) positions[0] == (int) surface) {
+			    current = (int) positions[1];
+			} else {
+				current = (int) positions[0];				
+			}
+		} else {
+			for (int i=0; i < positions.length; i++) {
+				if ((int) positions[i] == (int) surface) {
+					current = i + position; break;
+				}
 			}
 		}
 		
@@ -1049,6 +1071,10 @@ public class PhoneWindowManager extends XC_MethodHook {
 				(current < 0 ? positions.length-1 : current);
 		
 		return positions[next];
+	}
+		
+	private void rotateToggle() {
+		freezeRotation( getNextRotation(1) );
 	}
 	
 	private void rotateRight() {
