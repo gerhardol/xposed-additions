@@ -487,16 +487,15 @@ public class PhoneWindowManager {
 					}
 					
 					if (mKeyFlags.registerKey(keyCode, down)) {
-							//First tap
-							if(Common.debug()) Log.d(tag, "Configuring event");
-							
-							mWasScreenOn = isScreenOn;
-							
-							mKeyConfig.register(mKeyFlags, isScreenOn);
+						if(Common.debug()) Log.d(tag, "Configuring new event");
 
-							if (!isScreenOn) {
-								pokeUserActivity(false);
-							}
+						mWasScreenOn = isScreenOn;
+
+						mKeyConfig.register(mKeyFlags, isScreenOn);
+
+						if (!isScreenOn) {
+							pokeUserActivity(false);
+						}
 					} 
 					else if (!mKeyConfig.hasMoreAction((down ? ActionTypes.press : ActionTypes.tap), mKeyFlags, false))
 					{
@@ -565,12 +564,14 @@ public class PhoneWindowManager {
 				
 			} else if (!mKeyFlags.wasInvoked()) {
 				if(Common.debug()) Log.d(tag, (down ? "Starting" : "Stopping") + " event");
+				//This check is more complicated than necessary to detect double (and triple) clicks directly at down
+				//This is to get same behavior as before, where double-tap always was detected at down
+				//TODO down only?
 				
-				//TODO down only
-				if (down && (mKeyFlags.getTaps() <= 1)) {
+				if (down && (mKeyFlags.getTaps() <= 1 || mKeyConfig.hasAction(ActionTypes.press, mKeyFlags))) {
 					if(Common.debug()) Log.d(tag, "Waiting for long press timeout");
 					
-					Boolean wasMulti = mKeyFlags.isMulti();
+					KeyFlags wasFlags = mKeyFlags.CloneFlags();
 					Integer curDelay = 0;
 					Integer pressDelay = mKeyConfig.getLongPressDelay();
 							
@@ -582,17 +583,23 @@ public class PhoneWindowManager {
 						
 						curDelay += 10;
 						
-					} while (mKeyFlags.isKeyDown() && keyCode == mKeyFlags.getCurrentKey() && wasMulti == mKeyFlags.isMulti() && curDelay < pressDelay);
+					} while (mKeyFlags.SameFlags(wasFlags) && curDelay < pressDelay);
 					
 					synchronized(mLockQueueing) {
-						if (mKeyFlags.isKeyDown() && keyCode == mKeyFlags.getCurrentKey() && wasMulti == mKeyFlags.isMulti()) {
+						 if (mKeyFlags.SameFlags(wasFlags)) {
 							if (mKeyConfig.hasAction(ActionTypes.press, mKeyFlags)) {
-								if(Common.debug()) Log.d(tag, "Invoking mapped long press action");
+								if(Common.debug()) Log.d(tag, "Invoking mapped long press action"+curDelay);
 								
 								performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
 								handleKeyAction(mKeyConfig.getAction(ActionTypes.press, mKeyFlags), keyCode);
 								
 								mKeyFlags.finish();
+								
+							//Check not needed while the "early" tap detection skips press
+//							} else if (mKeyFlags.getTaps() > 1) {
+//								if(Common.debug()) Log.d(tag, "No long press action for press: " + mKeyFlags.getTaps());
+//
+//								mKeyFlags.finish();
 								
 							} else {
 								if(Common.debug()) Log.d(tag, "Invoking default long press action");
@@ -620,14 +627,15 @@ public class PhoneWindowManager {
 						}
 					}
 					
-					//TODO else, handle click and double click the same (tap 2 check as well)
-				} else if (!down && (mKeyFlags.getTaps() == 1) || down && (mKeyFlags.getTaps() == 2)) {
-					//timeout if there are events following otherwise action (or default) directly
-					if (mKeyConfig.hasMoreAction((down ? ActionTypes.press : ActionTypes.tap), mKeyFlags, true)) {
+				} else {
+					KeyFlags wasFlags = null;
+					
+					//timeout if there are events following otherwise direct action (or default first)
+					if (mKeyConfig.hasMoreAction(ActionTypes.tap, mKeyFlags, true)) {
 						if(Common.debug()) Log.d(tag, "Waiting for tap timeout");
 						
 						int curDelay = 0;
-						
+						wasFlags = mKeyFlags.CloneFlags();
 						do {
 							try {
 								Thread.sleep(10);
@@ -636,12 +644,11 @@ public class PhoneWindowManager {
 							
 							curDelay += 10;
 							
-						} while (!mKeyFlags.isKeyDown() && curDelay < mKeyConfig.getDoubleTapDelay());
+						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < mKeyConfig.getDoubleTapDelay());
 					}
 					
 					synchronized(mLockQueueing) {
-						if ((!mKeyFlags.isKeyDown()&&(mKeyFlags.getTaps() == 1)) || (mKeyFlags.isKeyDown()&&(mKeyFlags.getTaps() == 2))
-								&& mKeyFlags.getCurrentKey() == keyCode) {
+						if (wasFlags == null || mKeyFlags.SameFlags(wasFlags) && mKeyFlags.getCurrentKey() == keyCode) {
 							int callCode = 0;
 							
 							if ((mKeyFlags.getTaps()) == 1 && mKeyFlags.isCallButton()) {
@@ -656,9 +663,13 @@ public class PhoneWindowManager {
 							}
 							
 							if (callCode == 0) {
-								if(Common.debug()) Log.d(tag, "Invoking click(" + mKeyFlags.getTaps() + ") action");
+								if ((mKeyFlags.getTaps()) == 1 || mKeyConfig.hasAction(ActionTypes.tap, mKeyFlags)) {
+									if(Common.debug()) Log.d(tag, "Invoking click action");
 								
-								handleKeyAction(mKeyConfig.getAction(ActionTypes.tap, mKeyFlags), keyCode);
+									handleKeyAction(mKeyConfig.getAction(ActionTypes.tap, mKeyFlags), keyCode);
+								} else {
+									if(Common.debug()) Log.d(tag, "No click action");
+								}
 								
 							} else {
 								if(Common.debug()) Log.d(tag, "Invoking call button");
@@ -1088,7 +1099,7 @@ public class PhoneWindowManager {
 	protected enum ActionTypes { press, tap };
 	
 	protected class KeyConfig {
-		protected static final int maxTapActions = 3*2;
+		protected static final int maxTapActions = 3*2; //ActionTypes.values().length;
 		
 		//actions in the order they appear: press 1, tap 1, press 2, tap 2 etc
 		private String[] mActions = new String[maxTapActions];
@@ -1169,6 +1180,7 @@ public class PhoneWindowManager {
 	protected class KeyFlags {
 		private Boolean mIsPrimaryDown = false;
 		private Boolean mIsSecondaryDown = false;
+		private Boolean mIsAggregatedDown = false;
 		private Boolean mFinished = false;
 		private Boolean mReset = false;
 		private Boolean mDefaultLongPress = false;
@@ -1179,6 +1191,26 @@ public class PhoneWindowManager {
 		private Integer mSecondaryKey = 0;
 		private Integer mCurrentKey = 0;
 		
+		public KeyFlags CloneFlags() {
+			KeyFlags k = new KeyFlags();
+			k.mIsPrimaryDown = this.mIsPrimaryDown;
+			k.mIsSecondaryDown = this.mIsSecondaryDown;
+			k.mTaps = this.mTaps;
+			k.mPrimaryKey = this.mPrimaryKey;
+			k.mSecondaryKey = this.mSecondaryKey;
+			return k;
+		}
+		public boolean SameFlags(KeyFlags o2) {
+			boolean result = false;
+			if (this.mIsPrimaryDown == o2.mIsPrimaryDown &&
+					this.mIsSecondaryDown == o2.mIsSecondaryDown &&
+					this.mTaps == o2.mTaps &&
+					this.mPrimaryKey == o2.mPrimaryKey &&
+					this.mSecondaryKey == o2.mSecondaryKey) {
+				result = true;
+			}
+			return result;
+		}
 		public void finish() {
 			mFinished = true;
 			mReset = mSecondaryKey == 0;
@@ -1198,7 +1230,6 @@ public class PhoneWindowManager {
 				if (!isDone() && mTaps >= 1 && (keyCode == mPrimaryKey || keyCode == mSecondaryKey)) {
 					if(Common.debug()) Log.d(tag, "Registring repeated event");
 										
-
 					if (!mIsPrimaryDown && !mIsSecondaryDown) {
 						mTaps++;
 					}
@@ -1207,6 +1238,9 @@ public class PhoneWindowManager {
 						
 					} else {
 						mIsPrimaryDown = true;
+					}
+					if (mIsPrimaryDown && (mSecondaryKey == 0 || mIsSecondaryDown)) {
+						mIsAggregatedDown = true;
 					}
 					
 				} else if (mTaps == 1 && !mReset && mPrimaryKey > 0 && mIsPrimaryDown && keyCode != mPrimaryKey && (mSecondaryKey == 0 || mSecondaryKey == keyCode)) {
@@ -1223,6 +1257,7 @@ public class PhoneWindowManager {
 					
 					mIsPrimaryDown = true;
 					mIsSecondaryDown = false;
+					mIsAggregatedDown = true;
 					mTaps = 1;
 					mFinished = false;
 					mReset = false;
@@ -1246,6 +1281,9 @@ public class PhoneWindowManager {
 					
 					mIsSecondaryDown = false;
 				}
+				if (!mIsPrimaryDown && (mSecondaryKey == 0 || !mIsSecondaryDown)) {
+					mIsAggregatedDown = false;
+				}
 			}
 			return newEvent;
 		}
@@ -1267,7 +1305,7 @@ public class PhoneWindowManager {
 		}
 		
 		public Boolean isKeyDown() {
-			return mPrimaryKey > 0 && mIsPrimaryDown && (mSecondaryKey == 0 || mIsSecondaryDown);
+			return mIsAggregatedDown;
 		}
 		
 		public Boolean isCallButton() {
