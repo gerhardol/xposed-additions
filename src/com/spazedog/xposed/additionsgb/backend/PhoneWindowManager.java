@@ -38,8 +38,10 @@ import android.content.pm.ResolveInfo;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.util.Log;
@@ -62,6 +64,7 @@ import com.spazedog.lib.reflecttools.utils.ReflectMember.Match;
 import com.spazedog.xposed.additionsgb.Common;
 import com.spazedog.xposed.additionsgb.Common.Index;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
+import com.spazedog.xposed.additionsgb.backend.service.XServiceManager.XServiceBroadcastListener;
 
 import de.robv.android.xposed.XC_MethodHook;
 
@@ -80,6 +83,7 @@ public class PhoneWindowManager {
 				pwm.inject("init", hooks.hook_init);
 				pwm.inject("interceptKeyBeforeQueueing", hooks.hook_interceptKeyBeforeQueueing);
 				pwm.inject("interceptKeyBeforeDispatching", hooks.hook_interceptKeyBeforeDispatching);
+				pwm.inject("performHapticFeedbackLw", hooks.hook_performHapticFeedbackLw);
 				
 			} catch (ReflectException ei) {
 				Log.e(TAG, ei.getMessage(), ei);
@@ -112,6 +116,17 @@ public class PhoneWindowManager {
 	
 	protected static int INJECT_INPUT_EVENT_MODE_ASYNC;
 	
+	/*
+	 * Android uses positive, we use negative
+	 */
+	protected static final int HAPTIC_VIRTUAL_KEY = (0 - (HapticFeedbackConstants.VIRTUAL_KEY + 1));
+	protected static final int HAPTIC_LONG_PRESS = (0 - (HapticFeedbackConstants.LONG_PRESS + 1));
+	
+	/*
+	 * A hack to indicate when a key is being processed by one of the original methods. 
+	 */
+	protected int mOriginalLocks = 0;
+	
 	protected Context mContext;
 	protected XServiceManager mPreferences;
 	
@@ -130,6 +145,8 @@ public class PhoneWindowManager {
 	
 	protected boolean mReady = false;
 	
+	protected boolean mInterceptKeyCode = false;
+	
 	protected KeyFlags mKeyFlags = new KeyFlags();
 	protected KeyConfig mKeyConfig = new KeyConfig();
 	
@@ -139,9 +156,15 @@ public class PhoneWindowManager {
 	
 	protected Intent mTorchIntent;
 	
+	protected int mKeyCharacterMap;
+	
+	protected WakeLock mWakelock;
+	
 	protected Map<String, ReflectConstructor> mConstructors = new HashMap<String, ReflectConstructor>();
 	protected Map<String, ReflectMethod> mMethods = new HashMap<String, ReflectMethod>();
 	protected Map<String, ReflectField> mFields = new HashMap<String, ReflectField>();
+	
+	protected Map<Integer, Boolean> mDeviceKeys = new HashMap<Integer, Boolean>();
 	
 	protected void registerMembers() {
 		try {
@@ -195,8 +218,8 @@ public class PhoneWindowManager {
 	protected XC_MethodHook hook_viewConfigTimeouts = new XC_MethodHook() {
 		@Override
 		protected final void afterHookedMethod(final MethodHookParam param) {
-			if (mKeyFlags.isKeyDown()) {
-				param.setResult(100);
+			if ((mKeyFlags.isKeyDown() && !mKeyFlags.wasCanceled()) || mOriginalLocks > 0) {
+				param.setResult(10);
 			}
 		}
 	};
@@ -270,6 +293,7 @@ public class PhoneWindowManager {
 	 * JellyBean uses arguments init(Context, IWindowManager, WindowManagerFuncs)
 	 */
 	protected XC_MethodHook hook_init = new XC_MethodHook() {
+		@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 		@Override
 		protected final void afterHookedMethod(final MethodHookParam param) {
 			try {
@@ -280,15 +304,26 @@ public class PhoneWindowManager {
 				mPhoneWindowManager = new ReflectClass(param.thisObject);
 				mActivityManager = new ReflectClass(mContext.getSystemService(Context.ACTIVITY_SERVICE));
 				mAudioManager = new ReflectClass(mContext.getSystemService(Context.AUDIO_SERVICE));
-				
+				mWakelock = ((PowerManager) mPowerManager.getReceiver()).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "HookedPhoneWindowManager");
 				mHandler = new Handler();
 				
 				mPreferences = XServiceManager.getInstance();
-				mPreferences.registerContext(mContext);
 				
 				if (mPreferences == null) {
 					throw new ReflectException("XService has not been started", null);
 				}
+				
+				mPreferences.addBroadcastListener(new XServiceBroadcastListener(){
+					@Override
+					public void onBroadcastReceive(String action, Bundle data) {
+						if (action.equals("keyIntercepter:enable")) {
+							mInterceptKeyCode = true;
+							
+						} else if (action.equals("keyIntercepter:disable")) {
+							mInterceptKeyCode = false;
+						}
+					}
+				});
 				
 				mContext.registerReceiver(
 					new BroadcastReceiver() {
@@ -371,6 +406,17 @@ public class PhoneWindowManager {
 									Log.e(TAG, e.getMessage(), e);
 								}
 								
+								if (SDK_NEW_CHARACTERMAP) {
+									try {
+										mKeyCharacterMap = KeyCharacterMap.load(-1).getKeyboardType();
+										
+									} catch (Throwable ei) {
+										Log.e(TAG, ei.getMessage(), ei);
+										
+										mKeyCharacterMap = KeyCharacterMap.VIRTUAL_KEYBOARD;
+									}
+								}
+								
 							} catch (ReflectException e) {
 								Log.e(TAG, e.getMessage(), e);
 								
@@ -394,6 +440,10 @@ public class PhoneWindowManager {
 	 * ICS/JellyBean uses arguments interceptKeyBeforeQueueing(KeyEvent event, Integer policyFlags, Boolean isScreenOn)
 	 */
 	protected XC_MethodHook hook_interceptKeyBeforeQueueing = new XC_MethodHook() {
+		
+		protected Boolean mIsOriginalLocked = false;
+		
+		@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			/*
@@ -411,9 +461,10 @@ public class PhoneWindowManager {
 			final int repeatCount = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? 0 : ((KeyEvent) param.args[0]).getRepeatCount());
 			final boolean isScreenOn = (Boolean) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[6] : param.args[2]);
 			final boolean down = action == KeyEvent.ACTION_DOWN;
+			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 1 : 5;
 			
 			String tag = TAG + "#Queueing/" + (down ? "Down" : "Up") + ":" + keyCode;
-			
+
 			/*
 			 * Using KitKat work-around from the InputManager Hook
 			 */
@@ -421,17 +472,7 @@ public class PhoneWindowManager {
 					(((KeyEvent) param.args[0]).getFlags() & FLAG_INJECTED) != 0 : (policyFlags & FLAG_INJECTED) != 0;
 			
 			if (isInjected) {
-				if (!down || repeatCount <= 0) {
-					if(Common.debug()) Log.d(tag, "Skipping injected key");
-					
-					if (SDK_NEW_PHONE_WINDOW_MANAGER) {
-						param.args[1] = policyFlags & ~FLAG_INJECTED;
-						
-					} else {
-						param.args[5] = policyFlags & ~FLAG_INJECTED;
-					}
-					
-				} else {
+				if (down && repeatCount > 0) {
 					if(Common.debug()) Log.d(tag, "Ignoring injected repeated key");
 					
 					/*
@@ -441,6 +482,14 @@ public class PhoneWindowManager {
 					 * stock ROM's are treating these as both new and repeated events. 
 					 */
 					param.setResult(ACTION_PASS_QUEUEING);
+					
+				} else {
+					param.args[policyIndex] = policyFlags & ~FLAG_INJECTED;
+				}
+				
+				synchronized(hook_performHapticFeedbackLw) {
+					mIsOriginalLocked = true;
+					mOriginalLocks += 1;
 				}
 			
 				return;
@@ -448,6 +497,23 @@ public class PhoneWindowManager {
 			
 			synchronized(mLockQueueing) {
 				if(Common.debug()) Log.d(tag, (down ? "Starting" : "Stopping") + " event");
+				
+				if (!internalKey(keyCode)) {
+					if (mInterceptKeyCode) {
+						param.setResult(ACTION_DISABLE_QUEUEING);
+					}
+
+					mKeyFlags.cancel();
+					
+					return;
+					
+				} else if (down && isScreenOn != mWasScreenOn) {
+					mWasScreenOn = isScreenOn;
+					
+					mKeyFlags.reset();
+				}
+				
+				mKeyFlags.registerKey(keyCode, down);
 				
 				boolean isVirtual = (policyFlags & FLAG_VIRTUAL) != 0;
 				
@@ -465,27 +531,25 @@ public class PhoneWindowManager {
 				}
 				
 				if (down && isVirtual) {
-					performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+					performHapticFeedback(HAPTIC_VIRTUAL_KEY);
 				}
 				
-				if (isScreenOn && mKeyFlags.isDone() && mPreferences.getBoolean("intercept_keycode", false)) {
+				if (isScreenOn && mInterceptKeyCode) {
 					if (down) {
 						if(Common.debug()) Log.d(tag, "Intercepting key code");
 						
-						mPreferences.putInt("last_intercepted_keycode", keyCode, false);
+						Bundle bundle = new Bundle();
+						bundle.putInt("keyCode", keyCode);
 						
-						mKeyFlags.reset();
+						mPreferences.sendBroadcast("keyIntercepter:keyCode", bundle);
+						
+						mKeyFlags.cancel();
 					}
 					
 					param.setResult(ACTION_DISABLE_QUEUEING);
 					
 				} else {
-					if (down && isScreenOn != mWasScreenOn) {
-						mWasScreenOn = isScreenOn;
-						
-						mKeyFlags.reset();
-					}
-					
+
 					if (mKeyFlags.registerKey(keyCode, down)) {
 						if(Common.debug()) Log.d(tag, "Configuring new event");
 
@@ -494,6 +558,10 @@ public class PhoneWindowManager {
 						mKeyConfig.register(mKeyFlags, isScreenOn);
 
 						if (!isScreenOn) {
+							if (!mWakelock.isHeld()) {
+								mWakelock.acquire(3000);
+							}
+
 							pokeUserActivity(false);
 						}
 					} 
@@ -507,6 +575,21 @@ public class PhoneWindowManager {
 				}
 			}
 		}
+		
+		@Override
+		protected final void afterHookedMethod(final MethodHookParam param) {
+			if (mIsOriginalLocked) {
+				mIsOriginalLocked = false;
+				
+				/*
+				 * We don't use "-= 1" to avoid it going below 0. 
+				 * It should only be 0, 1 or 2
+				 */
+				synchronized(hook_performHapticFeedbackLw) {
+					mOriginalLocks = mOriginalLocks > 1 ? 1 : 0;
+				}
+			}
+		}
 	};
 	
 	/**
@@ -515,6 +598,9 @@ public class PhoneWindowManager {
 	 * ICS/JellyBean uses arguments interceptKeyBeforeDispatching(WindowState win, KeyEvent event, Integer policyFlags)
 	 */
 	protected XC_MethodHook hook_interceptKeyBeforeDispatching = new XC_MethodHook() {
+		
+		protected Boolean mIsOriginalLocked = false;
+		
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			/*
@@ -532,6 +618,7 @@ public class PhoneWindowManager {
 			//final int eventFlags = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[2] : ((KeyEvent) param.args[1]).getFlags());
 			final int repeatCount = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[6] : ((KeyEvent) param.args[1]).getRepeatCount());
 			final boolean down = action == KeyEvent.ACTION_DOWN;
+			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 2 : 7;
 			
 			String tag = TAG + "#Dispatch/" + (down ? "Down" : "Up") + "(" + mKeyFlags.getTaps() + "):" + keyCode;
 			
@@ -542,19 +629,22 @@ public class PhoneWindowManager {
 					(((KeyEvent) param.args[1]).getFlags() & FLAG_INJECTED) != 0 : (policyFlags & FLAG_INJECTED) != 0;
 			
 			if (isInjected) {
-				if (SDK_NEW_PHONE_WINDOW_MANAGER) {
-					param.args[2] = policyFlags & ~FLAG_INJECTED;
-					
-				} else {
-					param.args[7] = policyFlags & ~FLAG_INJECTED;
-				}
-				
 				if (down && mKeyFlags.isDefaultLongPress() && mKeyFlags.isKeyDown() && keyCode == mKeyFlags.getCurrentKey()) {
 					if(Common.debug()) Log.d(tag, "Repeating default long press event count " + repeatCount);
 					
 					injectInputEvent(keyCode, repeatCount+1);
 				}
+				
+				synchronized(hook_performHapticFeedbackLw) {
+					mIsOriginalLocked = true;
+					mOriginalLocks += 1;
+				}
+				
+				param.args[policyIndex] = policyFlags & ~FLAG_INJECTED;
 			
+				return;
+				
+			} else if (!internalKey(keyCode)) {
 				return;
 				
 			} else if (!down && mKeyFlags.isDefaultLongPress()) {
@@ -566,7 +656,6 @@ public class PhoneWindowManager {
 				if(Common.debug()) Log.d(tag, (down ? "Starting" : "Stopping") + " event");
 				//This check is more complicated than necessary to detect double (and triple) clicks directly at down
 				//This is to get same behavior as before, where double-tap always was detected at down
-				//TODO down only?
 				
 				if (down && (mKeyFlags.getTaps() <= 1 || mKeyConfig.hasAction(ActionTypes.press, mKeyFlags))) {
 					if(Common.debug()) Log.d(tag, "Waiting for long press timeout");
@@ -586,26 +675,23 @@ public class PhoneWindowManager {
 					} while (mKeyFlags.SameFlags(wasFlags) && curDelay < pressDelay);
 					
 					synchronized(mLockQueueing) {
-						 if (mKeyFlags.SameFlags(wasFlags)) {
+						if (mKeyFlags.SameFlags(wasFlags)) {
+							performHapticFeedback(HAPTIC_LONG_PRESS);
+							
+							mKeyFlags.finish();
+
 							if (mKeyConfig.hasAction(ActionTypes.press, mKeyFlags)) {
 								if(Common.debug()) Log.d(tag, "Invoking mapped long press action"+curDelay);
-								
-								performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
 								handleKeyAction(mKeyConfig.getAction(ActionTypes.press, mKeyFlags), keyCode);
 								
-								mKeyFlags.finish();
-								
 							//Check not needed while the "early" tap detection skips press
-//							} else if (mKeyFlags.getTaps() > 1) {
-//								if(Common.debug()) Log.d(tag, "No long press action for press: " + mKeyFlags.getTaps());
-//
-//								mKeyFlags.finish();
+							//} else if (mKeyFlags.getTaps() > 1) {
+							//	if(Common.debug()) Log.d(tag, "No long press action for press: " + mKeyFlags.getTaps());
 								
 							} else {
 								if(Common.debug()) Log.d(tag, "Invoking default long press action");
 								
 								mKeyFlags.setDefaultLongPress(true);
-								mKeyFlags.finish();
 								
 								if (mKeyFlags.isMulti()) {
 									int primary = mKeyFlags.getPrimaryKey() == keyCode ? mKeyFlags.getSecondaryKey() : mKeyFlags.getPrimaryKey();
@@ -648,10 +734,10 @@ public class PhoneWindowManager {
 					}
 					
 					synchronized(mLockQueueing) {
-						if (wasFlags == null || mKeyFlags.SameFlags(wasFlags) && mKeyFlags.getCurrentKey() == keyCode) {
+						if ((wasFlags == null || mKeyFlags.SameFlags(wasFlags)) && mKeyFlags.getCurrentKey() == keyCode) {
 							int callCode = 0;
 							
-							if ((mKeyFlags.getTaps()) == 1 && mKeyFlags.isCallButton()) {
+							if ((mKeyFlags.getTaps() == 1) && mKeyFlags.isCallButton()) {
 								int mode = ((AudioManager) mAudioManager.getReceiver()).getMode();
 
 								if (mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION) {
@@ -663,7 +749,7 @@ public class PhoneWindowManager {
 							}
 							
 							if (callCode == 0) {
-								if ((mKeyFlags.getTaps()) == 1 || mKeyConfig.hasAction(ActionTypes.tap, mKeyFlags)) {
+								if ((mKeyFlags.getTaps() == 1) || mKeyConfig.hasAction(ActionTypes.tap, mKeyFlags)) {
 									if(Common.debug()) Log.d(tag, "Invoking click action");
 								
 									handleKeyAction(mKeyConfig.getAction(ActionTypes.tap, mKeyFlags), keyCode);
@@ -685,7 +771,58 @@ public class PhoneWindowManager {
 			
 			param.setResult(ACTION_DISABLE_DISPATCHING);
 		}
+		
+		
+		@Override
+		protected final void afterHookedMethod(final MethodHookParam param) {
+			if (mIsOriginalLocked) {
+				mIsOriginalLocked = false;
+				
+				/*
+				 * We don't use "-= 1" to avoid it going below 0. 
+				 * It should only be 0, 1 or 2
+				 */
+				synchronized(hook_performHapticFeedbackLw) {
+					mOriginalLocks = mOriginalLocks > 1 ? 1 : 0;
+				}
+			}
+		}
 	};
+	
+	protected XC_MethodHook hook_performHapticFeedbackLw = new XC_MethodHook() {
+		@Override
+		protected final void beforeHookedMethod(final MethodHookParam param) {
+			/*
+			 * This is used to avoid having the original methods create feedback on our handled keys.
+			 * Some Stock ROM's like TouchWiz often does this, even on injected keys. 
+			 */
+			switch ( (Integer) param.args[1] ) {
+				/*
+				 * Makes sure that we never disable our own feedback calls
+				 */
+				case HAPTIC_VIRTUAL_KEY: param.args[1] = HapticFeedbackConstants.VIRTUAL_KEY; return; 
+				case HAPTIC_LONG_PRESS: param.args[1] = HapticFeedbackConstants.LONG_PRESS; return;
+				
+				/*
+				 * We can't disable original calls completely. 
+				 * The key handling methods are not the only once using this.
+				 * Lock screen pattern feedback and others use it as well. 
+				 */
+				default:
+					if (mOriginalLocks > 0) {
+						param.setResult(true);
+					}
+			}
+		}
+	};
+	
+	protected Boolean internalKey(Integer keyCode) {
+		if (!mDeviceKeys.containsKey(keyCode)) {
+			mDeviceKeys.put(keyCode, KeyCharacterMap.deviceHasKey(keyCode));
+		}
+		
+		return mDeviceKeys.get(keyCode) || mPreferences.getBoolean(Common.Index.bool.key.remapAllowExternals, Common.Index.bool.value.remapAllowExternals);
+	}
 	
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	public void pokeUserActivity(Boolean forced) {
@@ -725,43 +862,39 @@ public class PhoneWindowManager {
 	
 	@SuppressLint("NewApi")
 	protected void injectInputEvent(final int keyCode, final int... repeat) {
-		mHandler.post(new Runnable() {
-			public void run() {
-				synchronized(PhoneWindowManager.class) {
-					long now = SystemClock.uptimeMillis();
-					int characterMap = SDK_NEW_CHARACTERMAP ? KeyCharacterMap.SPECIAL_FUNCTION : 0;
-					int eventType = repeat.length == 0 || repeat[0] >= 0 ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
+		synchronized(PhoneWindowManager.class) {
+			long now = SystemClock.uptimeMillis();
+			int characterMap = SDK_NEW_CHARACTERMAP ? mKeyCharacterMap : 0;
+			int eventType = repeat.length == 0 || repeat[0] >= 0 ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
+			
+			int flags = repeat.length > 0 && repeat[0] == 1 ? KeyEvent.FLAG_LONG_PRESS|KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED : KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED;
+			
+			int repeatCount = repeat.length == 0 ? 0 : 
+				repeat[0] < 0 ? 1 : repeat[0];
+				
+			KeyEvent event = new KeyEvent(now, now, eventType, keyCode, repeatCount, 0, characterMap, 0, flags, InputDevice.SOURCE_KEYBOARD);
+			
+			try {
+				if (SDK_HAS_HARDWARE_INPUT_MANAGER) {
+					mMethods.get("injectInputEvent").invoke(event, INJECT_INPUT_EVENT_MODE_ASYNC);
 					
-					int flags = repeat.length > 0 && repeat[0] == 1 ? KeyEvent.FLAG_LONG_PRESS|KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED : KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED;
-					
-					int repeatCount = repeat.length == 0 ? 0 : 
-						repeat[0] < 0 ? 1 : repeat[0];
+				} else {
+					mMethods.get("injectInputEvent").invoke(event);
+				}
+				
+				if (repeat.length == 0) {
+					if (SDK_HAS_HARDWARE_INPUT_MANAGER) {
+						mMethods.get("injectInputEvent").invoke(KeyEvent.changeAction(event, KeyEvent.ACTION_UP), INJECT_INPUT_EVENT_MODE_ASYNC);
 						
-					KeyEvent event = new KeyEvent(now, now, eventType, keyCode, repeatCount, 0, characterMap, 0, flags, InputDevice.SOURCE_KEYBOARD);
-					
-					try {
-						if (SDK_HAS_HARDWARE_INPUT_MANAGER) {
-							mMethods.get("injectInputEvent").invoke(event, INJECT_INPUT_EVENT_MODE_ASYNC);
-							
-						} else {
-							mMethods.get("injectInputEvent").invoke(event);
-						}
-						
-						if (repeat.length == 0) {
-							if (SDK_HAS_HARDWARE_INPUT_MANAGER) {
-								mMethods.get("injectInputEvent").invoke(KeyEvent.changeAction(event, KeyEvent.ACTION_UP), INJECT_INPUT_EVENT_MODE_ASYNC);
-								
-							} else {
-								mMethods.get("injectInputEvent").invoke(KeyEvent.changeAction(event, KeyEvent.ACTION_UP));
-							}
-						}
-						
-					} catch (ReflectException e) {
-						Log.e(TAG, e.getMessage(), e);
+					} else {
+						mMethods.get("injectInputEvent").invoke(KeyEvent.changeAction(event, KeyEvent.ACTION_UP));
 					}
 				}
+				
+			} catch (ReflectException e) {
+				Log.e(TAG, e.getMessage(), e);
 			}
-		});
+		}
 	}
 
 	protected void performHapticFeedback(Integer effectId) {
@@ -859,7 +992,7 @@ public class PhoneWindowManager {
 				Object userCurrent = mFields.get("UserHandle.current").getValue();
 				Object user = mConstructors.get("UserHandle").invoke(userCurrent);
 				
-				mMethods.get("startActivityAsUser").invoke(user);
+				mMethods.get("startActivityAsUser").invoke(intent, user);
 				
 			} catch (ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
@@ -1183,6 +1316,7 @@ public class PhoneWindowManager {
 		private Boolean mIsAggregatedDown = false;
 		private Boolean mFinished = false;
 		private Boolean mReset = false;
+		private Boolean mCancel = false;
 		private Boolean mDefaultLongPress = false;
 		private Boolean mIsCallButton = false;
 		
@@ -1213,7 +1347,15 @@ public class PhoneWindowManager {
 		}
 		public void finish() {
 			mFinished = true;
-			mReset = mSecondaryKey == 0;
+			
+			if (!isDone()) {
+				mReset = mSecondaryKey == 0;
+			}
+		}
+		
+		public void cancel() {
+			mCancel = true;
+			mReset = true;
 		}
 		
 		public void reset() {
@@ -1243,7 +1385,7 @@ public class PhoneWindowManager {
 						mIsAggregatedDown = true;
 					}
 					
-				} else if (mTaps == 1 && !mReset && mPrimaryKey > 0 && mIsPrimaryDown && keyCode != mPrimaryKey && (mSecondaryKey == 0 || mSecondaryKey == keyCode)) {
+				} else if (mTaps == 1 && !mReset && !mCancel && mPrimaryKey > 0 && mIsPrimaryDown && keyCode != mPrimaryKey && (mSecondaryKey == 0 || mSecondaryKey == keyCode)) {
 					if(Common.debug()) Log.d(tag, "Registring first secondary key");
 					
 					mIsSecondaryDown = true;
@@ -1261,6 +1403,7 @@ public class PhoneWindowManager {
 					mTaps = 1;
 					mFinished = false;
 					mReset = false;
+					mCancel = false;
 					mDefaultLongPress = false;
 					
 					mPrimaryKey = keyCode;
@@ -1289,11 +1432,15 @@ public class PhoneWindowManager {
 		}
 		
 		public Boolean wasInvoked() {
-			return mFinished;
+			return mFinished || mCancel;
+		}
+		
+		public Boolean wasCanceled() {
+			return mCancel;
 		}
 		
 		public Boolean isDone() {
-			return mFinished || mReset || mPrimaryKey == 0;
+			return mFinished || mReset || mCancel || mPrimaryKey == 0;
 		}
 		
 		public Boolean isMulti() {
