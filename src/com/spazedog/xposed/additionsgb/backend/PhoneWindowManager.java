@@ -434,6 +434,10 @@ public class PhoneWindowManager {
 		}
 	};
 	
+	private static int shortTime(){
+		return (int)(SystemClock.uptimeMillis() % 10000);
+	}
+	
 	/**
 	 * ========================================================================================
 	 * Gingerbread uses arguments interceptKeyBeforeQueueing(Long whenNanos, Integer action, Integer flags, Integer keyCode, Integer scanCode, Integer policyFlags, Boolean isScreenOn)
@@ -463,7 +467,7 @@ public class PhoneWindowManager {
 			final boolean down = action == KeyEvent.ACTION_DOWN;
 			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 1 : 5;
 			
-			String tag = TAG + "#Queueing/" + (down ? "Down" : "Up") + ":" + keyCode;
+			String tag = TAG + " #Queueing/" + (down ? "Down" : "Up") + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "):" + keyCode;
 
 			/*
 			 * Using KitKat work-around from the InputManager Hook
@@ -513,7 +517,7 @@ public class PhoneWindowManager {
 					mKeyFlags.reset();
 				}
 				
-				mKeyFlags.registerKey(keyCode, down);
+				boolean newAction = mKeyFlags.registerKey(keyCode, down);
 				
 				boolean isVirtual = (policyFlags & FLAG_VIRTUAL) != 0;
 				
@@ -550,12 +554,12 @@ public class PhoneWindowManager {
 					
 				} else {
 
-					if (mKeyFlags.registerKey(keyCode, down)) {
+					if (newAction) {
 						if(Common.debug()) Log.d(tag, "Configuring new event");
 
 						mWasScreenOn = isScreenOn;
 
-						mKeyConfig.register(mKeyFlags, isScreenOn);
+						mKeyConfig.newAction(mKeyFlags, isScreenOn);
 
 						if (!isScreenOn) {
 							if (!mWakelock.isHeld()) {
@@ -620,7 +624,7 @@ public class PhoneWindowManager {
 			final boolean down = action == KeyEvent.ACTION_DOWN;
 			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 2 : 7;
 			
-			String tag = TAG + "#Dispatch/" + (down ? "Down" : "Up") + "(" + mKeyFlags.getTaps() + "):" + keyCode;
+			String tag = TAG + " #Dispatch/" + (down ? "Down" : "Up") + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "):" + keyCode;
 			
 			/*
 			 * Using KitKat work-around from the InputManager Hook
@@ -1239,7 +1243,7 @@ public class PhoneWindowManager {
 		private Integer mKeyDelayTap = 0;
 		private Integer mKeyDelayPress = 0;
 		
-		public void register(KeyFlags keyFlags, Boolean isScreenOn)
+		public void newAction(KeyFlags keyFlags, Boolean isScreenOn)
 		{
 			Boolean extended = mPreferences.isPackageUnlocked();
 			this.mKeyDelayTap = mPreferences.getInt(Common.Index.integer.key.remapTapDelay, Common.Index.integer.value.remapTapDelay);
