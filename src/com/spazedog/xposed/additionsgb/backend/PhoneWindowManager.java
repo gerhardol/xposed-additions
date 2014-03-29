@@ -156,8 +156,6 @@ public class PhoneWindowManager {
 	
 	protected Intent mTorchIntent;
 	
-	protected int mKeyCharacterMap;
-	
 	protected WakeLock mWakelock;
 	
 	protected Map<String, ReflectConstructor> mConstructors = new HashMap<String, ReflectConstructor>();
@@ -205,9 +203,12 @@ public class PhoneWindowManager {
 		}
 
 		if (SDK_HAS_MULTI_USER) {
+			ReflectClass context = new ReflectClass(mContext);
+			
 			mConstructors.put("UserHandle", ReflectClass.forName("android.os.UserHandle").findConstructor(Match.BEST, Integer.TYPE));
 			mFields.put("UserHandle.current", ReflectClass.forName("android.os.UserHandle").findField("USER_CURRENT"));
-			mMethods.put("startActivityAsUser", new ReflectClass(mContext).findMethodDeep("startActivityAsUser", Match.BEST, Intent.class, "android.os.UserHandle"));
+			mMethods.put("startActivityAsUser", context.findMethodDeep("startActivityAsUser", Match.BEST, Intent.class, "android.os.UserHandle"));
+			mMethods.put("sendBroadcastAsUser", context.findMethodDeep("sendBroadcastAsUser", Match.BEST, Intent.class, "android.os.UserHandle"));
 		}
 
 		if (!SDK_NEW_POWER_MANAGER) {
@@ -404,17 +405,6 @@ public class PhoneWindowManager {
 									
 								} catch (ReflectException e) {
 									Log.e(TAG, e.getMessage(), e);
-								}
-								
-								if (SDK_NEW_CHARACTERMAP) {
-									try {
-										mKeyCharacterMap = KeyCharacterMap.load(-1).getKeyboardType();
-										
-									} catch (Throwable ei) {
-										Log.e(TAG, ei.getMessage(), ei);
-										
-										mKeyCharacterMap = KeyCharacterMap.VIRTUAL_KEYBOARD;
-									}
 								}
 								
 							} catch (ReflectException e) {
@@ -914,7 +904,7 @@ public class PhoneWindowManager {
 	protected void injectInputEvent(final int keyCode, final long time, final int repeatDown, final boolean longpress, final boolean up) {
 		synchronized(PhoneWindowManager.class) {
 			long now = SystemClock.uptimeMillis();
-			int characterMap = SDK_NEW_CHARACTERMAP ? mKeyCharacterMap : 0;
+			int characterMap = SDK_NEW_CHARACTERMAP ? KeyCharacterMap.VIRTUAL_KEYBOARD : 0;
 			
 			int flags = longpress ? KeyEvent.FLAG_LONG_PRESS|KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED : KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED;
 			
@@ -1201,7 +1191,20 @@ public class PhoneWindowManager {
 	
 	protected void toggleFlashLight() {
 		if (mTorchIntent != null) {
-			mContext.sendBroadcast(mTorchIntent);
+			if (SDK_HAS_MULTI_USER) {
+				try {
+					Object userCurrent = mFields.get("UserHandle.current").getValue();
+					Object user = mConstructors.get("UserHandle").invoke(userCurrent);
+					
+					mMethods.get("sendBroadcastAsUser").invoke(mTorchIntent, user);
+					
+				} catch (ReflectException e) {
+					Log.e(TAG, e.getMessage(), e);
+				}
+				
+			} else {
+				mContext.sendBroadcast(mTorchIntent);
+			}
 		}
 	}
 	
