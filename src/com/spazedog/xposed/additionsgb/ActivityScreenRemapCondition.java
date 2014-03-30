@@ -82,54 +82,88 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
 			
 			String condition = Common.getConditionIdentifier(this, mCondition) > 0 ? mCondition : "on";
 			
-			if (mKeyActions.size() < 3) {
-				Integer count = mKeyActions.size();
-				
-				if (count == 0) mKeyActions.add(null);
-				if (count < 2) mKeyActions.add(null);
-				if (count < 3) mKeyActions.add(null);
+			while (mKeyActions.size() < 2*3) {
+				mKeyActions.add(null);
 			}
-			
-			WidgetPreference clickPreference = (WidgetPreference) findPreference("state_click_preference");
-			clickPreference.setSummary( mKeyActions.get(0) != null ? Common.actionToString(this, mKeyActions.get(0)) : "" );
-			clickPreference.setOnWidgetBindListener(this);
-			clickPreference.setOnWidgetClickListener(this);
-			clickPreference.setOnPreferenceClickListener(this);
-			clickPreference.setIntent( 
-					new Intent(this, ActivitySelectorRemap.class)
-					.putExtra("action", "add_action")
-					.putExtra("index", 0)
-					.putExtra("condition", condition)
-			);
-			
-			if (mPreferences.isPackageUnlocked()) {
-    			WidgetPreference tapPreference = (WidgetPreference) findPreference("state_tap_preference");
-    			tapPreference.setSummary( mKeyActions.get(1) != null ? Common.actionToString(this, mKeyActions.get(1)) : "" );
-    			tapPreference.setOnWidgetBindListener(this);
-    			tapPreference.setOnWidgetClickListener(this);
-    			tapPreference.setOnPreferenceClickListener(this);
-    			tapPreference.setIntent( 
-    					new Intent(this, ActivitySelectorRemap.class)
-    					.putExtra("action", "add_action")
-    					.putExtra("index", 1)
-    					.putExtra("condition", condition)
-    			);
-    			
-			} else {
-				((PreferenceCategory) findPreference("actions_group")).removePreference(findPreference("state_tap_preference"));
-			}
-			
+						
 			WidgetPreference pressPreference = (WidgetPreference) findPreference("state_press_preference");
-			pressPreference.setSummary( mKeyActions.get(2) != null ? Common.actionToString(this, mKeyActions.get(2)) : "" );
+			pressPreference.setSummary( mKeyActions.get(0) != null ? Common.actionToString(this, mKeyActions.get(0)) : "" );
 			pressPreference.setOnWidgetBindListener(this);
 			pressPreference.setOnWidgetClickListener(this);
 			pressPreference.setOnPreferenceClickListener(this);
 			pressPreference.setIntent( 
 					new Intent(this, ActivitySelectorRemap.class)
 					.putExtra("action", "add_action")
-					.putExtra("index", 2)
+					.putExtra("index", 0)
 					.putExtra("condition", condition)
 			);
+
+			WidgetPreference clickPreference = (WidgetPreference) findPreference("state_click_preference");
+			clickPreference.setSummary( mKeyActions.get(1) != null ? Common.actionToString(this, mKeyActions.get(1)) : "" );
+			clickPreference.setOnWidgetBindListener(this);
+			clickPreference.setOnWidgetClickListener(this);
+			clickPreference.setOnPreferenceClickListener(this);
+			clickPreference.setIntent( 
+					new Intent(this, ActivitySelectorRemap.class)
+					.putExtra("action", "add_action")
+					.putExtra("index", 1)
+					.putExtra("condition", condition)
+			);
+			
+			if (mPreferences.isPackageUnlocked()) {
+    			WidgetPreference press2Preference = (WidgetPreference) findPreference("state_press2_preference");
+    			press2Preference.setSummary( mKeyActions.get(2) != null ? Common.actionToString(this, mKeyActions.get(2)) : "" );
+    			press2Preference.setOnWidgetBindListener(this);
+    			press2Preference.setOnWidgetClickListener(this);
+    			press2Preference.setOnPreferenceClickListener(this);
+    			press2Preference.setIntent( 
+    					new Intent(this, ActivitySelectorRemap.class)
+    					.putExtra("action", "add_action")
+    					.putExtra("index", 2)
+    					.putExtra("condition", condition)
+    			);
+    			
+    			WidgetPreference tapPreference = (WidgetPreference) findPreference("state_tap_preference");
+    			tapPreference.setSummary( mKeyActions.get(3) != null ? Common.actionToString(this, mKeyActions.get(3)) : "" );
+    			tapPreference.setOnWidgetBindListener(this);
+    			tapPreference.setOnWidgetClickListener(this);
+    			tapPreference.setOnPreferenceClickListener(this);
+    			tapPreference.setIntent( 
+    					new Intent(this, ActivitySelectorRemap.class)
+    					.putExtra("action", "add_action")
+    					.putExtra("index", 3)
+    					.putExtra("condition", condition)
+    			);
+    			
+    			WidgetPreference press3Preference = (WidgetPreference) findPreference("state_press3_preference");
+    			press3Preference.setSummary( mKeyActions.get(4) != null ? Common.actionToString(this, mKeyActions.get(4)) : "" );
+    			press3Preference.setOnWidgetBindListener(this);
+    			press3Preference.setOnWidgetClickListener(this);
+    			press3Preference.setOnPreferenceClickListener(this);
+    			press3Preference.setIntent( 
+    					new Intent(this, ActivitySelectorRemap.class)
+    					.putExtra("action", "add_action")
+    					.putExtra("index", 4)
+    					.putExtra("condition", condition)
+    			);
+    			WidgetPreference tap3Preference = (WidgetPreference) findPreference("state_tap3_preference");
+    			tap3Preference.setSummary( mKeyActions.get(5) != null ? Common.actionToString(this, mKeyActions.get(5)) : "" );
+    			tap3Preference.setOnWidgetBindListener(this);
+    			tap3Preference.setOnWidgetClickListener(this);
+    			tap3Preference.setOnPreferenceClickListener(this);
+    			tap3Preference.setIntent( 
+    					new Intent(this, ActivitySelectorRemap.class)
+    					.putExtra("action", "add_action")
+    					.putExtra("index", 5)
+    					.putExtra("condition", condition)
+    			);
+    			
+			} else {
+				((PreferenceCategory) findPreference("actions_group")).removePreference(findPreference("state_press2_preference"));
+				((PreferenceCategory) findPreference("actions_group")).removePreference(findPreference("state_tap_preference"));
+				((PreferenceCategory) findPreference("actions_group")).removePreference(findPreference("state_press3_preference"));
+				((PreferenceCategory) findPreference("actions_group")).removePreference(findPreference("state_tap3_preference"));
+			}
     	}
     }
     
@@ -142,12 +176,22 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
 		return false;
 	}
 	
+	private Integer actionToIndex(String keyName) {
+		int i = 0;
+		for (; i < 5; i++) {
+			if (keyName.equals(indexToAction[i])) {
+				break;
+			}
+		}
+		return i;
+	}
+	private final String indexToAction[] = {"state_press_preference", "state_click_preference", "state_press2_preference", "state_tap_preference", "state_press3_preference", "state_tap3_preference"};
+	
 	@Override
 	public void onWidgetClick(Preference preference, View widgetView) {
 		if (preference.getKey().startsWith("state_")) {
 			String keyName = preference.getKey();
-			Integer index = keyName.equals("state_click_preference") ? 0 : 
-				keyName.equals("state_tap_preference") ? 1 : 2;
+			Integer index = actionToIndex(keyName);
 			
 			CheckBox checbox = (CheckBox) widgetView.findViewById(android.R.id.checkbox);
 			checbox.setChecked( !checbox.isChecked() );
@@ -164,8 +208,7 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
 	@Override
 	public void onWidgetBind(Preference preference, View widgetView) {
 		String keyName = preference.getKey();
-		Integer index = keyName.equals("state_click_preference") ? 0 : 
-			keyName.equals("state_tap_preference") ? 1 : 2;
+		Integer index = actionToIndex(keyName);
 		
 		CheckBox checbox = (CheckBox) widgetView.findViewById(android.R.id.checkbox);
 		checbox.setChecked( mKeyActions.get(index) != null );
@@ -184,8 +227,7 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
 		if (resultCode == RESULT_OK && "add_action".equals(data.getStringExtra("action"))) {
 			String action = data.getStringExtra("result");
 			Integer index = data.getIntExtra("index", 0);
-			String keyName = index == 0 ? "state_click_preference" : 
-				index == 1 ? "state_tap_preference" : "state_press_preference";
+			String keyName = indexToAction[index];
 			
 			mKeyActions.set(index, action);
 			mPreferences.putStringArrayGroup(String.format(Index.array.groupKey.remapKeyActions_$, mCondition), mKey, mKeyActions, true);

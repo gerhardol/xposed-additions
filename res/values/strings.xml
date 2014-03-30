@@ -100,8 +100,11 @@
     <string name='category_button_states'>Button Actions</string>
     <string name="preference_state_click">Click Action</string>
     <string name="preference_state_tap">Double Tap Action</string>
+    <string name="preference_state_tap3">Triple Tap Action</string>
     <string name="preference_state_press">Long Press Action</string>
-
+    <string name="preference_state_press2">Double Long Press Action</string>
+    <string name="preference_state_press3">Triple Long Press Action</string>
+    
     <string name="preference_condition_count_$0">No Conditions</string>
     <string name="preference_condition_count_$1">%1$d Condition</string>
     <string name="preference_condition_count">%1$d Conditions</string>

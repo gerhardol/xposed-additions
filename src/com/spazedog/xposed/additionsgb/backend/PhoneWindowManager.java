@@ -649,7 +649,7 @@ public class PhoneWindowManager {
 							injectInputEvent(mKeyConfig.getInvokedKeyCode(), mKeyFlags.firstDownTime(), repeatCount+1, false, false);
 
 							final long eventTime = (long) SystemClock.uptimeMillis();
-							if (!mKeyFlags.isOngoingLongPress() && (eventTime - mKeyFlags.currDown()) > mKeyConfig.getLongPressDelay()*3) {
+							if (!mKeyFlags.isOngoingLongPress() && (eventTime - mKeyFlags.currDown()) > 4*mKeyConfig.getLongPressDelay()) {
 								if(Common.debug()) Log.d(tag, "Setting long press on the mapped key:" + mKeyConfig.getInvokedKeyCode());
 
 								mKeyFlags.setOngoingLongPress(true);
@@ -1309,18 +1309,24 @@ public class PhoneWindowManager {
 					actions = mPreferences.getStringArrayGroup(String.format(Index.array.groupKey.remapKeyActions_$, isScreenOn ? "on" : "off"), keyGroupName, null);
 				}
 			}
-
-			//The actions are not stored in order
-			String clickAction = actions != null && actions.size() > 0 ? actions.get(0) : null;
-			String tapAction   = actions != null && actions.size() > 1 ? actions.get(1) : null;
-			String pressAction = actions != null && actions.size() > 2 ? actions.get(2) : null;
-
-			mActions[0] = (pressAction != null && !pressAction.contains(".")) ? pressAction : null;
-			mActions[1] = (clickAction != null && !clickAction.contains(".")) ? clickAction : null;
-			mActions[2] = null;
-			mActions[3] = (extended && (tapAction != null) && !tapAction.contains(".")) ? tapAction : null;
-			mActions[4] = null;
-			mActions[5] = null;
+			for (int i = 0; i < maxTapActions; i++) {
+				if (actions != null && i < actions.size()) {
+					mActions[i] = actions.get(i);
+				} else {
+					mActions[i] = null;
+				}
+			}
+//			//The actions are not stored in order
+//			String clickAction = actions != null && actions.size() > 0 ? actions.get(0) : null;
+//			String tapAction   = actions != null && actions.size() > 1 ? actions.get(1) : null;
+//			String pressAction = actions != null && actions.size() > 2 ? actions.get(2) : null;
+//
+//			mActions[0] = (pressAction != null && !pressAction.contains(".")) ? pressAction : null;
+//			mActions[1] = (clickAction != null && !clickAction.contains(".")) ? clickAction : null;
+//			mActions[2] = null;
+//			mActions[3] = (extended && (tapAction != null) && !tapAction.contains(".")) ? tapAction : null;
+//			mActions[4] = null;
+//			mActions[5] = null;
 			invokedKeyCode = -1;
 		}
 		
