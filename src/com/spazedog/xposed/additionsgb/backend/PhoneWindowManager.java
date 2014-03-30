@@ -691,7 +691,7 @@ public class PhoneWindowManager {
 			} else if (!mKeyFlags.wasInvoked()) {
 				if(Common.debug()) Log.d(tag, (down ? "Starting" : "Stopping") + " event");
 				//This check is more complicated than necessary to detect double (and triple) clicks directly at down
-				//when no other is configured for long press and  
+				//when no other is configured for long press and no other event follows
 				//This is to get same behavior as original, where double-tap always was detected at down
 				
 				if (down && (mKeyFlags.getTaps() <= 1 || mKeyConfig.hasAction(ActionTypes.press, mKeyFlags))) {
@@ -716,19 +716,20 @@ public class PhoneWindowManager {
 							performHapticFeedback(HAPTIC_LONG_PRESS);
 							
 							mKeyFlags.finish();
-							int code = mKeyConfig.getEventKeyCode(mKeyConfig.getAction(ActionTypes.press, mKeyFlags), keyCode);
+							String keyAction = mKeyConfig.getAction(ActionTypes.press, mKeyFlags);
+							int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 							mKeyConfig.setInvokedKeyCode(code);
 
-							if (mKeyConfig.hasAction(ActionTypes.press, mKeyFlags)) {
-								if(Common.debug()) Log.d(tag, "Invoking mapped long press action:" + mKeyConfig.getInvokedKeyCode());
-								handleKeyAction(mKeyConfig.getAction(ActionTypes.press, mKeyFlags), mKeyConfig.getInvokedKeyCode(), mKeyFlags.firstDownTime(), false);
+							if (mKeyConfig.isAction(keyAction)) {
+								if(Common.debug()) Log.d(tag, "Invoking mapped long press action:" + keyAction);
+								handleKeyAction(keyAction, mKeyConfig.getInvokedKeyCode(), mKeyFlags.firstDownTime(), false);
 
 							} else if (mKeyFlags.getTaps() > 1) {
 								//Check not needed while the "early" tap detection skips press
 								if(Common.debug()) Log.d(tag, "No default long press action for press: " + mKeyFlags.getTaps());
 								
 							} else {
-								if(Common.debug()) Log.d(tag, "Invoking default long press action");
+								if(Common.debug()) Log.d(tag, "Invoking default long press action: " + keyCode);
 								
 								mKeyFlags.setOngoingLongPress(true);
 								
@@ -788,13 +789,14 @@ public class PhoneWindowManager {
 							}
 							
 							if (callCode == 0) {
-								if ((mKeyFlags.getTaps() == 1) || mKeyConfig.hasAction(ActionTypes.tap, mKeyFlags)) {
-									if(Common.debug()) Log.d(tag, "Invoking click action");
+								String keyAction = mKeyConfig.getAction(ActionTypes.tap, mKeyFlags);
+								if ((mKeyFlags.getTaps() == 1) || mKeyConfig.isAction(keyAction)) {
+									if(Common.debug()) Log.d(tag, "Invoking click action: " + keyAction);
 								
-									int code = mKeyConfig.getEventKeyCode(mKeyConfig.getAction(ActionTypes.tap, mKeyFlags), keyCode);
-									handleKeyAction(mKeyConfig.getAction(ActionTypes.tap, mKeyFlags), code, mKeyFlags.firstDownTime(), true);
+									int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
+									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), true);
 								} else {
-									if(Common.debug()) Log.d(tag, "No click action");
+									if(Common.debug()) Log.d(tag, "No mapped click action");
 								}
 								
 							} else {
@@ -1334,8 +1336,12 @@ public class PhoneWindowManager {
 			return mActions[index];
 		}
 		
+		public Boolean isAction(String action) {
+			return (action != null);
+		}
+		
 		public Boolean hasAction(ActionTypes atype, KeyFlags keyFlags) {
-			return (getAction(atype, keyFlags) != null);
+			return isAction(getAction(atype, keyFlags));
 		}
 		
 		public Boolean hasMoreAction(ActionTypes atype, KeyFlags keyFlags, Boolean next) {
@@ -1450,7 +1456,8 @@ public class PhoneWindowManager {
 					} else {
 						mIsPrimaryDown = true;
 					}
-					if (mIsPrimaryDown && (mSecondaryKey == 0 || mIsSecondaryDown)) {
+					//Aggregated down state: Only require secondary for first tap
+					if (mIsPrimaryDown && (mSecondaryKey == 0 || mIsSecondaryDown || mTaps > 1)) {
 						mIsAggregatedDown = true;
 					}
 					
