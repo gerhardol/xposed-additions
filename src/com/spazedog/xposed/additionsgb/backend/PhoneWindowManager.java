@@ -618,6 +618,13 @@ public class PhoneWindowManager {
 			
 			String tag = TAG + "#Dispatch/" + (down ? "Down" : "Up") + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "):" + keyCode;
 			
+			//Skipped not tracked key
+			if (!mKeyConfig.hasAnyAction()) {
+				if(Common.debug()) Log.d(tag, "No action");
+				
+				return;
+			}
+
 			/*
 			 * Using KitKat work-around from the InputManager Hook
 			 */
@@ -673,7 +680,7 @@ public class PhoneWindowManager {
 				return;
 				
 			} else if (!down && keyCode == mKeyConfig.getInvokedKeyCode()) {
-				if(Common.debug()) Log.d(tag, "Releasing default long press event");
+				if(Common.debug()) Log.d(tag, "Releasing long press event");
 				
 				synchronized(mLockQueueing) {
 					if (mKeyFlags.isMulti() && !mKeyConfig.hasAction(ActionTypes.press, mKeyFlags)) {
@@ -1290,6 +1297,7 @@ public class PhoneWindowManager {
 		private int invokedKeyCode = -1;
 		private Integer mKeyDelayTap = 0;
 		private Integer mKeyDelayPress = 0;
+		private Boolean mAnyAction = false;
 		
 		public void newAction(KeyFlags keyFlags, Boolean isScreenOn)
 		{
@@ -1298,6 +1306,7 @@ public class PhoneWindowManager {
 			this.mKeyDelayPress = mPreferences.getInt(Common.Index.integer.key.remapPressDelay, Common.Index.integer.value.remapPressDelay);
 			List<String> actions = null;
 
+			mAnyAction = false;
 			if (!mKeyFlags.isMulti() || extended) {
 				String keyGroupName = mKeyFlags.getPrimaryKey() + ":" + mKeyFlags.getSecondaryKey();
 				String appCondition = !isScreenOn ? null : 
@@ -1309,9 +1318,13 @@ public class PhoneWindowManager {
 					actions = mPreferences.getStringArrayGroup(String.format(Index.array.groupKey.remapKeyActions_$, isScreenOn ? "on" : "off"), keyGroupName, null);
 				}
 			}
+			
 			for (int i = 0; i < maxTapActions; i++) {
 				if (actions != null && i < actions.size()) {
 					mActions[i] = actions.get(i);
+					if (mActions[i] != null) {
+						mAnyAction = true;
+					}
 				} else {
 					mActions[i] = null;
 				}
@@ -1328,6 +1341,10 @@ public class PhoneWindowManager {
 //			mActions[4] = null;
 //			mActions[5] = null;
 			invokedKeyCode = -1;
+		}
+		
+		public Boolean hasAnyAction() {
+			return mAnyAction;
 		}
 		
 		private int getIndex(ActionTypes atype, KeyFlags keyFlags) {
