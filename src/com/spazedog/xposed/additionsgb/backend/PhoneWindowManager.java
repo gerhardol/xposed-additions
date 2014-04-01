@@ -636,7 +636,7 @@ public class PhoneWindowManager {
 					//Limit rate for key repeat (is there a system setting?)
 					KeyFlags wasFlags = mKeyFlags.CloneFlags();
 					Integer curDelay = 0;
-					Integer keyDelay = 500;
+					Integer keyDelay = 50;
 
 					do {
 						final Integer t = 50;
