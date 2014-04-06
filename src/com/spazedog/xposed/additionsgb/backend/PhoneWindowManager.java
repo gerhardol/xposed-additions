@@ -50,6 +50,7 @@ import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Surface;
+import android.view.ViewConfiguration;
 import android.widget.Toast;
 
 import com.spazedog.lib.reflecttools.ReflectClass;
@@ -96,14 +97,15 @@ public class PhoneWindowManager {
 		}
 	}
 	
-	protected static Boolean SDK_NEW_POWER_MANAGER = android.os.Build.VERSION.SDK_INT >= 17;
-	protected static Boolean SDK_NEW_PHONE_WINDOW_MANAGER = android.os.Build.VERSION.SDK_INT >= 11;
-	protected static Boolean SDK_NEW_RECENT_APPS_DIALOG = android.os.Build.VERSION.SDK_INT >= 11;
-	protected static Boolean SDK_NEW_CHARACTERMAP = android.os.Build.VERSION.SDK_INT >= 11;
-	protected static Boolean SDK_HAS_HARDWARE_INPUT_MANAGER = android.os.Build.VERSION.SDK_INT >= 16;
-	protected static Boolean SDK_HAS_MULTI_USER = android.os.Build.VERSION.SDK_INT >= 17;
-	protected static Boolean SDK_HAS_KEYGUARD_DELEGATE = android.os.Build.VERSION.SDK_INT >= 19;
-	protected static Boolean SDK_HAS_ROTATION_TOOLS = android.os.Build.VERSION.SDK_INT >= 11;
+	protected final static Boolean SDK_NEW_POWER_MANAGER = android.os.Build.VERSION.SDK_INT >= 17;
+	protected final static Boolean SDK_NEW_PHONE_WINDOW_MANAGER = android.os.Build.VERSION.SDK_INT >= 11;
+	protected final static Boolean SDK_NEW_RECENT_APPS_DIALOG = android.os.Build.VERSION.SDK_INT >= 11;
+	protected final static Boolean SDK_NEW_CHARACTERMAP = android.os.Build.VERSION.SDK_INT >= 11;
+	protected final static Boolean SDK_NEW_VIEWCONFIGURATION = android.os.Build.VERSION.SDK_INT >= 12;
+	protected final static Boolean SDK_HAS_HARDWARE_INPUT_MANAGER = android.os.Build.VERSION.SDK_INT >= 16;
+	protected final static Boolean SDK_HAS_MULTI_USER = android.os.Build.VERSION.SDK_INT >= 17;
+	protected final static Boolean SDK_HAS_KEYGUARD_DELEGATE = android.os.Build.VERSION.SDK_INT >= 19;
+	protected final static Boolean SDK_HAS_ROTATION_TOOLS = android.os.Build.VERSION.SDK_INT >= 11;
 
 	protected static int ACTION_PASS_QUEUEING;
 	protected static int ACTION_DISABLE_QUEUEING;
@@ -456,10 +458,9 @@ public class PhoneWindowManager {
 			final boolean isScreenOn = (Boolean) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[6] : param.args[2]);
 			final boolean down = action == KeyEvent.ACTION_DOWN;
 			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 1 : 5;
-			//Time of event (ignore downTime)
-			final long eventTime = SDK_NEW_PHONE_WINDOW_MANAGER ? (long) ((KeyEvent) param.args[0]).getEventTime() : SystemClock.uptimeMillis();
+			final long downTime = SDK_NEW_PHONE_WINDOW_MANAGER ? (long) ((KeyEvent) param.args[0]).getDownTime() : SystemClock.uptimeMillis();
 			
-			String tag = TAG + "#Queueing/" + (down ? "Down" : "Up") + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "):" + keyCode;
+			String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 
 			/*
 			 * Using KitKat work-around from the InputManager Hook
@@ -509,7 +510,7 @@ public class PhoneWindowManager {
 					mKeyFlags.reset();
 				}
 				
-				boolean newAction = mKeyFlags.registerKey(keyCode, down, eventTime);
+				boolean newAction = mKeyFlags.registerKey(keyCode, down, downTime);
 				
 				boolean isVirtual = (policyFlags & FLAG_VIRTUAL) != 0;
 				
@@ -547,6 +548,16 @@ public class PhoneWindowManager {
 				} else {
 
 					if (newAction) {
+						if (mKeyConfig.isOngoingKeyCode()) {
+							//The key should have been released when up received, but another key pushed and aborted
+							if(Common.debug()) Log.d(tag, "Releasing long press event for "+mKeyConfig.getOngoingKeyCodes()[0]);
+							
+							injectInputEvent(mKeyConfig.getOngoingKeyCodes()[0], 0, -1, false, true);
+							if(mKeyConfig.getOngoingKeyCodes()[1] > 0) {
+								injectInputEvent(mKeyConfig.getOngoingKeyCodes()[1], 0, -1, false, true);								
+							}
+						}
+
 						if(Common.debug()) Log.d(tag, "Configuring new event");
 
 						mWasScreenOn = isScreenOn;
@@ -597,7 +608,7 @@ public class PhoneWindowManager {
 		
 		protected Boolean mIsOriginalLocked = false;
 		
-		@Override
+		@SuppressLint("NewApi") @Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			/*
 			 * Do nothing until the device is done booting
@@ -610,18 +621,22 @@ public class PhoneWindowManager {
 			
 			final int keyCode = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[3] : ((KeyEvent) param.args[1]).getKeyCode());
 			final int action = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[1] : ((KeyEvent) param.args[1]).getAction());
-			final int policyFlags = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[7] : param.args[2]);
+			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 2 : 7;
+			int policyFlags = (Integer) (param.args[policyIndex]);
 			//final int eventFlags = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[2] : ((KeyEvent) param.args[1]).getFlags());
 			final int repeatCount = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[6] : ((KeyEvent) param.args[1]).getRepeatCount());
+			final long eventTime = SDK_NEW_PHONE_WINDOW_MANAGER ? (long) ((KeyEvent) param.args[1]).getEventTime() : SystemClock.uptimeMillis();
 			final boolean down = action == KeyEvent.ACTION_DOWN;
-			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 2 : 7;
-			
-			String tag = TAG + "#Dispatch/" + (down ? "Down" : "Up") + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "):" + keyCode;
+
+			String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 			
 			//Skipped not tracked key
 			if (!mKeyConfig.hasAnyAction()) {
 				if(Common.debug()) Log.d(tag, "No action");
 				
+				if (keyCode == KeyEvent.KEYCODE_POWER && !mWasScreenOn) {
+					changeDisplayState(true);
+				}
 				return;
 			}
 
@@ -630,38 +645,57 @@ public class PhoneWindowManager {
 			 */
 			final boolean isInjected = SDK_HAS_HARDWARE_INPUT_MANAGER ? 
 					(((KeyEvent) param.args[1]).getFlags() & FLAG_INJECTED) != 0 : (policyFlags & FLAG_INJECTED) != 0;
-			
+
 			if (isInjected) {
-				if (down && mKeyFlags.isKeyDown() && keyCode == mKeyConfig.getInvokedKeyCode()) { 
-					//Limit rate for key repeat (is there a system setting?)
-					KeyFlags wasFlags = mKeyFlags.CloneFlags();
-					Integer curDelay = 0;
-					Integer keyDelay = 50;
+				if (down && mKeyFlags.isKeyDown() && mKeyConfig.isOngoingKeyCode(keyCode)) { 
 
-					do {
-						final Integer t = 50;
-						try {
-							Thread.sleep(t);
+					//Limit rate for key repeat
+					//pass first down event
+					//second event for not yet longpress should wait until longpress
+					KeyFlags wasFlags = null;
+					if(repeatCount > 0) {
+						if(Common.debug()) Log.d(tag, "Delay long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown())+" ");
 
-						} catch (Throwable e) {}
+						wasFlags = mKeyFlags.CloneFlags();
+						Integer curDelay = 0;
+						final int longLongPressDelay = 2; //Wait 2 times normal long press
+						final Integer keyDelay = (!mKeyConfig.isOngoingLongPress()) ? 
+								//key repeat timeout and long press are same by default, not using ViewConfiguration.getKeyRepeatTimeout()
+								longLongPressDelay * mKeyConfig.getLongPressDelay() :
+									(SDK_NEW_VIEWCONFIGURATION ? ViewConfiguration.getKeyRepeatDelay() : 50);
 
-						curDelay += t;
+								do {
+									final Integer t = 10;
+									try {
+										Thread.sleep(t);
 
-					} while (mKeyFlags.SameFlags(wasFlags) && curDelay < keyDelay);
+									} catch (Throwable e) {}
 
-					if(Common.debug()) Log.d(tag, "Repeating long press event count:" + repeatCount);
-
+									curDelay += t;
+								} while (mKeyFlags.SameFlags(wasFlags) && curDelay < keyDelay);
+					}
+					
 					synchronized(mLockQueueing) {
-						if(mKeyFlags.SameFlags(wasFlags)) {
-							injectInputEvent(mKeyConfig.getInvokedKeyCode(), mKeyFlags.firstDownTime(), repeatCount+1, false, false);
+						if(wasFlags == null || mKeyFlags.SameFlags(wasFlags)) {
+							int keyCode1 = mKeyConfig.getOngoingKeyCodes()[0];
+							if(Common.debug()) Log.d(tag, "Long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown()));
+							
+							if (!mKeyConfig.isOngoingLongPress()) {
+								if (repeatCount > 0) {
+									//The second down should be long press
+									if(Common.debug()) Log.d(tag, "Setting long press on the mapped key:" + keyCode1);
 
-							final long eventTime = (long) SystemClock.uptimeMillis();
-							if (!mKeyFlags.isOngoingLongPress() && (eventTime - mKeyFlags.currDown()) > 4*mKeyConfig.getLongPressDelay()) {
-								if(Common.debug()) Log.d(tag, "Setting long press on the mapped key:" + mKeyConfig.getInvokedKeyCode());
-
-								mKeyFlags.setOngoingLongPress(true);
-								injectInputEvent(mKeyConfig.getInvokedKeyCode(), mKeyFlags.firstDownTime(), repeatCount+2, true, false);
+									mKeyConfig.setOngoingLongPress(true);
+									policyFlags |= KeyEvent.FLAG_LONG_PRESS;
+								} else if ((repeatCount == 0) && (policyFlags & KeyEvent.FLAG_LONG_PRESS) > 0){
+									if(Common.debug()) Log.d(tag, "Longpress unexpected set on the mapped key:" + keyCode1);
+									//This is a hack: long press seem to be set on first inserted key
+									policyFlags &= ~KeyEvent.FLAG_LONG_PRESS;
+								}
 							}
+
+							injectInputEvent(keyCode1, mKeyFlags.firstDownTime(), repeatCount+1, false, false);
+
 						}
 					}
 					//TODO: Need to dispatch default event, for tracking?
@@ -679,24 +713,21 @@ public class PhoneWindowManager {
 			} else if (!internalKey(keyCode)) {
 				return;
 				
-			} else if (!down && keyCode == mKeyConfig.getInvokedKeyCode()) {
+			} else if (!down && mKeyConfig.isOngoingKeyCode()) {
 				if(Common.debug()) Log.d(tag, "Releasing long press event");
 				
 				synchronized(mLockQueueing) {
-					if (mKeyFlags.isMulti() && !mKeyConfig.hasAction(ActionTypes.press, mKeyFlags)) {
-						int other = mKeyFlags.getPrimaryKey() == keyCode ? mKeyFlags.getSecondaryKey() : mKeyFlags.getPrimaryKey();
-					
-						injectInputEvent(other, 0, -1, false, true);
+					injectInputEvent(mKeyConfig.getOngoingKeyCodes()[0], 0, -1, false, true);
+					if(mKeyConfig.getOngoingKeyCodes()[1] > 0) {
+						injectInputEvent(mKeyConfig.getOngoingKeyCodes()[1], 0, -1, false, true);
 					}
-				
-					injectInputEvent(mKeyConfig.getInvokedKeyCode(), 0, -1, false, true);
 					
-					mKeyConfig.setInvokedKeyCode(0);
-					mKeyFlags.setOngoingLongPress(false);
+					mKeyConfig.setOngoingKeyCode(0, 0);
+					mKeyConfig.setOngoingLongPress(false);
 				}
 				
 			} else if (!mKeyFlags.wasInvoked()) {
-				if(Common.debug()) Log.d(tag, (down ? "Starting" : "Stopping") + " event");
+				//if(Common.debug()) Log.d(tag, (down ? "Starting" : "Stopping") + " event");
 				//This check is more complicated than necessary to detect double (and triple) clicks directly at down
 				//when no other is configured for long press and no other event follows
 				//This is to get same behavior as original, where double-tap always was detected at down
@@ -706,15 +737,16 @@ public class PhoneWindowManager {
 					
 					KeyFlags wasFlags = mKeyFlags.CloneFlags();
 					Integer curDelay = 0;
-					Integer pressDelay = mKeyConfig.getLongPressDelay();
+					final Integer pressDelay = mKeyConfig.getLongPressDelay();
 							
 					do {
+						final Integer t = 10;
 						try {
-							Thread.sleep(10);
+							Thread.sleep(t);
 							
 						} catch (Throwable e) {}
 						
-						curDelay += 10;
+						curDelay += t;
 						
 					} while (mKeyFlags.SameFlags(wasFlags) && curDelay < pressDelay);
 					
@@ -724,12 +756,12 @@ public class PhoneWindowManager {
 							
 							mKeyFlags.finish();
 							String keyAction = mKeyConfig.getAction(ActionTypes.press, mKeyFlags);
-							int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
-							mKeyConfig.setInvokedKeyCode(code);
 
 							if (mKeyConfig.isAction(keyAction)) {
-								if(Common.debug()) Log.d(tag, "Invoking mapped long press action:" + keyAction);
-								handleKeyAction(keyAction, mKeyConfig.getInvokedKeyCode(), mKeyFlags.firstDownTime(), false);
+								if(Common.debug()) Log.d(tag, "Invoking mapped long press action: " + keyAction);
+								int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
+								handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), false);
+								mKeyConfig.setOngoingKeyCode(code, 0);
 
 							} else if (mKeyFlags.getTaps() > 1) {
 								//Check not needed while the "early" tap detection skips press
@@ -738,15 +770,13 @@ public class PhoneWindowManager {
 							} else {
 								if(Common.debug()) Log.d(tag, "Invoking default long press action: " + keyCode);
 								
-								mKeyFlags.setOngoingLongPress(true);
+								mKeyConfig.setOngoingLongPress(true);
 								
-								if (mKeyFlags.isMulti()) {
-									int other = mKeyFlags.getPrimaryKey() == keyCode ? mKeyFlags.getSecondaryKey() : mKeyFlags.getPrimaryKey();
-									
-									injectInputEvent(other, mKeyFlags.firstDownTime(), 0, true, false);
+								injectInputEvent(mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), 0, true, false);
+								if(mKeyFlags.getSecondaryKey()>0) {
+									injectInputEvent(mKeyFlags.getSecondaryKey(), mKeyFlags.firstDownTime(), 0, true, false);
 								}
-								
-								injectInputEvent(keyCode, mKeyFlags.firstDownTime(), 0, true, false);
+								mKeyConfig.setOngoingKeyCode(mKeyFlags.getPrimaryKey(), mKeyFlags.getSecondaryKey());
 								
 								/*
 								 * The original methods will start by getting a 0 repeat event in order to prepare. 
@@ -768,16 +798,18 @@ public class PhoneWindowManager {
 						if(Common.debug()) Log.d(tag, "Waiting for tap timeout");
 						
 						int curDelay = 0;
+						final int tapDelay = mKeyConfig.getDoubleTapDelay();
 						wasFlags = mKeyFlags.CloneFlags();
 						do {
+							final Integer t = 10;
 							try {
-								Thread.sleep(10);
+								Thread.sleep(t);
 								
 							} catch (Throwable e) {}
 							
-							curDelay += 10;
+							curDelay += t;
 							
-						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < mKeyConfig.getDoubleTapDelay());
+						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < tapDelay);
 					}
 					
 					synchronized(mLockQueueing) {
@@ -797,13 +829,19 @@ public class PhoneWindowManager {
 							
 							if (callCode == 0) {
 								String keyAction = mKeyConfig.getAction(ActionTypes.tap, mKeyFlags);
-								if ((mKeyFlags.getTaps() == 1) || mKeyConfig.isAction(keyAction)) {
+								if (mKeyConfig.hasAction(ActionTypes.tap, mKeyFlags)) {
 									if(Common.debug()) Log.d(tag, "Invoking click action: " + keyAction);
 								
 									int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), true);
-								} else {
+								} else if (mKeyFlags.getTaps() > 0){
 									if(Common.debug()) Log.d(tag, "No mapped click action");
+								} else {
+									//insert separately here, could probably use injectInputEvent()
+									handleKeyAction(keyAction, mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), true);
+									if (mKeyFlags.getSecondaryKey() > 0) {
+										handleKeyAction(keyAction, mKeyFlags.getSecondaryKey(), mKeyFlags.firstDownTime(), true);
+									}
 								}
 								
 							} else {
@@ -916,10 +954,10 @@ public class PhoneWindowManager {
 			int characterMap = SDK_NEW_CHARACTERMAP ? KeyCharacterMap.VIRTUAL_KEYBOARD : 0;
 			
 			int flags = longpress ? KeyEvent.FLAG_LONG_PRESS|KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED : KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED;
-			
-			//Note: longpress and up cannot be set simultaneously
+
+			//Note: longpress and up should not be set simultaneously
 			try {
-				if(repeatDown >=0) {
+				if(repeatDown >= 0) {
 					KeyEvent event = new KeyEvent(time, now, KeyEvent.ACTION_DOWN, keyCode, repeatDown, 0, characterMap, 0, flags, InputDevice.SOURCE_KEYBOARD);
 					if (SDK_HAS_HARDWARE_INPUT_MANAGER) {
 						mMethods.get("injectInputEvent").invoke(event, INJECT_INPUT_EVENT_MODE_ASYNC);
@@ -1293,17 +1331,31 @@ public class PhoneWindowManager {
 		protected static final int maxTapActions = 3*2; //ActionTypes.values().length;
 		
 		//actions in the order they appear: press 1, tap 1, press 2, tap 2 etc
-		private String[] mActions = new String[maxTapActions];
-		private int invokedKeyCode = -1;
+		private String[] mActions; // new String[maxTapActions];
+		private int[] mOngoingKeyCodes; // new int[2];
 		private Integer mKeyDelayTap = 0;
 		private Integer mKeyDelayPress = 0;
 		private Boolean mAnyAction = false;
+		private Boolean mLongPressIsSet = false;
+		
+		public KeyConfig() {
+			mActions = new String[]{null, null, null, null, null, null};
+			mOngoingKeyCodes = new int[]{0, 0};
+		}
 		
 		public void newAction(KeyFlags keyFlags, Boolean isScreenOn)
 		{
 			Boolean extended = mPreferences.isPackageUnlocked();
-			this.mKeyDelayTap = mPreferences.getInt(Common.Index.integer.key.remapTapDelay, Common.Index.integer.value.remapTapDelay);
 			this.mKeyDelayPress = mPreferences.getInt(Common.Index.integer.key.remapPressDelay, Common.Index.integer.value.remapPressDelay);
+			if (this.mKeyDelayPress <= 0) {
+				this.mKeyDelayPress = ViewConfiguration.getLongPressTimeout();
+			}
+			this.mKeyDelayTap = mPreferences.getInt(Common.Index.integer.key.remapTapDelay, Common.Index.integer.value.remapTapDelay);
+			if (this.mKeyDelayTap == 0) {
+				this.mKeyDelayTap = ViewConfiguration.getLongPressTimeout();
+			} else if (this.mKeyDelayTap < 0) {
+				this.mKeyDelayTap = this.mKeyDelayPress;
+			}
 			List<String> actions = null;
 
 			mAnyAction = false;
@@ -1329,18 +1381,9 @@ public class PhoneWindowManager {
 					mActions[i] = null;
 				}
 			}
-//			//The actions are not stored in order
-//			String clickAction = actions != null && actions.size() > 0 ? actions.get(0) : null;
-//			String tapAction   = actions != null && actions.size() > 1 ? actions.get(1) : null;
-//			String pressAction = actions != null && actions.size() > 2 ? actions.get(2) : null;
-//
-//			mActions[0] = (pressAction != null && !pressAction.contains(".")) ? pressAction : null;
-//			mActions[1] = (clickAction != null && !clickAction.contains(".")) ? clickAction : null;
-//			mActions[2] = null;
-//			mActions[3] = (extended && (tapAction != null) && !tapAction.contains(".")) ? tapAction : null;
-//			mActions[4] = null;
-//			mActions[5] = null;
-			invokedKeyCode = -1;
+			mOngoingKeyCodes[0] = 0;
+			mOngoingKeyCodes[1] = 0;
+			mLongPressIsSet = false;
 		}
 		
 		public Boolean hasAnyAction() {
@@ -1395,12 +1438,28 @@ public class PhoneWindowManager {
 				(action == null ? keyCode : 0));
 		}
 		
-		public void setInvokedKeyCode(int keyCode) {
-			invokedKeyCode = keyCode;
+		public void setOngoingKeyCode(int primaryKeyCode, int secondaryKeyCode) {
+			mOngoingKeyCodes[0] = primaryKeyCode;
+			mOngoingKeyCodes[1] = secondaryKeyCode;
 		}
 		
-		public int getInvokedKeyCode() {
-			return invokedKeyCode;
+		public int[] getOngoingKeyCodes() {
+			return mOngoingKeyCodes;
+		}
+		
+		public boolean isOngoingKeyCode() {
+			return mOngoingKeyCodes[0] > 0;
+		}
+		public boolean isOngoingKeyCode(int keyCode) {
+			return mOngoingKeyCodes[0] == keyCode || mOngoingKeyCodes[1] == keyCode;
+		}
+		
+		public Boolean isOngoingLongPress() {
+			return mLongPressIsSet;
+		}
+		
+		public void setOngoingLongPress(Boolean on) {
+			mLongPressIsSet = on;
 		}
 	}
 	
@@ -1411,10 +1470,9 @@ public class PhoneWindowManager {
 		private Boolean mFinished = false;
 		private Boolean mReset = false;
 		private Boolean mCancel = false;
-		private Boolean mDefaultLongPress = false;
 		private Boolean mIsCallButton = false;
 		
-		private Integer mTaps = 0;
+		private Integer mTaps = 0; //Corresponds to eventCount in KeyEvent() (often mixed with repeatCount)
 		private Integer mPrimaryKey = 0;
 		private Integer mSecondaryKey = 0;
 		private Integer mCurrentKey = 0;
@@ -1502,7 +1560,6 @@ public class PhoneWindowManager {
 					mFinished = false;
 					mReset = false;
 					mCancel = false;
-					mDefaultLongPress = false;
 					
 					mPrimaryKey = keyCode;
 					mSecondaryKey = 0;
@@ -1558,14 +1615,6 @@ public class PhoneWindowManager {
 		
 		public Boolean isCallButton() {
 			return mIsCallButton;
-		}
-		
-		public Boolean isOngoingLongPress() {
-			return mDefaultLongPress;
-		}
-		
-		public void setOngoingLongPress(Boolean on) {
-			mDefaultLongPress = on;
 		}
 		
 		public Integer getPrimaryKey() {
