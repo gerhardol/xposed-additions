@@ -623,7 +623,7 @@ public class PhoneWindowManager {
 			final int action = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[1] : ((KeyEvent) param.args[1]).getAction());
 			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 2 : 7;
 			int policyFlags = (Integer) (param.args[policyIndex]);
-			final int eventFlags = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[2] : ((KeyEvent) param.args[1]).getFlags());
+			//final int eventFlags = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[2] : ((KeyEvent) param.args[1]).getFlags());
 			final int repeatCount = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[6] : ((KeyEvent) param.args[1]).getRepeatCount());
 			//final long eventTime = SDK_NEW_PHONE_WINDOW_MANAGER ? (long) ((KeyEvent) param.args[1]).getEventTime() : SystemClock.uptimeMillis();
 			final boolean down = action == KeyEvent.ACTION_DOWN;
@@ -650,47 +650,46 @@ public class PhoneWindowManager {
 				if (down && mKeyFlags.isKeyDown() && mKeyConfig.isOngoingKeyCode(keyCode)) { 
 
 					//Limit rate for key repeat
-					//pass first down event
-					//second event for not yet longpress should wait until longpress
+					//It seems natural to pass first down event immediately but then first is longpress
+					//(normally second event should be longpress)
 					KeyFlags wasFlags = null;
-					if(repeatCount > 0) {
-						if(Common.debug()) Log.d(tag, "Delay long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown())+" ");
+					//if (repeatCount > 0) {
+					if(Common.debug()) Log.d(tag, "Delay long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown())+" ");
 
-						wasFlags = mKeyFlags.CloneFlags();
-						Integer curDelay = 0;
-						final int longLongPressDelay = 2; //Wait 2 times normal long press
-						final Integer keyDelay = (!mKeyConfig.isOngoingLongPress()) ? 
-								//key repeat timeout and long press are same by default, not using ViewConfiguration.getKeyRepeatTimeout()
-								longLongPressDelay * mKeyConfig.getLongPressDelay() :
-									(SDK_NEW_VIEWCONFIGURATION ? ViewConfiguration.getKeyRepeatDelay() : 50);
+					wasFlags = mKeyFlags.CloneFlags();
+					Integer curDelay = 0;
+					final int longLongPressDelay = 2; //Wait 2 times normal long press
+					final Integer keyDelay = (!mKeyConfig.isOngoingLongPress()) ? 
+							//key repeat timeout and long press are same by default, not using ViewConfiguration.getKeyRepeatTimeout()
+							longLongPressDelay * mKeyConfig.getLongPressDelay() :
+								(SDK_NEW_VIEWCONFIGURATION ? ViewConfiguration.getKeyRepeatDelay() : 50);
 
-								do {
-									final Integer t = 10;
-									try {
-										Thread.sleep(t);
+							do {
+								final Integer t = 10;
+								try {
+									Thread.sleep(t);
 
-									} catch (Throwable e) {}
+								} catch (Throwable e) {}
 
-									curDelay += t;
-								} while (mKeyFlags.SameFlags(wasFlags) && curDelay < keyDelay);
-					}
-					
+								curDelay += t;
+							} while (mKeyFlags.SameFlags(wasFlags) && curDelay < keyDelay);
+					//}
 					synchronized(mLockQueueing) {
 						if(wasFlags == null || mKeyFlags.SameFlags(wasFlags)) {
 							if(Common.debug()) Log.d(tag, "Long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown()));
 							
 							if (!mKeyConfig.isOngoingLongPress()) {
-								if (repeatCount > 0) {
+								//if (repeatCount > 0) {
 									//The second down should be long press
 									if(Common.debug()) Log.d(tag, "Setting long press on the mapped key:" + keyCode);
 
 									mKeyConfig.setOngoingLongPress(true);
 									policyFlags |= KeyEvent.FLAG_LONG_PRESS;
-								} else if ((repeatCount == 0) && (eventFlags & KeyEvent.FLAG_LONG_PRESS) > 0){
-									if(Common.debug()) Log.d(tag, "Longpress unexpected set on the mapped key:" + keyCode);
-									//This is a hack: long press seem to be set on first inserted key
-									policyFlags &= ~KeyEvent.FLAG_LONG_PRESS;
-								}
+								//} else if ((repeatCount == 0) && (policyFlags & KeyEvent.FLAG_LONG_PRESS) > 0){
+								//	if(Common.debug()) Log.d(tag, "Longpress unexpected set on the mapped key:" + keyCode);
+								//	//This is a hack: long press seem to be set on first inserted key
+								//	policyFlags &= ~KeyEvent.FLAG_LONG_PRESS;
+								//}
 							}
 
 							injectInputEvent(keyCode, mKeyFlags.firstDownTime(), repeatCount+1, false, false);
