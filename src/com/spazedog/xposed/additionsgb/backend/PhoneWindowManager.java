@@ -452,12 +452,12 @@ public class PhoneWindowManager {
 			}
 
 			final int action = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[1] : ((KeyEvent) param.args[0]).getAction());
-			final int policyFlags = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[5] : param.args[1]);
+			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 1 : 5;
+			final int policyFlags = (Integer) (param.args[policyIndex]);
 			final int keyCode = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[3] : ((KeyEvent) param.args[0]).getKeyCode());
 			final int repeatCount = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? 0 : ((KeyEvent) param.args[0]).getRepeatCount());
 			final boolean isScreenOn = (Boolean) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[6] : param.args[2]);
 			final boolean down = action == KeyEvent.ACTION_DOWN;
-			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 1 : 5;
 			final long downTime = SDK_NEW_PHONE_WINDOW_MANAGER ? (long) ((KeyEvent) param.args[0]).getDownTime() : SystemClock.uptimeMillis();
 			
 			String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
@@ -470,7 +470,7 @@ public class PhoneWindowManager {
 			
 			if (isInjected) {
 				if (down && repeatCount > 0) {
-					if(Common.debug()) Log.d(tag, "Ignoring injected repeated key");
+					if(Common.debug()) Log.d(tag, "Injected repeated key, no event change");
 					
 					/*
 					 * Normally repeated events will not continue to invoke this method. 
@@ -623,9 +623,9 @@ public class PhoneWindowManager {
 			final int action = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[1] : ((KeyEvent) param.args[1]).getAction());
 			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 2 : 7;
 			int policyFlags = (Integer) (param.args[policyIndex]);
-			//final int eventFlags = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[2] : ((KeyEvent) param.args[1]).getFlags());
+			final int eventFlags = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[2] : ((KeyEvent) param.args[1]).getFlags());
 			final int repeatCount = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[6] : ((KeyEvent) param.args[1]).getRepeatCount());
-			final long eventTime = SDK_NEW_PHONE_WINDOW_MANAGER ? (long) ((KeyEvent) param.args[1]).getEventTime() : SystemClock.uptimeMillis();
+			//final long eventTime = SDK_NEW_PHONE_WINDOW_MANAGER ? (long) ((KeyEvent) param.args[1]).getEventTime() : SystemClock.uptimeMillis();
 			final boolean down = action == KeyEvent.ACTION_DOWN;
 
 			String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
@@ -677,25 +677,23 @@ public class PhoneWindowManager {
 					
 					synchronized(mLockQueueing) {
 						if(wasFlags == null || mKeyFlags.SameFlags(wasFlags)) {
-							int keyCode1 = mKeyConfig.getOngoingKeyCodes()[0];
 							if(Common.debug()) Log.d(tag, "Long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown()));
 							
 							if (!mKeyConfig.isOngoingLongPress()) {
 								if (repeatCount > 0) {
 									//The second down should be long press
-									if(Common.debug()) Log.d(tag, "Setting long press on the mapped key:" + keyCode1);
+									if(Common.debug()) Log.d(tag, "Setting long press on the mapped key:" + keyCode);
 
 									mKeyConfig.setOngoingLongPress(true);
 									policyFlags |= KeyEvent.FLAG_LONG_PRESS;
-								} else if ((repeatCount == 0) && (policyFlags & KeyEvent.FLAG_LONG_PRESS) > 0){
-									if(Common.debug()) Log.d(tag, "Longpress unexpected set on the mapped key:" + keyCode1);
+								} else if ((repeatCount == 0) && (eventFlags & KeyEvent.FLAG_LONG_PRESS) > 0){
+									if(Common.debug()) Log.d(tag, "Longpress unexpected set on the mapped key:" + keyCode);
 									//This is a hack: long press seem to be set on first inserted key
 									policyFlags &= ~KeyEvent.FLAG_LONG_PRESS;
 								}
 							}
 
-							injectInputEvent(keyCode1, mKeyFlags.firstDownTime(), repeatCount+1, false, false);
-
+							injectInputEvent(keyCode, mKeyFlags.firstDownTime(), repeatCount+1, false, false);
 						}
 					}
 					//TODO: Need to dispatch default event, for tracking?
@@ -834,8 +832,8 @@ public class PhoneWindowManager {
 								
 									int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), true);
-								} else if (mKeyFlags.getTaps() > 0){
-									if(Common.debug()) Log.d(tag, "No mapped click action");
+								} else if (mKeyFlags.getTaps() > 1){
+									if(Common.debug()) Log.d(tag, "No mapped click action"+mKeyFlags.getTaps());
 								} else {
 									//insert separately here, could probably use injectInputEvent()
 									handleKeyAction(keyAction, mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), true);
@@ -1327,6 +1325,7 @@ public class PhoneWindowManager {
 	
 	protected enum ActionTypes { press, tap };
 	
+	//KeyConfig contains information about the current event, related to KeyFlags
 	protected class KeyConfig {
 		protected static final int maxTapActions = 3*2; //ActionTypes.values().length;
 		
@@ -1463,6 +1462,7 @@ public class PhoneWindowManager {
 		}
 	}
 	
+	//Status of keys and combined events
 	protected class KeyFlags {
 		private Boolean mIsPrimaryDown = false;
 		private Boolean mIsSecondaryDown = false;
