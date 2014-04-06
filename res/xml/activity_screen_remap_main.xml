@@ -9,14 +9,14 @@
             android:key="delay_key_tap_preference"
             android:title="@string/preference_title_delay_key_tap"
             android:persistent="false"
-            android:entries="@array/delay_names"
+            android:entries="@array/delay_names_tap"
             android:entryValues="@array/delay_tap_values" />
         
         <com.spazedog.xposed.additionsgb.tools.views.WidgetListPreference
             android:key="delay_key_press_preference"
             android:title="@string/preference_title_delay_key_press"
             android:persistent="false"
-            android:entries="@array/delay_names"
+            android:entries="@array/delay_names_press"
             android:entryValues="@array/delay_press_values" />
         
         <CheckBoxPreference

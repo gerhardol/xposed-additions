@@ -16,6 +16,8 @@
     <string name='array_delay_short'>Short</string>
     <string name='array_delay_normal'>Normal</string>
     <string name='array_delay_long'>Long</string>
+    <string name='array_delay_longpress'>Long Press</string>
+    <string name='array_delay_default'>Default</string>
     
     <!-- ================================================
          Strings for AsyncTask Loader
