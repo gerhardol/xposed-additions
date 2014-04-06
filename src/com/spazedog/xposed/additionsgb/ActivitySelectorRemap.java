@@ -133,7 +133,7 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
     			}
     		}
     		
-			if (mPreferences.isPackageUnlocked() && !("add_action".equals(mAction) && "off".equals(getIntent().getStringExtra("condition")))) {
+			if (mPreferences.isPackageUnlocked()){//Temporary allow application start with screen off && !("add_action".equals(mAction) && "off".equals(getIntent().getStringExtra("condition")))) {
 				findPreference("load_apps_preference").setOnPreferenceClickListener(this);
 				
 			} else {
