@@ -622,12 +622,13 @@ public class PhoneWindowManager {
 			final int keyCode = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[3] : ((KeyEvent) param.args[1]).getKeyCode());
 			final int action = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[1] : ((KeyEvent) param.args[1]).getAction());
 			final int policyIndex = SDK_NEW_PHONE_WINDOW_MANAGER ? 2 : 7;
-			int policyFlags = (Integer) (param.args[policyIndex]);
+			final int policyFlags = (Integer) (param.args[policyIndex]);
 			//final int eventFlags = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[2] : ((KeyEvent) param.args[1]).getFlags());
 			final int repeatCount = (Integer) (!SDK_NEW_PHONE_WINDOW_MANAGER ? param.args[6] : ((KeyEvent) param.args[1]).getRepeatCount());
 			//final long eventTime = SDK_NEW_PHONE_WINDOW_MANAGER ? (long) ((KeyEvent) param.args[1]).getEventTime() : SystemClock.uptimeMillis();
 			final boolean down = action == KeyEvent.ACTION_DOWN;
 
+			int extraFlags = 0;
 			String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 			
 			//Skipped not tracked key
@@ -684,11 +685,7 @@ public class PhoneWindowManager {
 									if(Common.debug()) Log.d(tag, "Setting long press on the mapped key:" + keyCode);
 
 									mKeyConfig.setOngoingLongPress(true);
-									policyFlags |= KeyEvent.FLAG_LONG_PRESS;
-								//} else if ((repeatCount == 0) && (policyFlags & KeyEvent.FLAG_LONG_PRESS) > 0){
-								//	if(Common.debug()) Log.d(tag, "Longpress unexpected set on the mapped key:" + keyCode);
-								//	//This is a hack: long press seem to be set on first inserted key
-								//	policyFlags &= ~KeyEvent.FLAG_LONG_PRESS;
+									extraFlags |= KeyEvent.FLAG_LONG_PRESS;
 								//}
 							}
 
@@ -703,7 +700,7 @@ public class PhoneWindowManager {
 					mOriginalLocks += 1;
 				}
 				
-				param.args[policyIndex] = policyFlags & ~FLAG_INJECTED;
+				param.args[policyIndex] = policyFlags & ~FLAG_INJECTED | extraFlags;
 			
 				return;
 				
