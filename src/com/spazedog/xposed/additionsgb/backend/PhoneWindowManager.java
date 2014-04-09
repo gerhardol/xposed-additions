@@ -530,6 +530,7 @@ public class PhoneWindowManager {
 				}
 				
 				int ongoingKeys[]  = mKeyFlags.getOngoingKeyCodes();
+				int specialKey = mKeyFlags.getSpecialKey();
 				boolean newAction = mKeyFlags.registerKey(keyCode, down, downTime);
 				
 				if (newAction) {
@@ -542,6 +543,10 @@ public class PhoneWindowManager {
 						if(ongoingKeys[1] > 0) {
 							injectInputEvent(ongoingKeys[1], 0, -1, false, true);								
 						}
+					} else if (specialKey > 0) {
+						if(Common.debug()) Log.d(tag, "Short press for special key long press event" + specialKey);
+						
+						injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, false, true);
 					}
 				}
 				
@@ -711,6 +716,13 @@ public class PhoneWindowManager {
 			} else if (!internalKey(keyCode)) {
 				return;
 				
+			} else if (mKeyFlags.getSpecialKey() > 0) {
+				if(Common.debug()) Log.d(tag, "Short press for special key long press event: " + mKeyFlags.getSpecialKey());
+				
+				synchronized(mLockQueueing) {
+					injectInputEvent(mKeyFlags.getSpecialKey(), mKeyFlags.firstDownTime(), 0, false, true);
+					mKeyFlags.setSpecialKey(0);
+				}
 			} else if (!down && mKeyFlags.isOngoingKeyCode()) {
 				if(Common.debug()) Log.d(tag, "Releasing long press event");
 				
@@ -719,7 +731,7 @@ public class PhoneWindowManager {
 					if(mKeyFlags.getOngoingKeyCodes()[1] > 0) {
 						injectInputEvent(mKeyFlags.getOngoingKeyCodes()[1], 0, -1, false, true);
 					}
-					
+
 					mKeyFlags.setOngoingKeyCode(0, 0);
 					mKeyFlags.setOngoingLongPress(false);
 				}
@@ -758,8 +770,14 @@ public class PhoneWindowManager {
 							if (mKeyConfig.isAction(keyAction)) {
 								if(Common.debug()) Log.d(tag, "Invoking mapped long press action: " + keyAction);
 								int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
-								handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), false);
-								mKeyFlags.setOngoingKeyCode(code, 0);
+
+								//Attempt to fix special handling for Power, sending first event when releasing
+								if(code == KeyEvent.KEYCODE_POWER) {
+									mKeyFlags.setSpecialKey(code);
+								} else {
+									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), false);
+									mKeyFlags.setOngoingKeyCode(code, 0);
+								}
 
 							} else if (mKeyFlags.getTaps() > 1) {
 								//Check not needed while the "early" tap detection skips press
@@ -788,6 +806,29 @@ public class PhoneWindowManager {
 						}
 					}
 					
+					curDelay = 0;
+					if(mKeyFlags.getSpecialKey() > 0) {
+						do {
+							final Integer t = 10;
+							try {
+								Thread.sleep(t);
+							} catch (Throwable e) {}
+
+							curDelay += t;
+
+						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < 2* pressDelay);
+
+						synchronized(mLockQueueing) {
+							if (mKeyFlags.SameFlags(wasFlags)&& curDelay >= 2* pressDelay) {
+								if(Common.debug()) Log.d(tag, "Invoking long press for long press action: " + mKeyFlags.getSpecialKey());
+								//This is a long press, inject code
+								injectInputEvent(mKeyFlags.getSpecialKey(), mKeyFlags.firstDownTime(), 0, true, false);
+								mKeyFlags.setOngoingKeyCode(mKeyFlags.getSpecialKey(), 0);
+								mKeyFlags.setOngoingLongPress(true);
+								mKeyFlags.setSpecialKey(0);
+							}
+						}
+					}
 				} else {
 					KeyFlags wasFlags = null;
 					
@@ -1448,6 +1489,7 @@ public class PhoneWindowManager {
 		private Integer mPrimaryKey = 0;
 		private Integer mSecondaryKey = 0;
 		private Integer mCurrentKey = 0;
+		private Integer mSpecialKey = 0;
 		
 		private long firstDown; //time
 		private long currDown;
@@ -1537,6 +1579,7 @@ public class PhoneWindowManager {
 					
 					mPrimaryKey = keyCode;
 					mSecondaryKey = 0;
+					mSpecialKey = 0;
 					mTaps = 1;
 					this.firstDown = this.currDown = time;
 					
@@ -1642,5 +1685,13 @@ public class PhoneWindowManager {
 		public void setOngoingLongPress(Boolean on) {
 			mLongPressIsSet = on;
 		}
+		
+		public void setSpecialKey(int code) {
+			mSpecialKey = code;
+		}
+		public Integer getSpecialKey() {
+			return mSpecialKey;
+		}
+		
 	}
 }
