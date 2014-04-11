@@ -205,7 +205,7 @@ public final class Common {
 			
 			for (int i=0; i < blacklist.length; i++) {
 				if (blacklist[i] instanceof String) {
-					this.blacklist.add( (String) blacklist[i] );
+					//Temporary allow application start with screen off this.blacklist.add( (String) blacklist[i] );
 				}
 			}
 			
