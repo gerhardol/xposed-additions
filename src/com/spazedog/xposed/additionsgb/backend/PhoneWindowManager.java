@@ -640,13 +640,10 @@ public class PhoneWindowManager {
 			int extraFlags = 0;
 			String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 			
-			//Skipped not tracked key
-			if (!mKeyConfig.hasAnyAction()) {
+			//Skipped not tracked key, except Power that need handling
+			if (!mKeyConfig.hasAnyAction() && keyCode != KeyEvent.KEYCODE_POWER) {
 				if(Common.debug()) Log.d(tag, "No action");
 				
-				if (keyCode == KeyEvent.KEYCODE_POWER && !mWasScreenOn) {
-					changeDisplayState(true);
-				}
 				return;
 			}
 
