@@ -684,8 +684,8 @@ public class PhoneWindowManager {
 					}
 					
 					synchronized(mLockQueueing) {
-						if(wasFlags == null || mKeyFlags.SameFlags(wasFlags)) {
-							if(Common.debug()) Log.d(tag, "Long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown()));
+						if (wasFlags == null || mKeyFlags.SameFlags(wasFlags)) {
+							if (Common.debug()) Log.d(tag, "Long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown()));
 							
 							if (!mKeyFlags.isOngoingLongPress()) {
 								//The second down should be long press
@@ -714,7 +714,7 @@ public class PhoneWindowManager {
 				return;
 				
 			} else if (mKeyFlags.getSpecialKey() > 0) {
-				if(Common.debug()) Log.d(tag, "Short press for special key long press event: " + mKeyFlags.getSpecialKey());
+				if (Common.debug()) Log.d(tag, "Short press for special key long press event: " + mKeyFlags.getSpecialKey());
 				
 				synchronized(mLockQueueing) {
 					injectInputEvent(mKeyFlags.getSpecialKey(), mKeyFlags.firstDownTime(), 0, false, true);
@@ -735,7 +735,7 @@ public class PhoneWindowManager {
 				
 			} else if (!mKeyFlags.wasInvoked()) {
 				//if(Common.debug()) Log.d(tag, (down ? "Starting" : "Stopping") + " event");
-				//This check complicated to detect double (and triple) clicks directly at down
+				//This check is complicated to detect double (and triple) clicks directly at down
 				//when no other event is configured for long press and no other event follows
 				//This is to get same behavior as original, where double-tap always was detected at down
 				
@@ -760,14 +760,14 @@ public class PhoneWindowManager {
 					}
 					
 					synchronized(mLockQueueing) {
-						if (mKeyFlags.SameFlags(wasFlags)) {
+						if (!mKeyFlags.isDone() && mKeyFlags.SameFlags(wasFlags)) {
 							performHapticFeedback(HAPTIC_LONG_PRESS);
 							
 							mKeyFlags.finish();
 							String keyAction = mKeyConfig.getAction(ActionTypes.press, mKeyFlags);
 
 							if (mKeyConfig.isAction(keyAction)) {
-								if (Common.debug()) Log.d(tag, "Invoking mapped long press action: " + keyAction);
+								if (Common.debug()) Log.d(tag,  shortTime() + " Invoking mapped long press action: " + keyAction);
 								int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 
 								if (code == KeyEvent.KEYCODE_POWER) {
@@ -819,8 +819,8 @@ public class PhoneWindowManager {
 						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < 2* pressDelay);
 
 						synchronized(mLockQueueing) {
-							if (mKeyFlags.SameFlags(wasFlags)&& curDelay >= 2* pressDelay) {
-								if(Common.debug()) Log.d(tag, "Invoking long press for long press action: " + mKeyFlags.getSpecialKey());
+							if (!mKeyFlags.isDone() && mKeyFlags.SameFlags(wasFlags)&& curDelay >= 2* pressDelay) {
+								if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press for long press action: " + mKeyFlags.getSpecialKey());
 								//This is a long press, inject code
 								injectInputEvent(mKeyFlags.getSpecialKey(), mKeyFlags.firstDownTime(), 0, true, false);
 								mKeyFlags.setOngoingKeyCode(mKeyFlags.getSpecialKey(), 0);
@@ -853,7 +853,7 @@ public class PhoneWindowManager {
 					}
 					
 					synchronized(mLockQueueing) {
-						if ((wasFlags == null || mKeyFlags.SameFlags(wasFlags)) && mKeyFlags.getCurrentKey() == keyCode) {
+						if (!mKeyFlags.isDone() && (wasFlags == null || mKeyFlags.SameFlags(wasFlags)) && mKeyFlags.getCurrentKey() == keyCode) {
 
 							mKeyFlags.finish();
 							int callCode = 0;
@@ -872,15 +872,18 @@ public class PhoneWindowManager {
 							if (callCode == 0) {
 								String keyAction = mKeyConfig.getAction(ActionTypes.tap, mKeyFlags);
 								if (mKeyConfig.hasAction(ActionTypes.tap, mKeyFlags)) {
-									if(Common.debug()) Log.d(tag, "Invoking click action: " + keyAction);
+									if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: " + keyAction);
 								
 									int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), true);
 									
 								} else if (mKeyFlags.getTaps() > 1) {
-									if(Common.debug()) Log.d(tag, "No mapped click action" + mKeyFlags.getTaps());
+									if (Common.debug()) Log.d(tag, shortTime() + " No mapped click action" + mKeyFlags.getTaps());
 									
 								} else {
+									if (Common.debug()) Log.d(tag, shortTime() + " Invoking default key:" + 
+						        		mKeyFlags.getPrimaryKey() + "," + mKeyFlags.getSecondaryKey());
+									
 									//insert separately here, could probably use injectInputEvent()
 									handleKeyAction(keyAction, mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), true);
 									if (mKeyFlags.getSecondaryKey() > 0) {
@@ -889,7 +892,7 @@ public class PhoneWindowManager {
 								}
 								
 							} else {
-								if(Common.debug()) Log.d(tag, "Invoking call button");
+								if (Common.debug()) Log.d(tag, shortTime() + " Invoking call button");
 								
 								injectInputEvent(callCode, mKeyFlags.firstDownTime(), 0, false, true);
 							}
@@ -1510,6 +1513,7 @@ public class PhoneWindowManager {
 			k.mSecondaryKey = this.mSecondaryKey;
 			return k;
 		}
+		
 		public boolean SameFlags(KeyFlags o2) {
 			boolean result = false;
 			if (this.mIsPrimaryDown == o2.mIsPrimaryDown &&
@@ -1521,6 +1525,7 @@ public class PhoneWindowManager {
 			}
 			return result;
 		}
+		
 		public void finish() {
 			mFinished = true;
 		}
