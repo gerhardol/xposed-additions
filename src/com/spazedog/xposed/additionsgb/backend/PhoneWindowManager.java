@@ -529,27 +529,23 @@ public class PhoneWindowManager {
 					performHapticFeedback(HAPTIC_VIRTUAL_KEY);
 				}
 				
-				int ongoingKeys[] = mKeyFlags.getOngoingKeyCodes();
-				int specialKey = mKeyFlags.getSpecialKey();
-				boolean newAction = mKeyFlags.registerKey(keyCode, down, downTime);
-				
-				if (newAction) {
-					
-					if (ongoingKeys[0] > 0) {
-						//The key should have been released when up received, but another key pushed and aborted
-						if(Common.debug()) Log.d(tag, "Releasing long press event for " + ongoingKeys[0]);
-						
-						injectInputEvent(ongoingKeys[0], 0, -1, false, true);
-						if(ongoingKeys[1] > 0) {
-							injectInputEvent(ongoingKeys[1], 0, -1, false, true);								
-						}
-					} else if (specialKey > 0) {
-						if(Common.debug()) Log.d(tag, "Short press for special key long press event" + specialKey);
-						
-						injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, false, true);
+				if (mKeyFlags.isOngoingKeyCode()) {
+					//The key should have been released when up received, but another key pushed and aborted
+					if(Common.debug()) Log.d(tag, "Releasing long press event for " + mKeyFlags.getOngoingKeyCodes()[0]);
+
+					injectInputEvent(mKeyFlags.getOngoingKeyCodes()[0], 0, -1, false, true);
+					if(mKeyFlags.getOngoingKeyCodes()[1] > 0) {
+						injectInputEvent(mKeyFlags.getOngoingKeyCodes()[1], 0, -1, false, true);								
 					}
+				} 
+				if (mKeyFlags.getSpecialKey() > 0) {
+					if(Common.debug()) Log.d(tag, "Short press for special key long press event" + mKeyFlags.getSpecialKey());
+
+					injectInputEvent(mKeyFlags.getSpecialKey(), 0, 0, false, true);
 				}
 				
+				//Get new event, clear ongoing/special
+				boolean	newAction = mKeyFlags.registerKey(keyCode, down, downTime);
 				if (isScreenOn && mInterceptKeyCode) {
 					if (down) {
 						if(Common.debug()) Log.d(tag, "Intercepting key code");
@@ -565,7 +561,7 @@ public class PhoneWindowManager {
 					param.setResult(ACTION_DISABLE_QUEUEING);
 					
 				} else {
-
+					
 					if (newAction) {
 						if(Common.debug()) Log.d(tag, "Configuring new event");
 
@@ -712,26 +708,6 @@ public class PhoneWindowManager {
 				
 			} else if (!internalKey(keyCode)) {
 				return;
-				
-			} else if (mKeyFlags.getSpecialKey() > 0) {
-				if (Common.debug()) Log.d(tag, "Short press for special key long press event: " + mKeyFlags.getSpecialKey());
-				
-				synchronized(mLockQueueing) {
-					injectInputEvent(mKeyFlags.getSpecialKey(), mKeyFlags.firstDownTime(), 0, false, true);
-					mKeyFlags.setSpecialKey(0);
-				}
-			} else if (!down && mKeyFlags.isOngoingKeyCode()) {
-				if(Common.debug()) Log.d(tag, "Releasing long press event");
-				
-				synchronized(mLockQueueing) {
-					injectInputEvent(mKeyFlags.getOngoingKeyCodes()[0], 0, -1, false, true);
-					if(mKeyFlags.getOngoingKeyCodes()[1] > 0) {
-						injectInputEvent(mKeyFlags.getOngoingKeyCodes()[1], 0, -1, false, true);
-					}
-
-					mKeyFlags.setOngoingKeyCode(0, 0);
-					mKeyFlags.setOngoingLongPress(false);
-				}
 				
 			} else if (!mKeyFlags.wasInvoked()) {
 				//if(Common.debug()) Log.d(tag, (down ? "Starting" : "Stopping") + " event");
@@ -1548,6 +1524,7 @@ public class PhoneWindowManager {
 			//A new key is pressed, forget about ongoing codes
 			mOngoingKeyCodes[0] = 0;
 			mOngoingKeyCodes[1] = 0;
+			mSpecialKey = 0;
 
 			if (down) {
 				if (!isDone() && mTaps >= 1 && (keyCode == mPrimaryKey || keyCode == mSecondaryKey)) {
@@ -1586,7 +1563,6 @@ public class PhoneWindowManager {
 					
 					mPrimaryKey = keyCode;
 					mSecondaryKey = 0;
-					mSpecialKey = 0;
 					mTaps = 1;
 					this.firstDown = this.currDown = time;
 					
