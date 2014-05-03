@@ -529,7 +529,7 @@ public class PhoneWindowManager {
 					performHapticFeedback(HAPTIC_VIRTUAL_KEY);
 				}
 				
-				int ongoingKeys[]  = mKeyFlags.getOngoingKeyCodes();
+				int ongoingKeys[] = mKeyFlags.getOngoingKeyCodes();
 				int specialKey = mKeyFlags.getSpecialKey();
 				boolean newAction = mKeyFlags.registerKey(keyCode, down, downTime);
 				
@@ -668,7 +668,7 @@ public class PhoneWindowManager {
 						Integer curDelay = 0;
 						final int longLongPressDelay = 2; //Wait 2 times normal long press
 						final Integer keyDelay = (!mKeyFlags.isOngoingLongPress()) ? 
-								//key repeat timeout and long press are same by default, not using ViewConfiguration.getKeyRepeatTimeout()
+								//start key repeat and long press timeout are the same by default, not using ViewConfiguration.getKeyRepeatTimeout()
 								longLongPressDelay * mKeyConfig.getLongPressDelay() :
 									(SDK_NEW_VIEWCONFIGURATION ? ViewConfiguration.getKeyRepeatDelay() : 50);
 
@@ -682,6 +682,7 @@ public class PhoneWindowManager {
 							curDelay += t;
 						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < keyDelay);
 					}
+					
 					synchronized(mLockQueueing) {
 						if(wasFlags == null || mKeyFlags.SameFlags(wasFlags)) {
 							if(Common.debug()) Log.d(tag, "Long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown()));
@@ -757,6 +758,7 @@ public class PhoneWindowManager {
 
 						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < pressDelay);
 					}
+					
 					synchronized(mLockQueueing) {
 						if (mKeyFlags.SameFlags(wasFlags)) {
 							performHapticFeedback(HAPTIC_LONG_PRESS);
@@ -765,11 +767,11 @@ public class PhoneWindowManager {
 							String keyAction = mKeyConfig.getAction(ActionTypes.press, mKeyFlags);
 
 							if (mKeyConfig.isAction(keyAction)) {
-								if(Common.debug()) Log.d(tag, "Invoking mapped long press action: " + keyAction);
+								if (Common.debug()) Log.d(tag, "Invoking mapped long press action: " + keyAction);
 								int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 
-								//fix special handling for Power, sending first event when releasing
-								if(code == KeyEvent.KEYCODE_POWER) {
+								if (code == KeyEvent.KEYCODE_POWER) {
+									//fix special handling for Power, sending first event when releasing
 									mKeyFlags.setSpecialKey(code);
 								} else {
 									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), false);
@@ -827,6 +829,7 @@ public class PhoneWindowManager {
 							}
 						}
 					}
+					
 				} else {
 					KeyFlags wasFlags = null;
 					
@@ -851,6 +854,8 @@ public class PhoneWindowManager {
 					
 					synchronized(mLockQueueing) {
 						if ((wasFlags == null || mKeyFlags.SameFlags(wasFlags)) && mKeyFlags.getCurrentKey() == keyCode) {
+
+							mKeyFlags.finish();
 							int callCode = 0;
 							
 							if ((mKeyFlags.getTaps() == 1) && mKeyFlags.isCallButton()) {
@@ -871,8 +876,10 @@ public class PhoneWindowManager {
 								
 									int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), true);
-								} else if (mKeyFlags.getTaps() > 1){
-									if(Common.debug()) Log.d(tag, "No mapped click action"+mKeyFlags.getTaps());
+									
+								} else if (mKeyFlags.getTaps() > 1) {
+									if(Common.debug()) Log.d(tag, "No mapped click action" + mKeyFlags.getTaps());
+									
 								} else {
 									//insert separately here, could probably use injectInputEvent()
 									handleKeyAction(keyAction, mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), true);
@@ -886,8 +893,6 @@ public class PhoneWindowManager {
 								
 								injectInputEvent(callCode, mKeyFlags.firstDownTime(), 0, false, true);
 							}
-							
-							mKeyFlags.finish();
 						}
 					}
 				}
@@ -1518,10 +1523,6 @@ public class PhoneWindowManager {
 		}
 		public void finish() {
 			mFinished = true;
-			
-			if (!isDone()) {
-				mReset = mSecondaryKey == 0;
-			}
 		}
 		
 		public void cancel() {
@@ -1538,7 +1539,11 @@ public class PhoneWindowManager {
 			mCurrentKey = keyCode;
 
 			String tag = TAG + "#KeyFlags:" + keyCode;
-					
+
+			//A new key is pressed, forget about ongoing codes
+			mOngoingKeyCodes[0] = 0;
+			mOngoingKeyCodes[1] = 0;
+
 			if (down) {
 				if (!isDone() && mTaps >= 1 && (keyCode == mPrimaryKey || keyCode == mSecondaryKey)) {
 					if(Common.debug()) Log.d(tag, "Registring repeated event");
@@ -1557,8 +1562,7 @@ public class PhoneWindowManager {
 					if (mIsPrimaryDown && (mSecondaryKey == 0 || mIsSecondaryDown || mTaps > 1)) {
 						mIsAggregatedDown = true;
 					}
-					
-				} else if (mTaps == 1 && !mReset && !mCancel && mPrimaryKey > 0 && mIsPrimaryDown && keyCode != mPrimaryKey && (mSecondaryKey == 0 || mSecondaryKey == keyCode)) {
+				} else if (!isDone() && mTaps == 1 && mPrimaryKey > 0 && mIsPrimaryDown && keyCode != mPrimaryKey && (mSecondaryKey == 0 || mSecondaryKey == keyCode)) {
 					if(Common.debug()) Log.d(tag, "Registring first secondary key");
 					
 					mIsSecondaryDown = true;
@@ -1586,8 +1590,6 @@ public class PhoneWindowManager {
 				}
 				
 				if (newEvent) {
-					mOngoingKeyCodes[0] = 0;
-					mOngoingKeyCodes[1] = 0;
 					mLongPressIsSet = false;
 
 					mFinished = false;
