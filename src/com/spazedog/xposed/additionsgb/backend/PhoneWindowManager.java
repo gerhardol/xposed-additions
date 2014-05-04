@@ -530,15 +530,7 @@ public class PhoneWindowManager {
 				}
 				
 				synchronized(mLockQueueing) {
-					if (mKeyFlags.getSpecialKey() > 0) {
-						//Short press for special power, not ongoing
-						if(Common.debug()) Log.d(tag, "Short press for special key long press event" + mKeyFlags.getSpecialKey());
-
-						injectInputEvent(mKeyFlags.getSpecialKey(), mKeyFlags.firstDownTime(), 0, false, true);
-						mKeyFlags.setSpecialKey(0);
-						mKeyFlags.setOngoingKeyCode(0, 0, false);
-
-					} else if (mKeyFlags.isOngoingKeyCode()) {
+					if (mKeyFlags.isOngoingKeyCode()) {
 						//Release ongoing (long press) key actions
 						if(Common.debug()) Log.d(tag, "Releasing long press event for " + mKeyFlags.getOngoingKeyCodes()[0]);
 
@@ -742,6 +734,7 @@ public class PhoneWindowManager {
 						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < pressDelay);
 					}
 					
+					int specialKey = 0;
 					synchronized(mLockQueueing) {
 						if (!mKeyFlags.isDone() && mKeyFlags.SameFlags(wasFlags)) {
 							performHapticFeedback(HAPTIC_LONG_PRESS);
@@ -755,7 +748,7 @@ public class PhoneWindowManager {
 
 								if (code == KeyEvent.KEYCODE_POWER) {
 									//fix special handling for Power, sending first event when releasing
-									mKeyFlags.setSpecialKey(code);
+									specialKey = code;
 
 								} else {
 									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), false);
@@ -787,7 +780,7 @@ public class PhoneWindowManager {
 						}
 					}
 					
-					if (mKeyFlags.getSpecialKey() > 0) {
+					if (specialKey > 0) {
 						//Keys where click/long-press is decided instantly
 						int curDelay = 0;
 
@@ -799,16 +792,23 @@ public class PhoneWindowManager {
 
 							curDelay += t;
 
-						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < 2* pressDelay);
+						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < 2 * pressDelay);
 
 						synchronized(mLockQueueing) {
-							if (!mKeyFlags.isDone() && mKeyFlags.SameFlags(wasFlags)&& curDelay >= 2* pressDelay) {
-								if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press for long press action: " + mKeyFlags.getSpecialKey());
-								//This is a long press, inject code
-								performHapticFeedback(HAPTIC_LONG_PRESS);
-								injectInputEvent(mKeyFlags.getSpecialKey(), mKeyFlags.firstDownTime(), 0, true, false);
-								mKeyFlags.setOngoingKeyCode(mKeyFlags.getSpecialKey(), 0, true);
-								mKeyFlags.setSpecialKey(0);
+							if (!mKeyFlags.isDone()) {
+								if (mKeyFlags.SameFlags(wasFlags) && curDelay >= 2 * pressDelay) {
+									if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press for long press action: " + specialKey);
+
+									performHapticFeedback(HAPTIC_LONG_PRESS);
+									injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, true, false);
+									mKeyFlags.setOngoingKeyCode(specialKey, 0, true);
+									
+								} else {
+									if(Common.debug()) Log.d(tag, shortTime() + " Short press for special key long press event " + specialKey);
+
+									injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, false, true);
+									mKeyFlags.setOngoingKeyCode(specialKey, 0, false);
+								}
 							}
 						}
 					}
@@ -1478,7 +1478,6 @@ public class PhoneWindowManager {
 		private int mPrimaryKey = 0;
 		private int mSecondaryKey = 0;
 		private int mCurrentKey = 0;
-		private int mSpecialKey = 0;
 		
 		private long firstDown; //time
 		private long currDown;
@@ -1668,15 +1667,8 @@ public class PhoneWindowManager {
 		public Boolean isOngoingLongPress() {
 			return mLongPressIsSet;
 		}
-		
-		public void setSpecialKey(int code) {
-			mSpecialKey = code;
-		}
-		public int getSpecialKey() {
-			return mSpecialKey;
-		}
-		
-		public String toString() {
+	
+    	public String toString() {
 			return this.mIsPrimaryDown.toString()+this.mIsSecondaryDown.toString()+this.mTaps+this.mPrimaryKey+this.mSecondaryKey;
 		}
 	}
