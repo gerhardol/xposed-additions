@@ -576,11 +576,6 @@ public class PhoneWindowManager {
 							pokeUserActivity(false);
 						}
 					} 
-					else if (/*mKeyFlags.getTaps() > 1 && */!mKeyConfig.hasMoreAction((down ? ActionTypes.press : ActionTypes.tap), mKeyFlags, false))
-					{
-						if(Common.debug()) Log.d(tag, "No more action - resetting event");
-						mKeyFlags.reset();
-					}
 					if(Common.debug()) Log.d(tag, "Passing event to dispatcher");
 					
 					param.setResult(ACTION_PASS_QUEUEING);
