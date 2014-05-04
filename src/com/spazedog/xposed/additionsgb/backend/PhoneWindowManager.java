@@ -155,7 +155,7 @@ public class PhoneWindowManager {
 	
 	protected Object mLockQueueing = new Object();
 	
-	protected Boolean mWasScreenOn = true;
+	protected boolean mWasScreenOn = true;
 	
 	protected Intent mTorchIntent;
 	
@@ -438,7 +438,7 @@ public class PhoneWindowManager {
 	 */
 	protected XC_MethodHook hook_interceptKeyBeforeQueueing = new XC_MethodHook() {
 		
-		protected Boolean mIsOriginalLocked = false;
+		protected boolean mIsOriginalLocked = false;
 		
 		@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 		@Override
@@ -610,7 +610,7 @@ public class PhoneWindowManager {
 	 */
 	protected XC_MethodHook hook_interceptKeyBeforeDispatching = new XC_MethodHook() {
 		
-		protected Boolean mIsOriginalLocked = false;
+		protected boolean mIsOriginalLocked = false;
 		
 		@SuppressLint("NewApi") @Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
@@ -842,7 +842,7 @@ public class PhoneWindowManager {
 							mKeyFlags.finish();
 							int callCode = 0;
 							
-							if ((mKeyFlags.getTaps() == 1) && mKeyFlags.isCallButton()) {
+							if ((mKeyFlags.getTaps() == 1) && mKeyConfig.isCallButton()) {
 								int mode = ((AudioManager) mAudioManager.getReceiver()).getMode();
 
 								if (mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION) {
@@ -1364,18 +1364,18 @@ public class PhoneWindowManager {
 		private String[] mActions; // new String[maxTapActions];
 		private int mKeyDelayTap = 0;
 		private int mKeyDelayPress = 0;
-		private Boolean mAnyAction = false;
-		private Boolean mIsCallButton = false;
+		private boolean mAnyAction = false;
+		private boolean mIsCallButton = false;
 		
 		public KeyConfig() {
 			mActions = new String[]{null, null, null, null, null, null};
 		}
 		
-		public void newAction(KeyFlags keyFlags, Boolean isScreenOn)
+		public void newAction(KeyFlags keyFlags, boolean isScreenOn)
 		{
 			mIsCallButton = mPreferences.getBooleanGroup(Index.bool.key.remapCallButton, (keyFlags.getPrimaryKey() + ":" + keyFlags.getSecondaryKey()), Index.bool.value.remapCallButton);
 			
-			Boolean extended = mPreferences.isPackageUnlocked();
+			boolean extended = mPreferences.isPackageUnlocked();
 			this.mKeyDelayPress = mPreferences.getInt(Common.Index.integer.key.remapPressDelay, Common.Index.integer.value.remapPressDelay);
 			if (this.mKeyDelayPress <= 0) {
 				this.mKeyDelayPress = ViewConfiguration.getLongPressTimeout();
@@ -1413,7 +1413,7 @@ public class PhoneWindowManager {
 			}
 		}
 		
-		public Boolean hasAnyAction() {
+		public boolean hasAnyAction() {
 			return mAnyAction;
 		}
 		
@@ -1429,16 +1429,16 @@ public class PhoneWindowManager {
 			return mActions[index];
 		}
 		
-		public Boolean isAction(String action) {
+		public boolean isAction(String action) {
 			return (action != null);
 		}
 		
-		public Boolean hasAction(ActionTypes atype, KeyFlags keyFlags) {
+		public boolean hasAction(ActionTypes atype, KeyFlags keyFlags) {
 			return isAction(getAction(atype, keyFlags));
 		}
 		
-		public Boolean hasMoreAction(ActionTypes atype, KeyFlags keyFlags, Boolean next) {
-			Boolean result = false;
+		public boolean hasMoreAction(ActionTypes atype, KeyFlags keyFlags, boolean next) {
+			boolean result = false;
 			int index = getIndex(atype, keyFlags);
 			if(next){index++;}
 			while (index < maxTapActions) {
@@ -1465,21 +1465,21 @@ public class PhoneWindowManager {
 				(action == null ? keyCode : 0));
 		}
 		
-		public Boolean isCallButton() {
+		public boolean isCallButton() {
 			return mIsCallButton;
 		}
 	}
 	
 	protected class PendingEvents {
 		private int[] mOngoingKeyCodes; // new int[2];
-		private Boolean mLongPressIsSet = false;
+		private boolean mLongPressIsSet = false;
 	
 		public PendingEvents() {
 			mOngoingKeyCodes = new int[]{0, 0};
 		}
 		
 		// key status about ongoing events
-		public void setOngoingKeyCode(int primaryKeyCode, int secondaryKeyCode, Boolean isLong) {
+		public void setOngoingKeyCode(int primaryKeyCode, int secondaryKeyCode, boolean isLong) {
 			mOngoingKeyCodes[0] = primaryKeyCode;
 			mOngoingKeyCodes[1] = secondaryKeyCode;
 			mLongPressIsSet = isLong;
@@ -1496,19 +1496,19 @@ public class PhoneWindowManager {
 			return mOngoingKeyCodes[0] == keyCode || mOngoingKeyCodes[1] == keyCode;
 		}
 		
-		public Boolean isOngoingLongPress() {
+		public boolean isOngoingLongPress() {
 			return mLongPressIsSet;
 		}
 	}
 	
 	//Status of keys and combined events
 	protected class KeyFlags {
-		private Boolean mIsPrimaryDown = false;
-		private Boolean mIsSecondaryDown = false;
-		private Boolean mIsAggregatedDown = false;
-		private Boolean mFinished = false;
-		private Boolean mReset = false;
-		private Boolean mCancel = false;
+		private boolean mIsPrimaryDown = false;
+		private boolean mIsSecondaryDown = false;
+		private boolean mIsAggregatedDown = false;
+		private boolean mFinished = false;
+		private boolean mReset = false;
+		private boolean mCancel = false;
 		
 		private int mTaps = 0; //Corresponds to eventCount in KeyEvent() (often mixed with repeatCount)
 		private int mPrimaryKey = 0;
@@ -1553,8 +1553,8 @@ public class PhoneWindowManager {
 			mReset = true;
 		}
 		
-		public Boolean registerKey(int keyCode, Boolean down, long time) {
-			Boolean newEvent = false;
+		public boolean registerKey(int keyCode, boolean down, long time) {
+			boolean newEvent = false;
 			mCurrentKey = keyCode;
 
 			String tag = TAG + "#KeyFlags:" + keyCode;
@@ -1627,19 +1627,19 @@ public class PhoneWindowManager {
 			return newEvent;
 		}
 		
-		public Boolean wasInvoked() {
+		public boolean wasInvoked() {
 			return mFinished || mCancel;
 		}
 		
-		public Boolean wasCanceled() {
+		public boolean wasCanceled() {
 			return mCancel;
 		}
 		
-		public Boolean isDone() {
+		public boolean isDone() {
 			return mFinished || mReset || mCancel || mPrimaryKey == 0;
 		}
 		
-		public Boolean isMulti() {
+		public boolean isMulti() {
 			return mPrimaryKey > 0 && mSecondaryKey > 0;
 		}
 		
@@ -1647,7 +1647,7 @@ public class PhoneWindowManager {
 			return mTaps;
 		}
 		
-		public Boolean isKeyDown() {
+		public boolean isKeyDown() {
 			return mIsAggregatedDown;
 		}
 		
