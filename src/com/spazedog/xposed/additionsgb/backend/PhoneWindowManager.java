@@ -1365,6 +1365,7 @@ public class PhoneWindowManager {
 		private int mKeyDelayTap = 0;
 		private int mKeyDelayPress = 0;
 		private Boolean mAnyAction = false;
+		private Boolean mIsCallButton = false;
 		
 		public KeyConfig() {
 			mActions = new String[]{null, null, null, null, null, null};
@@ -1372,6 +1373,8 @@ public class PhoneWindowManager {
 		
 		public void newAction(KeyFlags keyFlags, Boolean isScreenOn)
 		{
+			mIsCallButton = mPreferences.getBooleanGroup(Index.bool.key.remapCallButton, (keyFlags.getPrimaryKey() + ":" + keyFlags.getSecondaryKey()), Index.bool.value.remapCallButton);
+			
 			Boolean extended = mPreferences.isPackageUnlocked();
 			this.mKeyDelayPress = mPreferences.getInt(Common.Index.integer.key.remapPressDelay, Common.Index.integer.value.remapPressDelay);
 			if (this.mKeyDelayPress <= 0) {
@@ -1461,6 +1464,10 @@ public class PhoneWindowManager {
 			return (action != null && action.matches("^[0-9]+$") ? Integer.parseInt(action) : 
 				(action == null ? keyCode : 0));
 		}
+		
+		public Boolean isCallButton() {
+			return mIsCallButton;
+		}
 	}
 	
 	protected class PendingEvents {
@@ -1502,7 +1509,6 @@ public class PhoneWindowManager {
 		private Boolean mFinished = false;
 		private Boolean mReset = false;
 		private Boolean mCancel = false;
-		private Boolean mIsCallButton = false;
 		
 		private int mTaps = 0; //Corresponds to eventCount in KeyEvent() (often mixed with repeatCount)
 		private int mPrimaryKey = 0;
@@ -1593,7 +1599,6 @@ public class PhoneWindowManager {
 					mTaps = 1;
 					this.firstDown = this.currDown = time;
 					
-					mIsCallButton = mPreferences.getBooleanGroup(Index.bool.key.remapCallButton, (mPrimaryKey + ":" + mSecondaryKey), Index.bool.value.remapCallButton);
 					newEvent = true;
 				}
 				
@@ -1644,10 +1649,6 @@ public class PhoneWindowManager {
 		
 		public Boolean isKeyDown() {
 			return mIsAggregatedDown;
-		}
-		
-		public Boolean isCallButton() {
-			return mIsCallButton;
 		}
 		
 		public int getPrimaryKey() {
