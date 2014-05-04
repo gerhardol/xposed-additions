@@ -576,8 +576,9 @@ public class PhoneWindowManager {
 							pokeUserActivity(false);
 						}
 					} 
-					else if (!mKeyConfig.hasMoreAction((down ? ActionTypes.press : ActionTypes.tap), mKeyFlags, false))
+					else if (/*mKeyFlags.getTaps() > 1 && */!mKeyConfig.hasMoreAction((down ? ActionTypes.press : ActionTypes.tap), mKeyFlags, false))
 					{
+						if(Common.debug()) Log.d(tag, "No more action - resetting event");
 						mKeyFlags.reset();
 					}
 					if(Common.debug()) Log.d(tag, "Passing event to dispatcher");
@@ -744,14 +745,15 @@ public class PhoneWindowManager {
 							String keyAction = mKeyConfig.getAction(ActionTypes.press, mKeyFlags);
 
 							if (mKeyConfig.isAction(keyAction)) {
-								if (Common.debug()) Log.d(tag,  shortTime() + " Invoking mapped long press action: " + keyAction);
 								int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 
 								if (code == KeyEvent.KEYCODE_POWER) {
+									if (Common.debug()) Log.d(tag,  shortTime() + " Invoking special key: " + code);
 									//fix special handling for Power, sending first event when releasing
 									specialKey = code;
 
 								} else {
+									if (Common.debug()) Log.d(tag,  shortTime() + " Invoking mapped long press action: " + keyAction);
 									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), false);
 									mPendingEvents.setOngoingKeyCode(code, 0, false);
 								}
@@ -796,27 +798,24 @@ public class PhoneWindowManager {
 						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < 2 * pressDelay);
 
 						synchronized(mLockQueueing) {
-							if (!mKeyFlags.isDone()) {
-								if (mKeyFlags.SameFlags(wasFlags) && curDelay >= 2 * pressDelay) {
-									if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press for special key long press action: " + specialKey);
+							if (mKeyFlags.SameFlags(wasFlags) && curDelay >= 2 * pressDelay) {
+								if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press for special key long press action: " + specialKey);
 
-									performHapticFeedback(HAPTIC_LONG_PRESS);
-									injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, true, false);
-									mPendingEvents.setOngoingKeyCode(specialKey, 0, true);
-									
-								} else {
-									if(Common.debug()) Log.d(tag, shortTime() + " Short press for special key long press event " + specialKey);
+								performHapticFeedback(HAPTIC_LONG_PRESS);
+								injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, true, false);
+								mPendingEvents.setOngoingKeyCode(specialKey, 0, true);
 
-									injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, false, true);
-									mPendingEvents.setOngoingKeyCode(specialKey, 0, false);
-								}
+							} else {
+								if(Common.debug()) Log.d(tag, shortTime() + " Short press for special key long press event " + specialKey);
+
+								injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, false, true);
+								mPendingEvents.setOngoingKeyCode(specialKey, 0, false);
 							}
 						}
 					}
 					
 				} else {
 					KeyFlags wasFlags = null;
-					
 					//timeout if there are events following otherwise direct action (or default first)
 					if (mKeyConfig.hasMoreAction(ActionTypes.tap, mKeyFlags, true)) {
 						if(Common.debug()) Log.d(tag, "Waiting for tap timeout");
@@ -865,7 +864,7 @@ public class PhoneWindowManager {
 									if (Common.debug()) Log.d(tag, shortTime() + " No mapped click action" + mKeyFlags.getTaps());
 									
 								} else {
-									if (Common.debug()) Log.d(tag, shortTime() + " Invoking default key:" + 
+									if (Common.debug()) Log.d(tag, shortTime() + " Invoking default click key:" + 
 						        		mKeyFlags.getPrimaryKey() + "," + mKeyFlags.getSecondaryKey());
 									
 									//insert separately here, could probably use injectInputEvent()
@@ -1669,6 +1668,9 @@ public class PhoneWindowManager {
 		
 		public long currDown() {
 			return this.currDown;
+		}
+		public String toString() {
+			return ""+mIsPrimaryDown+mIsSecondaryDown+mIsAggregatedDown+mFinished+mReset+mCancel+mTaps+mPrimaryKey+mSecondaryKey+mCurrentKey;
 		}
 	}
 }
