@@ -29,6 +29,7 @@ import android.annotation.TargetApi;
 import android.app.ActivityManager;
 import android.app.ActivityManager.RecentTaskInfo;
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -43,6 +44,7 @@ import android.os.Handler;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
+import android.os.Vibrator;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.HapticFeedbackConstants;
@@ -747,7 +749,19 @@ public class PhoneWindowManager {
 
 							if (mKeyConfig.isAction(keyAction)) {
 								int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
-
+								//Feedback to the user that key long-press occurs, 
+								//to give control of long-long press also if "Vibrate on Touch"
+								//is not active (could be module specific, based on pattern)
+								if (code > 0) {
+									int val = Settings.System.getInt(mContext.getContentResolver(),
+											Settings.System.HAPTIC_FEEDBACK_ENABLED, 0);
+									if (val == 0) {
+										Vibrator v = (Vibrator)mContext.getSystemService(Context.VIBRATOR_SERVICE);
+										final long[] pattern = {0, 100};
+										v.vibrate(pattern, -1);
+									}
+								}
+								
 								if (code == KeyEvent.KEYCODE_POWER) {
 									if (Common.debug()) Log.d(tag,  shortTime() + " Invoking special key: " + code);
 									//fix special handling for Power, sending first event when releasing
