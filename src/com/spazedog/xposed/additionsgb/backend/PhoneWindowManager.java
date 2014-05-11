@@ -581,7 +581,7 @@ public class PhoneWindowManager {
 								mWakelock.acquire(3000);
 							}
 
-							pokeUserActivity(false);
+							pokeUserActivity(downTime, false);
 						}
 					} 
 					if(Common.debug()) Log.d(tag, "Passing event to dispatcher");
@@ -639,11 +639,10 @@ public class PhoneWindowManager {
 			int extraFlags = 0;
 			String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 			
-			//Skipped not tracked key, except Power that need handling
-			if (!mKeyConfig.hasAnyAction() && keyCode != KeyEvent.KEYCODE_POWER) {
-				if(Common.debug()) Log.d(tag, "No action");
+			//Skipped not tracked key, except Power and screen off that need handling
+			if (!mKeyConfig.hasAnyAction() && (keyCode != KeyEvent.KEYCODE_POWER)) {
+				if(Common.debug()) Log.d(tag, "No mapped action");
 				
-				param.args[policyIndex] = policyFlags & ~FLAG_INJECTED;
 				return;
 			}
 
@@ -882,7 +881,7 @@ public class PhoneWindowManager {
 									if (Common.debug()) Log.d(tag, shortTime() + " Invoking default click key:" + 
 						        		mKeyFlags.getPrimaryKey() + "," + mKeyFlags.getSecondaryKey());
 									
-									//insert separately here, could probably use injectInputEvent()
+									//insert separately here, could probably use injectInputEvent() except for power
 									handleKeyAction(keyAction, mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), true);
 									if (mKeyFlags.getSecondaryKey() > 0) {
 										handleKeyAction(keyAction, mKeyFlags.getSecondaryKey(), mKeyFlags.firstDownTime(), true);
@@ -955,10 +954,10 @@ public class PhoneWindowManager {
 	}
 	
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-	public void pokeUserActivity(Boolean forced) {
+	public void pokeUserActivity(final long time, Boolean forced) {
 		if (forced) {
 			if (SDK_NEW_POWER_MANAGER) {
-				((PowerManager) mPowerManager.getReceiver()).wakeUp(SystemClock.uptimeMillis());
+				((PowerManager) mPowerManager.getReceiver()).wakeUp(time);
 				
 			} else {
 				/*
@@ -976,17 +975,17 @@ public class PhoneWindowManager {
 			}
 			
 		} else {
-			((PowerManager) mPowerManager.getReceiver()).userActivity(SystemClock.uptimeMillis(), true);
+			((PowerManager) mPowerManager.getReceiver()).userActivity(time, true);
 		}
 	}
 
 	@SuppressLint("NewApi")
-	protected void changeDisplayState(Boolean on) {
+	protected void changeDisplayState(final long time, Boolean on) {
 		if (on) {
-			pokeUserActivity(true);
+			pokeUserActivity(time, true);
 			
 		} else {
-			((PowerManager) mPowerManager.getReceiver()).goToSleep(SystemClock.uptimeMillis());
+			((PowerManager) mPowerManager.getReceiver()).goToSleep(time);
 		}
 	}
 	
@@ -1305,7 +1304,8 @@ public class PhoneWindowManager {
 		 * Some times they will need a few key presses before reacting. 
 		 */
 		if (code == KeyEvent.KEYCODE_POWER && !mWasScreenOn) {
-			changeDisplayState(true); return;
+			changeDisplayState(time, true);
+			return;
 		}
 		
 		/*
@@ -1572,6 +1572,11 @@ public class PhoneWindowManager {
 			mCurrentKey = keyCode;
 
 			String tag = TAG + "#KeyFlags:" + keyCode;
+			
+			if ((time - this.firstDown) > 3000) {
+				//Waited too long to handle this, for instance some screen off combination that is not well handled
+				mReset = true;
+			}
 
 			if (down) {
 				if (!isDone() && mTaps >= 1 && (keyCode == mPrimaryKey || keyCode == mSecondaryKey)) {
