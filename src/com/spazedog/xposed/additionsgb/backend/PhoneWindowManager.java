@@ -1132,7 +1132,7 @@ public class PhoneWindowManager {
 	}
 	
 	protected void toggleLastApplication() {
-		List<RecentTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRecentTasks(5, ActivityManager.RECENT_WITH_EXCLUDED);
+		List<RecentTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRecentTasks(5, ActivityManager.RECENT_IGNORE_UNAVAILABLE);
 		
 		for (int i=1; i < packages.size(); i++) {
 			String intentString = packages.get(i).baseIntent + "";
@@ -1147,6 +1147,7 @@ public class PhoneWindowManager {
 				intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
 				
 				mContext.startActivity(intent);
+				return;
 			}
 		}
 	}
