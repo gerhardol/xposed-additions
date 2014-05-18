@@ -53,6 +53,7 @@ import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Surface;
 import android.view.ViewConfiguration;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import com.spazedog.lib.reflecttools.ReflectClass;
@@ -714,7 +715,7 @@ public class PhoneWindowManager {
 				
 
 			} else if (!mKeyFlags.wasInvoked()) {
-				//This check is complicated to detect double (and triple) clicks directly at down
+				//This check is complex to detect double (and triple) clicks directly at down
 				//when no other event is configured for long press and no other event follows
 				//This is to get same behavior as original, where double-tap always was detected at down
 				
@@ -768,8 +769,8 @@ public class PhoneWindowManager {
 
 								} else {
 									if (Common.debug()) Log.d(tag,  shortTime() + " Invoking mapped long press action: " + keyAction);
-									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), false);
 									mPendingEvents.setOngoingKeyCode(code, 0, false);
+									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), false);
 								}
 
 							} else if (mKeyFlags.getTaps() > 1) {
@@ -779,12 +780,13 @@ public class PhoneWindowManager {
 							} else {
 								if(Common.debug()) Log.d(tag, "Invoking default long press action: " + keyCode);
 																
-								injectInputEvent(mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), 0, true, false);
-								if(mKeyFlags.getSecondaryKey()>0) {
-									injectInputEvent(mKeyFlags.getSecondaryKey(), mKeyFlags.firstDownTime(), 0, true, false);
-								}
 								mPendingEvents.setOngoingKeyCode(mKeyFlags.getPrimaryKey(), mKeyFlags.getSecondaryKey(), true);
 								
+								//This is necessary, even if event is passed
+								injectInputEvent(mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), 0, false, policyFlags |KeyEvent.FLAG_LONG_PRESS);
+								if(mKeyFlags.getSecondaryKey() > 0) {
+									injectInputEvent(mKeyFlags.getSecondaryKey(), mKeyFlags.firstDownTime(), 0, false, policyFlags |KeyEvent.FLAG_LONG_PRESS);
+								}
 								/*
 								 * The original methods will start by getting a 0 repeat event in order to prepare. 
 								 * Applications that use the tracking flag will need to original, as they cannot start 
@@ -881,10 +883,10 @@ public class PhoneWindowManager {
 									if (Common.debug()) Log.d(tag, shortTime() + " Invoking default click key:" + 
 						        		mKeyFlags.getPrimaryKey() + "," + mKeyFlags.getSecondaryKey());
 									
-									//insert separately here, could probably use injectInputEvent() except for power
-									handleKeyAction(keyAction, mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), true);
-									if (mKeyFlags.getSecondaryKey() > 0) {
-										handleKeyAction(keyAction, mKeyFlags.getSecondaryKey(), mKeyFlags.firstDownTime(), true);
+									//We cannot dispatch this event, must supply down first
+									injectInputEvent(mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), 0, true, policyFlags);
+									if(mKeyFlags.getSecondaryKey() > 0) {
+										injectInputEvent(mKeyFlags.getSecondaryKey(), mKeyFlags.firstDownTime(), 0, true, policyFlags);
 									}
 								}
 								
@@ -989,15 +991,20 @@ public class PhoneWindowManager {
 		}
 	}
 	
-	@SuppressLint("NewApi")
 	protected void injectInputEvent(final int keyCode, final long time, final int repeatDown, final boolean longpress, final boolean up) {
 		synchronized(PhoneWindowManager.class) {
-			long now = SystemClock.uptimeMillis();
-			int characterMap = SDK_NEW_CHARACTERMAP ? KeyCharacterMap.VIRTUAL_KEYBOARD : 0;
-			
-			int flags = longpress ? KeyEvent.FLAG_LONG_PRESS|KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED : KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED;
-
 			//Note: longpress and up should not be set simultaneously
+			int flags = longpress ? KeyEvent.FLAG_LONG_PRESS|KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED : KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED;
+			injectInputEvent(keyCode, time, repeatDown, up, flags);
+		}
+    }
+	
+	@SuppressLint("NewApi")
+	protected void injectInputEvent(final int keyCode, final long time, final int repeatDown, final boolean up, final int flags) {
+		synchronized(PhoneWindowManager.class) {
+			final long now = SystemClock.uptimeMillis();
+			final int characterMap = SDK_NEW_CHARACTERMAP ? KeyCharacterMap.VIRTUAL_KEYBOARD : 0;
+			
 			try {
 				if(repeatDown >= 0) {
 					KeyEvent event = new KeyEvent(time, now, KeyEvent.ACTION_DOWN, keyCode, repeatDown, 0, characterMap, 0, flags, InputDevice.SOURCE_KEYBOARD);
