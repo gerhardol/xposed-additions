@@ -29,7 +29,6 @@ import android.annotation.TargetApi;
 import android.app.ActivityManager;
 import android.app.ActivityManager.RecentTaskInfo;
 import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -53,7 +52,6 @@ import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.Surface;
 import android.view.ViewConfiguration;
-import android.view.WindowManager;
 import android.widget.Toast;
 
 import com.spazedog.lib.reflecttools.ReflectClass;
@@ -640,9 +638,14 @@ public class PhoneWindowManager {
 			int extraFlags = 0;
 			String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 			
+			ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
+			
+			final Integer wakeFlags = (Integer) ((wmp.findField("FLAG_WAKE").getValue())) | (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
+			final boolean isWakeKey = (policyFlags & wakeFlags) != 0;
+			//! isWakeKey){// 
 			//Skipped not tracked key, except Power and screen off that need handling
 			if (!mKeyConfig.hasAnyAction() && (keyCode != KeyEvent.KEYCODE_POWER)) {
-				if(Common.debug()) Log.d(tag, "No mapped action");
+				if(Common.debug()) Log.d(tag, "No mapped action"+isWakeKey);
 				
 				return;
 			}
@@ -1138,9 +1141,11 @@ public class PhoneWindowManager {
 		}
 	}
 	
+	//Requires API level 12, checked for available actions
+	@SuppressLint("NewApi") 
 	protected void toggleLastApplication() {
 		List<RecentTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRecentTasks(5, ActivityManager.RECENT_IGNORE_UNAVAILABLE);
-		
+		int lastAppId = 0;
 		for (int i=1; i < packages.size(); i++) {
 			String intentString = packages.get(i).baseIntent + "";
 			
@@ -1150,13 +1155,15 @@ public class PhoneWindowManager {
 			String packageName = intentString.substring(indexStart, indexStop);
 			
 			if (!packageName.equals(getHomePackage()) && !packageName.equals("com.android.systemui")) {
-				Intent intent = packages.get(i).baseIntent;
-				intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-				
-				mContext.startActivity(intent);
-				return;
+				lastAppId = packages.get(i).id;
+				break;
 			}
 		}
+        if (lastAppId > 0) {
+        	((ActivityManager) mActivityManager.getReceiver()).moveTaskToFront(lastAppId, ActivityManager.MOVE_TASK_NO_USER_ACTION);
+        } else {
+            Toast.makeText(mContext, "No previous app", Toast.LENGTH_SHORT).show();
+        }
 	}
 	
 	protected void sendCloseSystemWindows(String reason) {
