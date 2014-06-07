@@ -615,6 +615,18 @@ public class PhoneWindowManager {
 		
 		protected boolean mIsOriginalLocked = false;
 		
+		private final void wakeKeyHandling(final int policyFlags) {
+			final ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
+			final Integer wakeFlags = (Integer) ((wmp.findField("FLAG_WAKE").getValue())) | (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
+			final boolean isWakeKey = (policyFlags & wakeFlags) != 0;
+			//Non configured Wake keys must be explicitly handled, the module seem to affect normal handling
+			//(Partial wake locks set for all configured events)
+			//DROP_REASON_DISABLED: Dropped event because input dispatch is disabled
+			if (isWakeKey && !mWasScreenOn) {
+				changeDisplayState(mKeyFlags.firstDownTime(), true);
+			}
+		}
+		
 		@SuppressLint("NewApi") @Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			/*
@@ -638,15 +650,17 @@ public class PhoneWindowManager {
 			int extraFlags = 0;
 			String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 			
-			ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
-			
-			final Integer wakeFlags = (Integer) ((wmp.findField("FLAG_WAKE").getValue())) | (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
-			final boolean isWakeKey = (policyFlags & wakeFlags) != 0;
-			//! isWakeKey){// 
-			//Skipped not tracked key, except Power and screen off that need handling
-			if (!mKeyConfig.hasAnyAction() && (keyCode != KeyEvent.KEYCODE_POWER)) {
-				if(Common.debug()) Log.d(tag, "No mapped action"+isWakeKey);
-				
+			//Skipped unconfigured key, except Power that need handling
+			if (!mKeyConfig.hasAnyAction() && (!mWasScreenOn || (keyCode != KeyEvent.KEYCODE_POWER))) {
+				if(Common.debug()) Log.d(tag, "No mapped action");
+				if (down) {
+					wakeKeyHandling(policyFlags);
+				}
+				if (keyCode == KeyEvent.KEYCODE_POWER) {
+					final ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
+					final Integer wakeFlag = (Integer) ((wmp.findField("FLAG_WAKE").getValue()));
+					param.args[policyIndex] = policyFlags | wakeFlag;
+				}
 				return;
 			}
 
@@ -785,6 +799,7 @@ public class PhoneWindowManager {
 																
 								mPendingEvents.setOngoingKeyCode(mKeyFlags.getPrimaryKey(), mKeyFlags.getSecondaryKey(), true);
 								
+								wakeKeyHandling(policyFlags);
 								//This is necessary, even if event is passed
 								injectInputEvent(mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), 0, false, policyFlags |KeyEvent.FLAG_LONG_PRESS);
 								if(mKeyFlags.getSecondaryKey() > 0) {
@@ -821,19 +836,19 @@ public class PhoneWindowManager {
 								if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press for special key long press action: " + specialKey);
 
 								performHapticFeedback(HAPTIC_LONG_PRESS);
-								injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, true, false);
 								mPendingEvents.setOngoingKeyCode(specialKey, 0, true);
+								injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, true, false);
 
 							} else {
 								if(Common.debug()) Log.d(tag, shortTime() + " Short press for special key long press event " + specialKey);
 
 								injectInputEvent(specialKey, mKeyFlags.firstDownTime(), 0, false, true);
-								mPendingEvents.setOngoingKeyCode(specialKey, 0, false);
 							}
 						}
 					}
 					
 				} else {
+					//Key up or no action for key down
 					KeyFlags wasFlags = null;
 					//timeout if there are events following otherwise direct action (or default first)
 					if (mKeyConfig.hasMoreAction(ActionTypes.tap, mKeyFlags, true)) {
@@ -884,8 +899,9 @@ public class PhoneWindowManager {
 									
 								} else {
 									if (Common.debug()) Log.d(tag, shortTime() + " Invoking default click key:" + 
-						        		mKeyFlags.getPrimaryKey() + "," + mKeyFlags.getSecondaryKey());
+									mKeyFlags.getPrimaryKey() + "," + mKeyFlags.getSecondaryKey());
 									
+									wakeKeyHandling(policyFlags);
 									//We cannot dispatch this event, must supply down first
 									injectInputEvent(mKeyFlags.getPrimaryKey(), mKeyFlags.firstDownTime(), 0, true, policyFlags);
 									if(mKeyFlags.getSecondaryKey() > 0) {
@@ -1519,10 +1535,10 @@ public class PhoneWindowManager {
 		}
 		
 		public boolean isOngoingKeyCode() {
-			return mOngoingKeyCodes[0] > 0;
+			return (mOngoingKeyCodes[0] > 0);
 		}
 		public boolean isOngoingKeyCode(int keyCode) {
-			return mOngoingKeyCodes[0] == keyCode || mOngoingKeyCodes[1] == keyCode;
+			return (mOngoingKeyCodes[0] == keyCode) || (mOngoingKeyCodes[1] == keyCode);
 		}
 		
 		public boolean isOngoingLongPress() {
@@ -1595,7 +1611,7 @@ public class PhoneWindowManager {
 
 			if (down) {
 				if (!isDone() && mTaps >= 1 && (keyCode == mPrimaryKey || keyCode == mSecondaryKey)) {
-					if(Common.debug()) Log.d(tag, "Registring repeated event");
+					if(Common.debug()) Log.d(tag, "Registering repeated event");
 										
 					if (!mIsPrimaryDown && !mIsSecondaryDown) {
 						mTaps++;
@@ -1612,7 +1628,7 @@ public class PhoneWindowManager {
 						mIsAggregatedDown = true;
 					}
 				} else if (!isDone() && mTaps == 1 && mPrimaryKey > 0 && mIsPrimaryDown && keyCode != mPrimaryKey && (mSecondaryKey == 0 || mSecondaryKey == keyCode)) {
-					if(Common.debug()) Log.d(tag, "Registring first secondary key");
+					if(Common.debug()) Log.d(tag, "Registering first secondary key");
 					
 					mIsSecondaryDown = true;
 					
@@ -1620,7 +1636,7 @@ public class PhoneWindowManager {
 					newEvent = true;
 					
 				} else {
-					if(Common.debug()) Log.d(tag, "Registring first primary key");
+					if(Common.debug()) Log.d(tag, "Registering first primary key");
 					
 					mIsPrimaryDown = true;
 					mIsSecondaryDown = false;
