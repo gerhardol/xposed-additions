@@ -116,6 +116,7 @@ public class PhoneWindowManager {
 	
 	protected static int FLAG_INJECTED;
 	protected static int FLAG_VIRTUAL;
+	protected static int FLAG_WAKE;
 	
 	protected static int INJECT_INPUT_EVENT_MODE_ASYNC;
 	
@@ -245,6 +246,7 @@ public class PhoneWindowManager {
 				
 				FLAG_INJECTED = (Integer) wmp.findField("FLAG_INJECTED").getValue();
 				FLAG_VIRTUAL = (Integer) wmp.findField("FLAG_VIRTUAL").getValue();
+				FLAG_WAKE = (Integer) ((wmp.findField("FLAG_WAKE").getValue())) | (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
 				
 				ACTION_PASS_QUEUEING = (Integer) wmp.findField("ACTION_PASS_TO_USER").getValue();
 				ACTION_DISABLE_QUEUEING = 0;
@@ -616,9 +618,7 @@ public class PhoneWindowManager {
 		protected boolean mIsOriginalLocked = false;
 		
 		private final void wakeKeyHandling(final int policyFlags) {
-			final ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
-			final Integer wakeFlags = (Integer) ((wmp.findField("FLAG_WAKE").getValue())) | (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
-			final boolean isWakeKey = (policyFlags & wakeFlags) != 0;
+			final boolean isWakeKey = (policyFlags & FLAG_WAKE) != 0;
 			//Non configured Wake keys must be explicitly handled, the module seem to affect normal handling
 			//(Partial wake locks set for all configured events)
 			//DROP_REASON_DISABLED: Dropped event because input dispatch is disabled
@@ -655,11 +655,6 @@ public class PhoneWindowManager {
 				if(Common.debug()) Log.d(tag, "No mapped action");
 				if (down) {
 					wakeKeyHandling(policyFlags);
-				}
-				if (keyCode == KeyEvent.KEYCODE_POWER) {
-					final ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
-					final Integer wakeFlag = (Integer) ((wmp.findField("FLAG_WAKE").getValue()));
-					param.args[policyIndex] = policyFlags | wakeFlag;
 				}
 				return;
 			}
