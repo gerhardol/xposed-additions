@@ -627,6 +627,38 @@ public class PhoneWindowManager {
 			}
 		}
 		
+		//Most ROM reboots after holding Power for 8-12s
+		//For those missing (Omate TrueSmart) this is kind of a replacement
+		//Note that Power does not repeat, only sent once
+		private final void checkPowerPress(int keyCode, String tag)
+		{
+			final int m_resetAtPowerPress = 0;//Configure?
+			//Fix missing reboot
+			if ((m_resetAtPowerPress > 0) &&
+					(mKeyFlags.mPrimaryKey == KeyEvent.KEYCODE_POWER) &&
+							(mKeyFlags.mSecondaryKey == 0) &&
+					(keyCode == KeyEvent.KEYCODE_POWER)) {
+				int curDelay = (int)((m_resetAtPowerPress * 1000) - (SystemClock.uptimeMillis()- mKeyFlags.firstDown));
+				if(Common.debug()) Log.d(tag, "Long-long Power press, rebooting after "+ curDelay + " ms");
+				KeyFlags wasFlags = mKeyFlags.CloneFlags();
+				do {
+					final int t = 10;
+					try {
+						Thread.sleep(t);
+
+					} catch (Throwable e) {}
+
+					curDelay -= t;
+				} while (mKeyFlags.SameFlags(wasFlags) && curDelay > 0);
+				
+				if (curDelay <= 0)
+				{
+					if(Common.debug()) Log.d(tag, "Long-long Power press, rebooting");
+					((PowerManager) mPowerManager.getReceiver()).reboot(null);
+				}
+			}
+		}
+		
 		@SuppressLint("NewApi") @Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			/*
@@ -655,6 +687,7 @@ public class PhoneWindowManager {
 				if(Common.debug()) Log.d(tag, "No mapped action");
 				if (down) {
 					wakeKeyHandling(policyFlags);
+					checkPowerPress(keyCode, tag);
 				}
 				return;
 			}
@@ -671,14 +704,13 @@ public class PhoneWindowManager {
 					//Limit rate for key repeat
 					//It seems natural to pass first down event immediately but then first is longpress
 					//(normally second event should be longpress)
-					KeyFlags wasFlags = null;
 					if(Common.debug()) Log.d(tag, "Delay long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown())+" ");
 
-					wasFlags = mKeyFlags.CloneFlags();
+					int curDelay = 0;
 					{ //wait block
-						int curDelay = 0;
+						KeyFlags wasFlags = mKeyFlags.CloneFlags();
 						final int longLongPressDelay = 2; //Wait 2 times normal long press
-						final int keyDelay = (!mPendingEvents.isOngoingLongPress()) ? 
+						curDelay = (!mPendingEvents.isOngoingLongPress()) ? 
 								//start key repeat and long press timeout are the same by default, not using ViewConfiguration.getKeyRepeatTimeout()
 								longLongPressDelay * mKeyConfig.getLongPressDelay() :
 									(SDK_NEW_VIEWCONFIGURATION ? ViewConfiguration.getKeyRepeatDelay() : 50);
@@ -690,12 +722,12 @@ public class PhoneWindowManager {
 
 							} catch (Throwable e) {}
 
-							curDelay += t;
-						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < keyDelay);
+							curDelay -= t;
+						} while (mKeyFlags.SameFlags(wasFlags) && curDelay > 0);
 					}
 					
 					synchronized(mLockQueueing) {
-						if (wasFlags == null || mKeyFlags.SameFlags(wasFlags)) {
+						if (curDelay <= 0) {
 							if (Common.debug()) Log.d(tag, "Long press key repeat "+((long) SystemClock.uptimeMillis() - mKeyFlags.currDown()));
 							
 							if (!mPendingEvents.isOngoingLongPress()) {
@@ -731,13 +763,11 @@ public class PhoneWindowManager {
 				//when no other event is configured for long press and no other event follows
 				//This is to get same behavior as original, where double-tap always was detected at down
 				
-			    if (down && (mKeyFlags.getTaps() <= 1 || mKeyConfig.hasAction(ActionTypes.press, mKeyFlags))) {
+				if (down && (mKeyFlags.getTaps() <= 1 || mKeyConfig.hasAction(ActionTypes.press, mKeyFlags))) {
 					if (Common.debug()) Log.d(tag, "Waiting for long press timeout");
 					
+					int curDelay = mKeyConfig.getLongPressDelay();
 					KeyFlags wasFlags = mKeyFlags.CloneFlags();
-					final int pressDelay = mKeyConfig.getLongPressDelay();
-					{// wait block
-						int curDelay = 0;
 
 						do {
 							final int t = 10;
@@ -746,19 +776,19 @@ public class PhoneWindowManager {
 
 							} catch (Throwable e) {}
 
-							curDelay += t;
+							curDelay -= t;
 
-						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < pressDelay);
-					}
+						} while (mKeyFlags.SameFlags(wasFlags) && curDelay > 0);
 					
 					int specialKey = 0;
 					synchronized(mLockQueueing) {
-						if (!mKeyFlags.isDone() && mKeyFlags.SameFlags(wasFlags)) {
+						if (!mKeyFlags.isDone() && curDelay <= 0) {
 							performHapticFeedback(HAPTIC_LONG_PRESS);
 							
 							mKeyFlags.finish();
 							String keyAction = mKeyConfig.getAction(ActionTypes.press, mKeyFlags);
 
+							boolean doReturn = false;
 							if (mKeyConfig.isAction(keyAction)) {
 								int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 								//Feedback to the user that key long-press occurs, 
@@ -807,6 +837,11 @@ public class PhoneWindowManager {
 								 */
 								param.setResult(ACTION_PASS_DISPATCHING);
 		
+								doReturn = true;
+							}
+							checkPowerPress(keyCode, tag);
+							if (doReturn)
+							{
 								return;
 							}
 						}
@@ -814,7 +849,7 @@ public class PhoneWindowManager {
 					
 					if (specialKey > 0) {
 						//Keys where click/long-press is decided instantly
-						int curDelay = 0;
+						curDelay = 2 * mKeyConfig.getLongPressDelay();
 
 						do {
 							final int t = 10;
@@ -822,12 +857,12 @@ public class PhoneWindowManager {
 								Thread.sleep(t);
 							} catch (Throwable e) {}
 
-							curDelay += t;
+							curDelay -= t;
 
-						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < 2 * pressDelay);
+						} while (mKeyFlags.SameFlags(wasFlags) && curDelay > 0);
 
 						synchronized(mLockQueueing) {
-							if (mKeyFlags.SameFlags(wasFlags) && curDelay >= 2 * pressDelay) {
+							if (curDelay <= 0) {
 								if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press for special key long press action: " + specialKey);
 
 								performHapticFeedback(HAPTIC_LONG_PRESS);
@@ -844,14 +879,13 @@ public class PhoneWindowManager {
 					
 				} else {
 					//Key up or no action for key down
-					KeyFlags wasFlags = null;
 					//timeout if there are events following otherwise direct action (or default first)
+					int curDelay = 0;
 					if (mKeyConfig.hasMoreAction(ActionTypes.tap, mKeyFlags, true)) {
 						if(Common.debug()) Log.d(tag, "Waiting for tap timeout");
 						
-						int curDelay = 0;
-						final int tapDelay = mKeyConfig.getDoubleTapDelay();
-						wasFlags = mKeyFlags.CloneFlags();
+						curDelay = mKeyConfig.getDoubleTapDelay();
+						KeyFlags wasFlags = mKeyFlags.CloneFlags();
 						do {
 							final int t = 10;
 							try {
@@ -859,13 +893,13 @@ public class PhoneWindowManager {
 								
 							} catch (Throwable e) {}
 							
-							curDelay += t;
+							curDelay -= t;
 							
-						} while (mKeyFlags.SameFlags(wasFlags) && curDelay < tapDelay);
+						} while (mKeyFlags.SameFlags(wasFlags) && curDelay > 0);
 					}
 					
 					synchronized(mLockQueueing) {
-						if (!mKeyFlags.isDone() && (wasFlags == null || mKeyFlags.SameFlags(wasFlags)) && mKeyFlags.getCurrentKey() == keyCode) {
+						if (!mKeyFlags.isDone() && (curDelay <= 0) && mKeyFlags.getCurrentKey() == keyCode) {
 
 							mKeyFlags.finish();
 							int callCode = 0;
