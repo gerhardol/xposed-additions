@@ -632,9 +632,9 @@ public class PhoneWindowManager {
 		//Note that Power does not repeat, only sent once
 		private final void checkPowerPress(final int keyCode, final String tag)
 		{
-			final int m_resetAtPowerPress = 0;//Configure?
+			final int m_resetAtPowerPress = 15;//This could be configurable
 			//Fix missing reboot
-			if ((m_resetAtPowerPress > 0) && (keyCode == KeyEvent.KEYCODE_HOME/*POWER*/) &&
+			if ((m_resetAtPowerPress > 0) && (keyCode == KeyEvent.KEYCODE_POWER) &&
 					(mKeyFlags.mPrimaryKey == keyCode) && (mKeyFlags.mSecondaryKey == 0)) {
 				mHandler.post(new Runnable() {
 					public void run() {
