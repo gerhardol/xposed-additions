@@ -77,8 +77,8 @@ public class PhoneWindowManager {
 		try {
 			if(Common.DEBUG) Log.d(TAG, "Adding Window Manager Hook");
 			
-			PhoneWindowManager hooks = new PhoneWindowManager();
-			ReflectClass pwm = ReflectClass.forName("com.android.internal.policy.impl.PhoneWindowManager");
+			final PhoneWindowManager hooks = new PhoneWindowManager();
+			final ReflectClass pwm = ReflectClass.forName("com.android.internal.policy.impl.PhoneWindowManager");
 			
 			try {
 				pwm.inject(hooks.hook_constructor);
@@ -87,13 +87,13 @@ public class PhoneWindowManager {
 				pwm.inject("interceptKeyBeforeDispatching", hooks.hook_interceptKeyBeforeDispatching);
 				pwm.inject("performHapticFeedbackLw", hooks.hook_performHapticFeedbackLw);
 				
-			} catch (ReflectException ei) {
+			} catch (final ReflectException ei) {
 				Log.e(TAG, ei.getMessage(), ei);
 				
 				pwm.removeInjections();
 			}
 
-		} catch (ReflectException e) {
+		} catch (final ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -176,14 +176,14 @@ public class PhoneWindowManager {
 			 */
 			mMethods.put("takeScreenshot", mPhoneWindowManager.findMethodDeep("takeScreenshot"));
 			
-		} catch (ReflectException e) {}
+		} catch (final ReflectException e) {}
 		
 		try {
 			/*
 			 * This does not exists in all non-AOSP versions
 			 */
 			mMethods.put("showGlobalActionsDialog", mPhoneWindowManager.findMethodDeep("showGlobalActionsDialog")); 
-		} catch (ReflectException e) {}
+		} catch (final ReflectException e) {}
 		
 		mMethods.put("performHapticFeedback", mPhoneWindowManager.findMethodDeep("performHapticFeedbackLw", Match.BEST, "android.view.WindowManagerPolicy$WindowState", Integer.TYPE, Boolean.TYPE));
 		mMethods.put("forceStopPackage", mActivityManagerService.findMethodDeep("forceStopPackage", Match.BEST, SDK_HAS_MULTI_USER ? new Object[]{String.class, Integer.TYPE} : new Object[]{String.class})); 
@@ -214,7 +214,7 @@ public class PhoneWindowManager {
 		}
 
 		if (SDK_HAS_MULTI_USER) {
-			ReflectClass context = new ReflectClass(mContext);
+			final ReflectClass context = new ReflectClass(mContext);
 			
 			mConstructors.put("UserHandle", ReflectClass.forName("android.os.UserHandle").findConstructor(Match.BEST, Integer.TYPE));
 			mFields.put("UserHandle.current", ReflectClass.forName("android.os.UserHandle").findField("USER_CURRENT"));
@@ -242,7 +242,7 @@ public class PhoneWindowManager {
 			try {
 				if(Common.debug()) Log.d(TAG, "Handling construct of the Window Manager instance");
 	
-				ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
+				final ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
 				
 				FLAG_INJECTED = (Integer) wmp.findField("FLAG_INJECTED").getValue();
 				FLAG_VIRTUAL = (Integer) wmp.findField("FLAG_VIRTUAL").getValue();
@@ -258,7 +258,7 @@ public class PhoneWindowManager {
 					INJECT_INPUT_EVENT_MODE_ASYNC = (Integer) ReflectClass.forName("android.hardware.input.InputManager").findField("INJECT_INPUT_EVENT_MODE_ASYNC").getValue();
 				}
 				
-			} catch (ReflectException e) {
+			} catch (final ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 				
 				ReflectClass.forName("com.android.internal.policy.impl.PhoneWindowManager").removeInjections();
@@ -277,19 +277,19 @@ public class PhoneWindowManager {
 				 * their name. In these cases we don't care about consistency. If you are going to borrow from others, 
 				 * then make sure to keep compatibility.
 				 */
-				ReflectClass torchConstants = ReflectClass.forName("com.android.internal.util.cm.TorchConstants");
+				final ReflectClass torchConstants = ReflectClass.forName("com.android.internal.util.cm.TorchConstants");
 				mTorchIntent = new Intent((String) torchConstants.findField("ACTION_TOGGLE_STATE").getValue());
 				
-			} catch (ReflectException er) {
+			} catch (final ReflectException er) {
 				/*
 				 * Search for Torch Apps that supports <package name>.TOGGLE_FLASHLIGHT intents
 				 */
-				PackageManager pm = mContext.getPackageManager();
-				List<PackageInfo> packages = pm.getInstalledPackages(0);
+				final PackageManager pm = mContext.getPackageManager();
+				final List<PackageInfo> packages = pm.getInstalledPackages(0);
 				
-				for (PackageInfo pkg : packages) {
-					Intent intent = new Intent(pkg.packageName + ".TOGGLE_FLASHLIGHT");
-					List<ResolveInfo> recievers = pm.queryBroadcastReceivers(intent, 0);
+				for (final PackageInfo pkg : packages) {
+					final Intent intent = new Intent(pkg.packageName + ".TOGGLE_FLASHLIGHT");
+					final List<ResolveInfo> recievers = pm.queryBroadcastReceivers(intent, 0);
 					
 					if (recievers.size() > 0) {
 						mTorchIntent = intent; break;
@@ -328,7 +328,7 @@ public class PhoneWindowManager {
 				
 				mPreferences.addBroadcastListener(new XServiceBroadcastListener(){
 					@Override
-					public void onBroadcastReceive(String action, Bundle data) {
+					public void onBroadcastReceive(final String action, final Bundle data) {
 						if (action.equals("keyIntercepter:enable")) {
 							mInterceptKeyCode = true;
 							
@@ -341,7 +341,7 @@ public class PhoneWindowManager {
 				mContext.registerReceiver(
 					new BroadcastReceiver() {
 						@Override
-						public void onReceive(Context context, Intent intent) {
+						public void onReceive(final Context context, final Intent intent) {
 							try {
 								/*
 								 * It is also best to wait with this one
@@ -368,7 +368,7 @@ public class PhoneWindowManager {
 								mKeyguardMediator = mPhoneWindowManager.findField( SDK_HAS_KEYGUARD_DELEGATE ? "mKeyguardDelegate" : "mKeyguardMediator" ).getValueToInstance();
 								mKeyguardMediator.setOnErrorListener(new OnErrorListener(){
 									@Override
-									public void onError(ReflectMember<?> member) {
+									public void onError(final ReflectMember<?> member) {
 										member.getReflectClass().setReceiver(
 												mPhoneWindowManager.findField( SDK_HAS_KEYGUARD_DELEGATE ? "mKeyguardDelegate" : "mKeyguardMediator" ).getValue()
 										);
@@ -378,7 +378,7 @@ public class PhoneWindowManager {
 								mRecentApplicationsDialog = ReflectClass.forName( SDK_NEW_RECENT_APPS_DIALOG ? "com.android.internal.statusbar.IStatusBarService" : "com.android.internal.policy.impl.RecentApplicationsDialog" );
 								mRecentApplicationsDialog.setOnReceiverListener(new OnReceiverListener(){
 									@Override
-									public Object onReceiver(ReflectMember<?> member) {
+									public Object onReceiver(final ReflectMember<?> member) {
 										Object recentAppsService;
 										
 										if (SDK_NEW_RECENT_APPS_DIALOG) {
@@ -395,7 +395,7 @@ public class PhoneWindowManager {
 								});
 								mRecentApplicationsDialog.setOnErrorListener(new OnErrorListener(){
 									@Override
-									public void onError(ReflectMember<?> member) {
+									public void onError(final ReflectMember<?> member) {
 										member.getReflectClass().setReceiver(null);
 									}
 								});
@@ -410,16 +410,16 @@ public class PhoneWindowManager {
 									 * We hook this class here because we don't want it to affect the whole system.
 									 * Also we need to control when and when not to change the return value.
 									 */
-									ReflectClass wc = ReflectClass.forName("android.view.ViewConfiguration");
+									final ReflectClass wc = ReflectClass.forName("android.view.ViewConfiguration");
 
 									wc.inject("getLongPressTimeout", hook_viewConfigTimeouts);
 									wc.inject("getGlobalActionKeyTimeout", hook_viewConfigTimeouts);
 									
-								} catch (ReflectException e) {
+								} catch (final ReflectException e) {
 									Log.e(TAG, e.getMessage(), e);
 								}
 								
-							} catch (ReflectException e) {
+							} catch (final ReflectException e) {
 								Log.e(TAG, e.getMessage(), e);
 								
 								mPhoneWindowManager.removeInjections();
@@ -428,7 +428,7 @@ public class PhoneWindowManager {
 					}, new IntentFilter("android.intent.action.BOOT_COMPLETED")
 				);
 				
-			} catch (ReflectException e) {
+			} catch (final ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 				
 				ReflectClass.forName("com.android.internal.policy.impl.PhoneWindowManager").removeInjections();
@@ -470,7 +470,7 @@ public class PhoneWindowManager {
 			final boolean down = action == KeyEvent.ACTION_DOWN;
 			final long downTime = SDK_NEW_PHONE_WINDOW_MANAGER ? (long) ((KeyEvent) param.args[0]).getDownTime() : SystemClock.uptimeMillis();
 			
-			String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
+			final String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 
 			/*
 			 * Using KitKat work-around from the InputManager Hook
@@ -528,7 +528,7 @@ public class PhoneWindowManager {
 				 * This provides a way to force a key being detected as virtual. 
 				 */
 				if (down && !isVirtual) {
-					List<String> forcedKeys = (ArrayList<String>) mPreferences.getStringArray(Index.array.key.forcedHapticKeys, Index.array.value.forcedHapticKeys);
+					final List<String> forcedKeys = (ArrayList<String>) mPreferences.getStringArray(Index.array.key.forcedHapticKeys, Index.array.value.forcedHapticKeys);
 					
 					if (forcedKeys.contains("" + keyCode)) {
 						isVirtual = true;
@@ -553,12 +553,12 @@ public class PhoneWindowManager {
 				}
 				
 				//Get new event, clear ongoing/special
-				boolean	newAction = mKeyFlags.registerKey(keyCode, down, downTime);
+				final boolean	newAction = mKeyFlags.registerKey(keyCode, down, downTime);
 				if (isScreenOn && mInterceptKeyCode) {
 					if (down) {
 						if(Common.debug()) Log.d(tag, "Intercepting key code");
 						
-						Bundle bundle = new Bundle();
+						final Bundle bundle = new Bundle();
 						bundle.putInt("keyCode", keyCode);
 						
 						mPreferences.sendBroadcast("keyIntercepter:keyCode", bundle);
@@ -628,25 +628,26 @@ public class PhoneWindowManager {
 		}
 		
 		//Most ROM reboots after holding Power for 8-12s
-		//For those missing (Omate TrueSmart) this is kind of a replacement
+		//For those missing (like Omate TrueSmart) this is kind of a replacement
 		//Note that Power does not repeat, only sent once
-		private final void checkPowerPress(int keyCode, String tag)
+		private final void checkPowerPress(final int keyCode, final String tag)
 		{
 			final int m_resetAtPowerPress = 0;//Configure?
 			//Fix missing reboot
-			if ((m_resetAtPowerPress > 0) &&
-					(mKeyFlags.mPrimaryKey == KeyEvent.KEYCODE_POWER) &&
-							(mKeyFlags.mSecondaryKey == 0) &&
-					(keyCode == KeyEvent.KEYCODE_POWER)) {
+			if ((m_resetAtPowerPress > 0) && (keyCode == KeyEvent.KEYCODE_HOME/*POWER*/) &&
+					(mKeyFlags.mPrimaryKey == keyCode) && (mKeyFlags.mSecondaryKey == 0)) {
+				mHandler.post(new Runnable() {
+					public void run() {
 				int curDelay = (int)((m_resetAtPowerPress * 1000) - (SystemClock.uptimeMillis()- mKeyFlags.firstDown));
 				if(Common.debug()) Log.d(tag, "Long-long Power press, rebooting after "+ curDelay + " ms");
-				KeyFlags wasFlags = mKeyFlags.CloneFlags();
+				
+				final KeyFlags wasFlags = mKeyFlags.CloneFlags();
 				do {
 					final int t = 10;
 					try {
 						Thread.sleep(t);
 
-					} catch (Throwable e) {}
+					} catch (final Throwable e) {}
 
 					curDelay -= t;
 				} while (mKeyFlags.SameFlags(wasFlags) && curDelay > 0);
@@ -656,6 +657,8 @@ public class PhoneWindowManager {
 					if(Common.debug()) Log.d(tag, "Long-long Power press, rebooting");
 					((PowerManager) mPowerManager.getReceiver()).reboot(null);
 				}
+					}
+				});
 			}
 		}
 		
@@ -680,7 +683,7 @@ public class PhoneWindowManager {
 			final boolean down = action == KeyEvent.ACTION_DOWN;
 
 			int extraFlags = 0;
-			String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
+			final String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 			
 			//Skipped unconfigured key, except Power that need handling
 			if (!mKeyConfig.hasAnyAction() && (!mWasScreenOn || (keyCode != KeyEvent.KEYCODE_POWER))) {
@@ -708,7 +711,7 @@ public class PhoneWindowManager {
 
 					int curDelay = 0;
 					{ //wait block
-						KeyFlags wasFlags = mKeyFlags.CloneFlags();
+						final KeyFlags wasFlags = mKeyFlags.CloneFlags();
 						final int longLongPressDelay = 2; //Wait 2 times normal long press
 						curDelay = (!mPendingEvents.isOngoingLongPress()) ? 
 								//start key repeat and long press timeout are the same by default, not using ViewConfiguration.getKeyRepeatTimeout()
@@ -720,7 +723,7 @@ public class PhoneWindowManager {
 							try {
 								Thread.sleep(t);
 
-							} catch (Throwable e) {}
+							} catch (final Throwable e) {}
 
 							curDelay -= t;
 						} while (mKeyFlags.SameFlags(wasFlags) && curDelay > 0);
@@ -767,14 +770,14 @@ public class PhoneWindowManager {
 					if (Common.debug()) Log.d(tag, "Waiting for long press timeout");
 					
 					int curDelay = mKeyConfig.getLongPressDelay();
-					KeyFlags wasFlags = mKeyFlags.CloneFlags();
+					final KeyFlags wasFlags = mKeyFlags.CloneFlags();
 
 						do {
 							final int t = 10;
 							try {
 								Thread.sleep(t);
 
-							} catch (Throwable e) {}
+							} catch (final Throwable e) {}
 
 							curDelay -= t;
 
@@ -786,19 +789,19 @@ public class PhoneWindowManager {
 							performHapticFeedback(HAPTIC_LONG_PRESS);
 							
 							mKeyFlags.finish();
-							String keyAction = mKeyConfig.getAction(ActionTypes.press, mKeyFlags);
+							final String keyAction = mKeyConfig.getAction(ActionTypes.press, mKeyFlags);
 
 							boolean doReturn = false;
 							if (mKeyConfig.isAction(keyAction)) {
-								int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
+								final int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 								//Feedback to the user that key long-press occurs, 
 								//to give control of long-long press also if "Vibrate on Touch"
 								//is not active (could be module specific, based on pattern)
 								if (code > 0) {
-									int val = Settings.System.getInt(mContext.getContentResolver(),
+									final int val = Settings.System.getInt(mContext.getContentResolver(),
 											Settings.System.HAPTIC_FEEDBACK_ENABLED, 0);
 									if (val == 0) {
-										Vibrator v = (Vibrator)mContext.getSystemService(Context.VIBRATOR_SERVICE);
+										final Vibrator v = (Vibrator)mContext.getSystemService(Context.VIBRATOR_SERVICE);
 										final long[] pattern = {0, 100};
 										v.vibrate(pattern, -1);
 									}
@@ -806,7 +809,7 @@ public class PhoneWindowManager {
 								
 								if (code == KeyEvent.KEYCODE_POWER) {
 									if (Common.debug()) Log.d(tag,  shortTime() + " Invoking special key: " + code);
-									//fix special handling for Power, sending first event when releasing
+									//special handling for Power, sending first event when releasing
 									specialKey = code;
 
 								} else {
@@ -855,7 +858,7 @@ public class PhoneWindowManager {
 							final int t = 10;
 							try {
 								Thread.sleep(t);
-							} catch (Throwable e) {}
+							} catch (final Throwable e) {}
 
 							curDelay -= t;
 
@@ -885,13 +888,13 @@ public class PhoneWindowManager {
 						if(Common.debug()) Log.d(tag, "Waiting for tap timeout");
 						
 						curDelay = mKeyConfig.getDoubleTapDelay();
-						KeyFlags wasFlags = mKeyFlags.CloneFlags();
+						final KeyFlags wasFlags = mKeyFlags.CloneFlags();
 						do {
 							final int t = 10;
 							try {
 								Thread.sleep(t);
 								
-							} catch (Throwable e) {}
+							} catch (final Throwable e) {}
 							
 							curDelay -= t;
 							
@@ -905,7 +908,7 @@ public class PhoneWindowManager {
 							int callCode = 0;
 							
 							if ((mKeyFlags.getTaps() == 1) && mKeyConfig.isCallButton()) {
-								int mode = ((AudioManager) mAudioManager.getReceiver()).getMode();
+								final int mode = ((AudioManager) mAudioManager.getReceiver()).getMode();
 
 								if (mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION) {
 									callCode = KeyEvent.KEYCODE_ENDCALL;
@@ -916,11 +919,11 @@ public class PhoneWindowManager {
 							}
 							
 							if (callCode == 0) {
-								String keyAction = mKeyConfig.getAction(ActionTypes.tap, mKeyFlags);
+								final String keyAction = mKeyConfig.getAction(ActionTypes.tap, mKeyFlags);
 								if (mKeyConfig.hasAction(ActionTypes.tap, mKeyFlags)) {
 									if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: " + keyAction);
 								
-									int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
+									final int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 									handleKeyAction(keyAction, code, mKeyFlags.firstDownTime(), true);
 									
 								} else if (mKeyFlags.getTaps() > 1) {
@@ -995,7 +998,7 @@ public class PhoneWindowManager {
 		}
 	};
 	
-	protected Boolean internalKey(Integer keyCode) {
+	protected Boolean internalKey(final Integer keyCode) {
 		if (!mDeviceKeys.containsKey(keyCode)) {
 			mDeviceKeys.put(keyCode, KeyCharacterMap.deviceHasKey(keyCode));
 		}
@@ -1004,7 +1007,7 @@ public class PhoneWindowManager {
 	}
 	
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-	public void pokeUserActivity(final long time, Boolean forced) {
+	public void pokeUserActivity(final long time, final Boolean forced) {
 		if (forced) {
 			if (SDK_NEW_POWER_MANAGER) {
 				((PowerManager) mPowerManager.getReceiver()).wakeUp(time);
@@ -1019,7 +1022,7 @@ public class PhoneWindowManager {
 				try {
 					mMethods.get("forceUserActivityLocked").invoke();
 					
-				} catch (ReflectException e) {
+				} catch (final ReflectException e) {
 					Log.e(TAG, e.getMessage(), e);
 				}
 			}
@@ -1030,7 +1033,7 @@ public class PhoneWindowManager {
 	}
 
 	@SuppressLint("NewApi")
-	protected void changeDisplayState(final long time, Boolean on) {
+	protected void changeDisplayState(final long time, final Boolean on) {
 		if (on) {
 			pokeUserActivity(time, true);
 			
@@ -1042,7 +1045,7 @@ public class PhoneWindowManager {
 	protected void injectInputEvent(final int keyCode, final long time, final int repeatDown, final boolean longpress, final boolean up) {
 		synchronized(PhoneWindowManager.class) {
 			//Note: longpress and up should not be set simultaneously
-			int flags = longpress ? KeyEvent.FLAG_LONG_PRESS|KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED : KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED;
+			final int flags = longpress ? KeyEvent.FLAG_LONG_PRESS|KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED : KeyEvent.FLAG_FROM_SYSTEM|FLAG_INJECTED;
 			injectInputEvent(keyCode, time, repeatDown, up, flags);
 		}
     }
@@ -1055,7 +1058,7 @@ public class PhoneWindowManager {
 			
 			try {
 				if(repeatDown >= 0) {
-					KeyEvent event = new KeyEvent(time, now, KeyEvent.ACTION_DOWN, keyCode, repeatDown, 0, characterMap, 0, flags, InputDevice.SOURCE_KEYBOARD);
+					final KeyEvent event = new KeyEvent(time, now, KeyEvent.ACTION_DOWN, keyCode, repeatDown, 0, characterMap, 0, flags, InputDevice.SOURCE_KEYBOARD);
 					if (SDK_HAS_HARDWARE_INPUT_MANAGER) {
 						mMethods.get("injectInputEvent").invoke(event, INJECT_INPUT_EVENT_MODE_ASYNC);
 
@@ -1065,7 +1068,7 @@ public class PhoneWindowManager {
 				}
 				
 				if (up) {
-					KeyEvent event = new KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, 0, characterMap, 0, flags, InputDevice.SOURCE_KEYBOARD);
+					final KeyEvent event = new KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, 0, characterMap, 0, flags, InputDevice.SOURCE_KEYBOARD);
 					if (SDK_HAS_HARDWARE_INPUT_MANAGER) {
 						mMethods.get("injectInputEvent").invoke(KeyEvent.changeAction(event, KeyEvent.ACTION_UP), INJECT_INPUT_EVENT_MODE_ASYNC);
 						
@@ -1074,17 +1077,17 @@ public class PhoneWindowManager {
 					}
 				}
 				
-			} catch (ReflectException e) {
+			} catch (final ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 			}
 		}
 	}
 
-	protected void performHapticFeedback(Integer effectId) {
+	protected void performHapticFeedback(final Integer effectId) {
 		try {
 			mMethods.get("performHapticFeedback").invoke(null, effectId, false);
 			
-		} catch (ReflectException e) {
+		} catch (final ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -1093,7 +1096,7 @@ public class PhoneWindowManager {
 		try {
 			return (Boolean) mMethods.get("KeyguardMediator.isShowing").invoke();
 			
-		} catch (ReflectException e) {
+		} catch (final ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 		
@@ -1105,7 +1108,7 @@ public class PhoneWindowManager {
 			try {
 				return !((Boolean) mMethods.get("KeyguardMediator.isRestricted").invoke());
 				
-			} catch (ReflectException e) {
+			} catch (final ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 			}
 		}
@@ -1117,7 +1120,7 @@ public class PhoneWindowManager {
 		try {
 			return (Boolean) mMethods.get("KeyguardMediator.isLocked").invoke();
 			
-		} catch (ReflectException e) {
+		} catch (final ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 		
@@ -1129,28 +1132,28 @@ public class PhoneWindowManager {
 			try {
 				mMethods.get("KeyguardMediator.dismiss").invoke(false, true);
 				
-			} catch (ReflectException e) {
+			} catch (final ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 			}
 		}
 	}
 	
 	protected String getRunningPackage() {
-		List<ActivityManager.RunningTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRunningTasks(1);
+		final List<ActivityManager.RunningTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRunningTasks(1);
 		
 		return packages.size() > 0 ? packages.get(0).baseActivity.getPackageName() : null;
 	}
 	
 	protected String getHomePackage() {
-		Intent intent = new Intent(Intent.ACTION_MAIN);
+		final Intent intent = new Intent(Intent.ACTION_MAIN);
 		intent.addCategory(Intent.CATEGORY_HOME);
-		ResolveInfo res = mContext.getPackageManager().resolveActivity(intent, 0);
+		final ResolveInfo res = mContext.getPackageManager().resolveActivity(intent, 0);
 		
 		return res.activityInfo != null && !"android".equals(res.activityInfo.packageName) ? 
 				res.activityInfo.packageName : "com.android.launcher";
 	}
 	
-	protected void launchApplication(String packageName) {
+	protected void launchApplication(final String packageName) {
 		Intent intent = mContext.getPackageManager().getLaunchIntentForPackage(packageName);
 		
 		if (isKeyguardLockedAndInsecure()) {
@@ -1172,12 +1175,12 @@ public class PhoneWindowManager {
 		
 		if (SDK_HAS_MULTI_USER) {
 			try {
-				Object userCurrent = mFields.get("UserHandle.current").getValue();
-				Object user = mConstructors.get("UserHandle").invoke(userCurrent);
+				final Object userCurrent = mFields.get("UserHandle.current").getValue();
+				final Object user = mConstructors.get("UserHandle").invoke(userCurrent);
 				
 				mMethods.get("startActivityAsUser").invoke(intent, user);
 				
-			} catch (ReflectException e) {
+			} catch (final ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 			}
 			
@@ -1189,15 +1192,15 @@ public class PhoneWindowManager {
 	//Requires API level 12, checked for available actions
 	@SuppressLint("NewApi") 
 	protected void toggleLastApplication() {
-		List<RecentTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRecentTasks(5, ActivityManager.RECENT_IGNORE_UNAVAILABLE);
+		final List<RecentTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRecentTasks(5, ActivityManager.RECENT_IGNORE_UNAVAILABLE);
 		int lastAppId = 0;
 		for (int i=1; i < packages.size(); i++) {
-			String intentString = packages.get(i).baseIntent + "";
+			final String intentString = packages.get(i).baseIntent + "";
 			
-			int indexStart = intentString.indexOf("cmp=")+4;
-		    int indexStop = intentString.indexOf("/", indexStart);
+			final int indexStart = intentString.indexOf("cmp=")+4;
+		    final int indexStop = intentString.indexOf("/", indexStart);
 			
-			String packageName = intentString.substring(indexStart, indexStop);
+			final String packageName = intentString.substring(indexStart, indexStop);
 			
 			if (!packageName.equals(getHomePackage()) && !packageName.equals("com.android.systemui")) {
 				lastAppId = packages.get(i).id;
@@ -1211,13 +1214,13 @@ public class PhoneWindowManager {
         }
 	}
 	
-	protected void sendCloseSystemWindows(String reason) {
+	protected void sendCloseSystemWindows(final String reason) {
 		if(Common.debug()) Log.d(TAG, "Closing all system windows");
 		
 		try {
 			mMethods.get("closeSystemDialogs").invoke(reason);
 			
-		} catch (ReflectException e) {
+		} catch (final ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -1230,7 +1233,7 @@ public class PhoneWindowManager {
 		try {
 			mMethods.get("toggleRecentApps").invoke();
 			
-		} catch (ReflectException e) {
+		} catch (final ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -1243,7 +1246,7 @@ public class PhoneWindowManager {
 		try {
 			mMethods.get("showGlobalActionsDialog").invoke();
 			
-		} catch (ReflectException e) {
+		} catch (final ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -1260,7 +1263,7 @@ public class PhoneWindowManager {
 				try {
 					mMethods.get("freezeRotation").invoke(orientation);
 					
-				} catch (ReflectException e) {
+				} catch (final ReflectException e) {
 					Log.e(TAG, e.getMessage(), e);
 				}
 				
@@ -1268,7 +1271,7 @@ public class PhoneWindowManager {
 				try {
 					mMethods.get("thawRotation").invoke();
 					
-				} catch (ReflectException e) {
+				} catch (final ReflectException e) {
 					Log.e(TAG, e.getMessage(), e);
 				}
 			}
@@ -1289,15 +1292,15 @@ public class PhoneWindowManager {
 		try {
 			return (Integer) mMethods.get("getRotation").invoke();
 
-		} catch (ReflectException e) {
+		} catch (final ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 		
 		return 0;
 	}
 	
-	protected Integer getNextRotation(Boolean backwards) {
-		Integer  position = getCurrentRotation();
+	protected Integer getNextRotation(final Boolean backwards) {
+		final Integer  position = getCurrentRotation();
 		
 		return (position == Surface.ROTATION_90 || position == Surface.ROTATION_0) && backwards ? 270 : 
 			(position == Surface.ROTATION_270 || position == Surface.ROTATION_0) && !backwards ? 90 : 0;
@@ -1306,10 +1309,10 @@ public class PhoneWindowManager {
 	protected void killForegroundApplication() {
 		if(Common.debug()) Log.d(TAG, "Start searching for foreground application to kill");
 		
-		List<ActivityManager.RunningTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRunningTasks(5);
+		final List<ActivityManager.RunningTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRunningTasks(5);
 		
 		for (int i=0; i < packages.size(); i++) {
-			String packageName = packages.get(0).baseActivity.getPackageName();
+			final String packageName = packages.get(0).baseActivity.getPackageName();
 			
 			if (!packageName.equals(getHomePackage()) && !packageName.equals("com.android.systemui")) {
 				if(Common.debug()) Log.d(TAG, "Invoking force stop on " + packageName);
@@ -1322,7 +1325,7 @@ public class PhoneWindowManager {
 						mMethods.get("forceStopPackage").invoke(packageName);
 					}
 					
-				} catch (ReflectException e) {
+				} catch (final ReflectException e) {
 					Log.e(TAG, e.getMessage(), e);
 				}
 			}
@@ -1333,7 +1336,7 @@ public class PhoneWindowManager {
 		try {
 			mMethods.get("takeScreenshot").invoke();
 			
-		} catch (ReflectException e) {
+		} catch (final ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -1342,12 +1345,12 @@ public class PhoneWindowManager {
 		if (mTorchIntent != null) {
 			if (SDK_HAS_MULTI_USER) {
 				try {
-					Object userCurrent = mFields.get("UserHandle.current").getValue();
-					Object user = mConstructors.get("UserHandle").invoke(userCurrent);
+					final Object userCurrent = mFields.get("UserHandle.current").getValue();
+					final Object user = mConstructors.get("UserHandle").invoke(userCurrent);
 					
 					mMethods.get("sendBroadcastAsUser").invoke(mTorchIntent, user);
 					
-				} catch (ReflectException e) {
+				} catch (final ReflectException e) {
 					Log.e(TAG, e.getMessage(), e);
 				}
 				
@@ -1375,7 +1378,7 @@ public class PhoneWindowManager {
 		 */
 		mHandler.post(new Runnable() {
 			public void run() {
-				String actionType = Common.actionType(action);
+				final String actionType = Common.actionType(action);
 				
 				if ("launcher".equals(actionType)) {
 					launchApplication(action);
@@ -1435,7 +1438,7 @@ public class PhoneWindowManager {
 		protected static final int maxTapActions = 3*2; //ActionTypes.values().length;
 		
 		//actions in the order they appear: press 1, tap 1, press 2, tap 2 etc
-		private String[] mActions; // new String[maxTapActions];
+		private final String[] mActions; // new String[maxTapActions];
 		private int mKeyDelayTap = 0;
 		private int mKeyDelayPress = 0;
 		private boolean mAnyAction = false;
@@ -1445,11 +1448,11 @@ public class PhoneWindowManager {
 			mActions = new String[]{null, null, null, null, null, null};
 		}
 		
-		public void newAction(KeyFlags keyFlags, boolean isScreenOn)
+		public void newAction(final KeyFlags keyFlags, final boolean isScreenOn)
 		{
 			mIsCallButton = mPreferences.getBooleanGroup(Index.bool.key.remapCallButton, (keyFlags.getPrimaryKey() + ":" + keyFlags.getSecondaryKey()), Index.bool.value.remapCallButton);
 			
-			boolean extended = mPreferences.isPackageUnlocked();
+			final boolean extended = mPreferences.isPackageUnlocked();
 			this.mKeyDelayPress = mPreferences.getInt(Common.Index.integer.key.remapPressDelay, Common.Index.integer.value.remapPressDelay);
 			if (this.mKeyDelayPress <= 0) {
 				this.mKeyDelayPress = ViewConfiguration.getLongPressTimeout();
@@ -1464,8 +1467,8 @@ public class PhoneWindowManager {
 
 			mAnyAction = false;
 			if (!mKeyFlags.isMulti() || extended) {
-				String keyGroupName = mKeyFlags.getPrimaryKey() + ":" + mKeyFlags.getSecondaryKey();
-				String appCondition = !isScreenOn ? null : 
+				final String keyGroupName = mKeyFlags.getPrimaryKey() + ":" + mKeyFlags.getSecondaryKey();
+				final String appCondition = !isScreenOn ? null : 
 					isKeyguardShowing() ? "guard" : extended ? getRunningPackage() : null;
 
 			    actions = appCondition != null ? mPreferences.getStringArrayGroup(String.format(Index.array.groupKey.remapKeyActions_$, appCondition), keyGroupName, null) : null;
@@ -1491,27 +1494,27 @@ public class PhoneWindowManager {
 			return mAnyAction;
 		}
 		
-		private int getIndex(ActionTypes atype, KeyFlags keyFlags) {
+		private int getIndex(final ActionTypes atype, final KeyFlags keyFlags) {
 			int index = (keyFlags.getTaps() - 1) * 2;
 			if (atype == ActionTypes.tap) {index++;}
 			return index;
 		}
 		
-		public String getAction(ActionTypes atype, KeyFlags keyFlags) {
-			int index = getIndex(atype, keyFlags);
+		public String getAction(final ActionTypes atype, final KeyFlags keyFlags) {
+			final int index = getIndex(atype, keyFlags);
 			if(index > mActions.length) {return null;}
 			return mActions[index];
 		}
 		
-		public boolean isAction(String action) {
+		public boolean isAction(final String action) {
 			return (action != null);
 		}
 		
-		public boolean hasAction(ActionTypes atype, KeyFlags keyFlags) {
+		public boolean hasAction(final ActionTypes atype, final KeyFlags keyFlags) {
 			return isAction(getAction(atype, keyFlags));
 		}
 		
-		public boolean hasMoreAction(ActionTypes atype, KeyFlags keyFlags, boolean next) {
+		public boolean hasMoreAction(final ActionTypes atype, final KeyFlags keyFlags, final boolean next) {
 			boolean result = false;
 			int index = getIndex(atype, keyFlags);
 			if(next){index++;}
@@ -1534,7 +1537,7 @@ public class PhoneWindowManager {
 		}
 		
 		//static get the possible keycode for the event (or default)
-		public int getEventKeyCode(String action, int keyCode) {
+		public int getEventKeyCode(final String action, final int keyCode) {
 			return (action != null && action.matches("^[0-9]+$") ? Integer.parseInt(action) : 
 				(action == null ? keyCode : 0));
 		}
@@ -1545,7 +1548,7 @@ public class PhoneWindowManager {
 	}
 	
 	protected class PendingEvents {
-		private int[] mOngoingKeyCodes; // new int[2];
+		private final int[] mOngoingKeyCodes; // new int[2];
 		private boolean mLongPressIsSet = false;
 	
 		public PendingEvents() {
@@ -1553,7 +1556,7 @@ public class PhoneWindowManager {
 		}
 		
 		// key status about ongoing events
-		public void setOngoingKeyCode(int primaryKeyCode, int secondaryKeyCode, boolean isLong) {
+		public void setOngoingKeyCode(final int primaryKeyCode, final int secondaryKeyCode, final boolean isLong) {
 			mOngoingKeyCodes[0] = primaryKeyCode;
 			mOngoingKeyCodes[1] = secondaryKeyCode;
 			mLongPressIsSet = isLong;
@@ -1566,7 +1569,7 @@ public class PhoneWindowManager {
 		public boolean isOngoingKeyCode() {
 			return (mOngoingKeyCodes[0] > 0);
 		}
-		public boolean isOngoingKeyCode(int keyCode) {
+		public boolean isOngoingKeyCode(final int keyCode) {
 			return (mOngoingKeyCodes[0] == keyCode) || (mOngoingKeyCodes[1] == keyCode);
 		}
 		
@@ -1593,7 +1596,7 @@ public class PhoneWindowManager {
 		private long currDown;
 		
 		public KeyFlags CloneFlags() {
-			KeyFlags k = new KeyFlags();
+			final KeyFlags k = new KeyFlags();
 			k.mIsPrimaryDown = this.mIsPrimaryDown;
 			k.mIsSecondaryDown = this.mIsSecondaryDown;
 			k.mTaps = this.mTaps;
@@ -1602,7 +1605,7 @@ public class PhoneWindowManager {
 			return k;
 		}
 		
-		public boolean SameFlags(KeyFlags o2) {
+		public boolean SameFlags(final KeyFlags o2) {
 			boolean result = false;
 			if (this.mIsPrimaryDown == o2.mIsPrimaryDown &&
 					this.mIsSecondaryDown == o2.mIsSecondaryDown &&
@@ -1627,11 +1630,11 @@ public class PhoneWindowManager {
 			mReset = true;
 		}
 		
-		public boolean registerKey(int keyCode, boolean down, long time) {
+		public boolean registerKey(final int keyCode, final boolean down, final long time) {
 			boolean newEvent = false;
 			mCurrentKey = keyCode;
 
-			String tag = TAG + "#KeyFlags:" + keyCode;
+			final String tag = TAG + "#KeyFlags:" + keyCode;
 			
 			if ((time - this.firstDown) > 3000) {
 				//Waited too long to handle this, for instance some screen off combination that is not well handled
