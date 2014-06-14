@@ -154,6 +154,7 @@ public class PhoneWindowManager {
 	protected KeyFlags mKeyFlags = new KeyFlags();
 	protected KeyConfig mKeyConfig = new KeyConfig();
 	protected PendingEvents mPendingEvents = new PendingEvents();
+	private int m_resetAtPowerPress = -1;
 	
 	protected Object mLockQueueing = new Object();
 	
@@ -629,36 +630,28 @@ public class PhoneWindowManager {
 		
 		//Most ROM reboots after holding Power for 8-12s
 		//For those missing (like Omate TrueSmart) this is kind of a replacement
-		//Note that Power does not repeat, only sent once
-		private final void checkPowerPress(final int keyCode, final String tag)
+		//Note that Power does not repeat, only sent once so this must be launched first time only
+		private final void checkPowerPress(final int keyCode, final KeyFlags flags, final String tag)
 		{
-			final int m_resetAtPowerPress = 15;//This could be configurable
-			//Fix missing reboot
+			if(m_resetAtPowerPress < 0) {
+				m_resetAtPowerPress = mPreferences.getInt("power_press_delay_reset", 15);
+			}
 			if ((m_resetAtPowerPress > 0) && (keyCode == KeyEvent.KEYCODE_POWER) &&
-					(mKeyFlags.mPrimaryKey == keyCode) && (mKeyFlags.mSecondaryKey == 0)) {
-				mHandler.post(new Runnable() {
+					(flags.mPrimaryKey == keyCode) && (flags.mSecondaryKey == 0) &&
+					flags.mIsAggregatedDown == true && flags.getTaps() == 1) {
+				
+				final KeyFlags wasFlags = flags.CloneFlags();
+				final int delay = m_resetAtPowerPress * 1000;
+				
+				mHandler.postDelayed(new Runnable() {
 					public void run() {
-				int curDelay = (int)((m_resetAtPowerPress * 1000) - (SystemClock.uptimeMillis()- mKeyFlags.firstDown));
-				if(Common.debug()) Log.d(tag, "Long-long Power press, rebooting after "+ curDelay + " ms");
-				
-				final KeyFlags wasFlags = mKeyFlags.CloneFlags();
-				do {
-					final int t = 10;
-					try {
-						Thread.sleep(t);
-
-					} catch (final Throwable e) {}
-
-					curDelay -= t;
-				} while (mKeyFlags.SameFlags(wasFlags) && curDelay > 0);
-				
-				if (curDelay <= 0)
-				{
-					if(Common.debug()) Log.d(tag, "Long-long Power press, rebooting");
-					((PowerManager) mPowerManager.getReceiver()).reboot(null);
-				}
+						if (mKeyFlags.SameFlags(wasFlags))
+						{
+							if(Common.debug()) Log.d(tag, "Power press for " + m_resetAtPowerPress + "s, rebooting");
+							((PowerManager) mPowerManager.getReceiver()).reboot(null);
+						}
 					}
-				});
+				}, delay);
 			}
 		}
 		
@@ -685,12 +678,13 @@ public class PhoneWindowManager {
 			int extraFlags = 0;
 			final String tag = TAG + "#Dispatch/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mKeyFlags.getTaps() + "," + repeatCount+ "):" ;
 			
+			checkPowerPress(keyCode, mKeyFlags, tag);
+
 			//Skipped unconfigured key, except Power that need handling
 			if (!mKeyConfig.hasAnyAction() && (!mWasScreenOn || (keyCode != KeyEvent.KEYCODE_POWER))) {
 				if(Common.debug()) Log.d(tag, "No mapped action");
 				if (down) {
 					wakeKeyHandling(policyFlags);
-					checkPowerPress(keyCode, tag);
 				}
 				return;
 			}
@@ -791,7 +785,6 @@ public class PhoneWindowManager {
 							mKeyFlags.finish();
 							final String keyAction = mKeyConfig.getAction(ActionTypes.press, mKeyFlags);
 
-							boolean doReturn = false;
 							if (mKeyConfig.isAction(keyAction)) {
 								final int code = mKeyConfig.getEventKeyCode(keyAction, keyCode);
 								//Feedback to the user that key long-press occurs, 
@@ -839,12 +832,6 @@ public class PhoneWindowManager {
 								 * tracking from an injected key. 
 								 */
 								param.setResult(ACTION_PASS_DISPATCHING);
-		
-								doReturn = true;
-							}
-							checkPowerPress(keyCode, tag);
-							if (doReturn)
-							{
 								return;
 							}
 						}
