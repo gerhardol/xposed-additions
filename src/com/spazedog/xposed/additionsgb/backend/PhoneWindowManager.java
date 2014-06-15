@@ -1039,6 +1039,16 @@ public class PhoneWindowManager {
 	
 	@SuppressLint("NewApi")
 	protected void injectInputEvent(final int keyCode, final long time, final int repeatDown, final boolean up, final int flags) {
+		/*
+		 * We handle display on here, because some devices has issues
+		 * when executing handlers while in deep sleep. 
+		 * Some times they will need a few key presses before reacting. 
+		 */
+		if (keyCode == KeyEvent.KEYCODE_POWER && !mWasScreenOn) {
+			changeDisplayState(time, true);
+			return;
+		}
+		
 		synchronized(PhoneWindowManager.class) {
 			final long now = SystemClock.uptimeMillis();
 			final int characterMap = SDK_NEW_CHARACTERMAP ? KeyCharacterMap.VIRTUAL_KEYBOARD : 0;
@@ -1349,16 +1359,6 @@ public class PhoneWindowManager {
 	
 	protected void handleKeyAction(final String action, final int code, final long time, final boolean upEvent) {
 		/*
-		 * We handle display on here, because some devices has issues
-		 * when executing handlers while in deep sleep. 
-		 * Some times they will need a few key presses before reacting. 
-		 */
-		if (code == KeyEvent.KEYCODE_POWER && !mWasScreenOn) {
-			changeDisplayState(time, true);
-			return;
-		}
-		
-		/*
 		 * This should always be wrapped and sent to a handler. 
 		 * If this is executed directly, some of the actions will crash with the error 
 		 * -> 'Can't create handler inside thread that has not called Looper.prepare()'
@@ -1579,8 +1579,8 @@ public class PhoneWindowManager {
 		private int mSecondaryKey = 0;
 		private int mCurrentKey = 0;
 		
-		private long firstDown; //time
-		private long currDown;
+		private long mFirstDown; //time
+		private long mCurrDown;
 		
 		public KeyFlags CloneFlags() {
 			final KeyFlags k = new KeyFlags();
@@ -1589,6 +1589,7 @@ public class PhoneWindowManager {
 			k.mTaps = this.mTaps;
 			k.mPrimaryKey = this.mPrimaryKey;
 			k.mSecondaryKey = this.mSecondaryKey;
+			k.mFirstDown = this.mFirstDown;
 			return k;
 		}
 		
@@ -1598,7 +1599,8 @@ public class PhoneWindowManager {
 					this.mIsSecondaryDown == o2.mIsSecondaryDown &&
 					this.mTaps == o2.mTaps &&
 					this.mPrimaryKey == o2.mPrimaryKey &&
-					this.mSecondaryKey == o2.mSecondaryKey) {
+					this.mSecondaryKey == o2.mSecondaryKey &&
+					this.mFirstDown == o2.mFirstDown) {
 				result = true;
 			}
 			return result;
@@ -1623,7 +1625,7 @@ public class PhoneWindowManager {
 
 			final String tag = TAG + "#KeyFlags:" + keyCode;
 			
-			if ((time - this.firstDown) > 3000) {
+			if ((time - this.mFirstDown) > 3000) {
 				//Waited too long to handle this, for instance some screen off combination that is not well handled
 				mReset = true;
 			}
@@ -1634,7 +1636,7 @@ public class PhoneWindowManager {
 										
 					if (!mIsPrimaryDown && !mIsSecondaryDown) {
 						mTaps++;
-						this.currDown = SystemClock.uptimeMillis();
+						this.mCurrDown = SystemClock.uptimeMillis();
 					}
 					if (keyCode == mSecondaryKey) {
 						mIsSecondaryDown = true;
@@ -1666,7 +1668,7 @@ public class PhoneWindowManager {
 					mPrimaryKey = keyCode;
 					mSecondaryKey = 0;
 					mTaps = 1;
-					this.firstDown = this.currDown = time;
+					this.mFirstDown = this.mCurrDown = time;
 					
 					newEvent = true;
 				}
@@ -1733,11 +1735,11 @@ public class PhoneWindowManager {
 		}
 		
 		public long firstDownTime() {
-			return this.firstDown;
+			return this.mFirstDown;
 		}
 		
 		public long currDown() {
-			return this.currDown;
+			return this.mCurrDown;
 		}
 		public String toString() {
 			return ""+mIsPrimaryDown+mIsSecondaryDown+mIsAggregatedDown+mFinished+mReset+mCancel+mTaps+mPrimaryKey+mSecondaryKey+mCurrentKey;
