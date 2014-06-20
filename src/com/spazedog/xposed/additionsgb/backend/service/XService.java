@@ -507,7 +507,7 @@ public final class XService extends IXService.Stub {
 	@Override
 	public boolean isUnlocked() {
 		//TODO: Temporary license unlock
-		if ((new java.util.Date(114 + 1900, 7, 1)).compareTo(new java.util.Date())>0) {return true;}
+		if ((new java.util.Date(114 + 1900, 9, 1)).compareTo(new java.util.Date())>0) {return true;}
 		return mContextSystem.getPackageManager()
 				.checkSignatures(Common.PACKAGE_NAME, Common.PACKAGE_NAME_PRO) == PackageManager.SIGNATURE_MATCH;
 	}
