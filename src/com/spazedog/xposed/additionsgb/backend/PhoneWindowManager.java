@@ -1169,7 +1169,10 @@ public class PhoneWindowManager {
 			intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 			intent.setData(Uri.parse("market://details?id="+packageName));
 		}
-		
+		startIntent(intent);
+	}
+	
+	protected void startIntent(Intent intent) {
 		if (SDK_HAS_MULTI_USER) {
 			try {
 				final Object userCurrent = mFields.get("UserHandle.current").getValue();
@@ -1190,25 +1193,33 @@ public class PhoneWindowManager {
 	@SuppressLint("NewApi") 
 	protected void toggleLastApplication() {
 		final List<RecentTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRecentTasks(5, ActivityManager.RECENT_IGNORE_UNAVAILABLE);
-		int lastAppId = 0;
+		ActivityManager.RecentTaskInfo lastAppInfo = null;
+		final String homePackage = getHomePackage();
+			
 		for (int i=1; i < packages.size(); i++) {
-			final String intentString = packages.get(i).baseIntent + "";
+			final ActivityManager.RecentTaskInfo recentInfo = packages.get(i);
+			final String intentString = recentInfo.baseIntent + "";
 			
 			final int indexStart = intentString.indexOf("cmp=")+4;
-		    final int indexStop = intentString.indexOf("/", indexStart);
+			final int indexStop = intentString.indexOf("/", indexStart);
 			
 			final String packageName = intentString.substring(indexStart, indexStop);
-			
-			if (!packageName.equals(getHomePackage()) && !packageName.equals("com.android.systemui")) {
-				lastAppId = packages.get(i).id;
+
+			if (!packageName.equals(homePackage) && !packageName.equals("com.android.systemui")) {
+				lastAppInfo = recentInfo;
 				break;
 			}
 		}
-        if (lastAppId > 0) {
-        	((ActivityManager) mActivityManager.getReceiver()).moveTaskToFront(lastAppId, ActivityManager.MOVE_TASK_NO_USER_ACTION);
-        } else {
-            Toast.makeText(mContext, "No previous app", Toast.LENGTH_SHORT).show();
-        }
+		if (lastAppInfo != null) {
+			if (lastAppInfo.id > 0) {
+				((ActivityManager) mActivityManager.getReceiver()).moveTaskToFront(lastAppInfo.id, ActivityManager.MOVE_TASK_NO_USER_ACTION);
+			} else {
+				lastAppInfo.baseIntent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT); 
+				startIntent(lastAppInfo.baseIntent);
+			}
+		} else {
+			Toast.makeText(mContext, "No previous app", Toast.LENGTH_SHORT).show();
+		}
 	}
 	
 	protected void sendCloseSystemWindows(final String reason) {
