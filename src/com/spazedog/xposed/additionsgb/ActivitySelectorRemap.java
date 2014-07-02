@@ -20,6 +20,8 @@
 package com.spazedog.xposed.additionsgb;
 
 import android.annotation.TargetApi;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.graphics.drawable.ColorDrawable;
@@ -30,6 +32,7 @@ import android.preference.Preference;
 import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
+import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
 import android.widget.ListView;
 
@@ -37,6 +40,7 @@ import com.spazedog.xposed.additionsgb.Common.AppBuilder;
 import com.spazedog.xposed.additionsgb.Common.AppBuilder.BuildAppView;
 import com.spazedog.xposed.additionsgb.Common.RemapAction;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
+import com.spazedog.xposed.additionsgb.configs.Actions;
 import com.spazedog.xposed.additionsgb.tools.views.IWidgetPreference;
 import com.spazedog.xposed.additionsgb.tools.views.WidgetPreference;
 
@@ -121,14 +125,33 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
     			PreferenceCategory category = (PreferenceCategory) findPreference("custom_group");
     			String condition = getIntent().getStringExtra("condition");
     			
-    			for (RemapAction value : RemapAction.VALUES) {
-    				if (value.isValid(this, condition)) {
-    					if (value.dispatch) {
-    						preferenceScreen.addPreference(getSelectPreference(value.getLabel(this), getResources().getString(R.string.text_key, value.name), value.name, null, null));
+    			for (RemapAction current : Actions.COLLECTION) {
+    				Boolean isValid = current.isValid(this, condition);
+    				Boolean displayAlert = current.hasAlert(this);
+    				String alertMsg = current.getAlert(this);
+    				String noticeMsg = current.getNotice(this);
+    				
+    				if (isValid || displayAlert) {
+    					PreferenceGroup preferenceGroup = null;
+    					Preference preference = null;
+    					
+    					if (current.isDispatchAction()) {
+    						preferenceGroup = preferenceScreen;
+    						preference = getSelectPreference(current.getLabel(this), getResources().getString(R.string.text_key, current.getAction()), current.getAction(), null, null);
     						
     					} else {
-    						category.addPreference(getSelectPreference(value.getLabel(this), value.getDescription(this), value.name, null, null));
+    						preferenceGroup = category;
+    						preference = getSelectPreference(current.getLabel(this), current.getDescription(this), current.getAction(), null, null);
     					}
+    					
+    					if (!isValid && displayAlert) {
+    						setDialog(null, alertMsg, preference, false);
+    						
+    					} else if (noticeMsg != null) {
+    						setDialog(null, noticeMsg, preference, true);
+    					}
+    					
+    					preferenceGroup.addPreference(preference);
     				}
     			}
     		}
@@ -200,5 +223,30 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 		}
 		
 		return preference;
+	}
+	
+	private void setDialog(final String headline, final String message, Preference preference, final Boolean dispatchEvent) {
+		preference.setOnPreferenceClickListener(new OnPreferenceClickListener(){
+			@Override
+			public boolean onPreferenceClick(final Preference preference) {
+				new AlertDialog.Builder(ActivitySelectorRemap.this)
+				.setTitle(headline)
+				.setMessage(message)
+				.setCancelable(false)
+				.setNegativeButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+					@Override
+		            public void onClick(DialogInterface dialog, int id) {
+						dialog.cancel();
+						
+						if (dispatchEvent) {
+							ActivitySelectorRemap.this.onPreferenceClick(preference);
+						}
+					}
+				})
+				.show();
+				
+				return false;
+			}
+		});
 	}
 }

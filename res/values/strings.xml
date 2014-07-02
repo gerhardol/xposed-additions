@@ -98,15 +98,13 @@
     <string name='category_keys'>Keys</string>
     <string name='category_keys_secondary'>Secondary Keys</string>
     <string name='preference_add_key'>Add new Key</string>
-    
-    <string name='category_button_states'>Button Actions</string>
-    <string name="preference_state_click">Click Action</string>
-    <string name="preference_state_tap">Double Tap Action</string>
-    <string name="preference_state_tap3">Triple Tap Action</string>
-    <string name="preference_state_press">Long Press Action</string>
-    <string name="preference_state_press2">Double Long Press Action</string>
-    <string name="preference_state_press3">Triple Long Press Action</string>
-    
+
+    <string name='category_button_single_states'>Single Actions</string>
+    <string name='category_button_double_states'>Double Actions</string>
+    <string name='category_button_triple_states'>Triple Actions</string>
+    <string name="preference_state_click">Click</string>
+    <string name="preference_state_press">Long Press</string>
+
     <string name="preference_condition_count_$0">No Conditions</string>
     <string name="preference_condition_count_$1">%1$d Condition</string>
     <string name="preference_condition_count">%1$d Conditions</string>
@@ -166,7 +164,14 @@
     <string name='remap_title_torch'>Torch</string>
     <string name='remap_summary_torch'>Turn the torch on/off</string>
     
-    <string name='remap_title_last_app'>Last Application</string>
-    <string name='remap_summary_last_app'>Toggle between the foreground and last applications</string>
+    <string name='remap_title_previous_app'>Previous Application</string>
+    <string name='remap_summary_previous_app'>Toggle between the foreground and previous application</string>
+    
+    <!-- ================================================
+         Strings for Common used by Remap Selector
+    ================================================ -->
+    <string name='selector_alert_missing_torch'>In order to use this action, you will need to install a Torch app from the Market that support Intents!</string>
+    <string name='selector_notice_media_buttons'>Note that this action will only have an effect if your current media player support key events</string>
+    <string name='selector_notice_camera_buttons'>Note that this action will only have an effect if your current camera application support key events</string>
 	
 </resources>
