@@ -756,11 +756,7 @@ public class PhoneWindowManager {
 				
 
 			} else if (!mKeyFlags.wasInvoked()) {
-				//This check is complex to detect double (and triple) clicks directly at down
-				//when no other event is configured for long press and no other event follows
-				//This is to get same behavior as original, where double-tap always was detected at down
-				
-				if (down && (mKeyFlags.getTaps() <= 1 || mKeyConfig.hasAction(ActionTypes.press, mKeyFlags))) {
+				if (down) {
 					if (Common.debug()) Log.d(tag, "Waiting for long press timeout");
 					
 					int curDelay = mKeyConfig.getLongPressDelay();
@@ -868,8 +864,8 @@ public class PhoneWindowManager {
 					}
 					
 				} else {
-					//Key up or no action for key down
-					//timeout if there are events following otherwise direct action (or default first)
+					//Key up 
+					//timeout if there are events following, otherwise direct action (or default first)
 					int curDelay = 0;
 					if (mKeyConfig.hasMoreAction(ActionTypes.tap, mKeyFlags, true)) {
 						if(Common.debug()) Log.d(tag, "Waiting for tap timeout");
