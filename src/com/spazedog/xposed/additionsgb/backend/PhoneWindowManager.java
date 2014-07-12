@@ -643,6 +643,20 @@ public class PhoneWindowManager {
 				final KeyFlags wasFlags = flags.CloneFlags();
 				final int delay = m_resetAtPowerPress * 1000;
 				
+				//Haptic feedback that reboot is pending
+				mHandler.postDelayed(new Runnable() {
+					public void run() {
+						if (mKeyFlags.SameFlags(wasFlags))
+						{
+							if(Common.debug()) Log.d(tag, "Power press, reboot in seconds...");
+							pokeUserActivity(SystemClock.uptimeMillis(),true);
+							final Vibrator v = (Vibrator)mContext.getSystemService(Context.VIBRATOR_SERVICE);
+							final long[] pattern = {50, 100, 50, 50};
+							v.vibrate(pattern, -1);
+						}
+					}
+				}, mKeyConfig.getLongPressDelay()+1000);
+				
 				mHandler.postDelayed(new Runnable() {
 					public void run() {
 						if (mKeyFlags.SameFlags(wasFlags))
@@ -756,11 +770,7 @@ public class PhoneWindowManager {
 				
 
 			} else if (!mKeyFlags.wasInvoked()) {
-				//This check is complex to detect double (and triple) clicks directly at down
-				//when no other event is configured for long press and no other event follows
-				//This is to get same behavior as original, where double-tap always was detected at down
-				
-				if (down && (mKeyFlags.getTaps() <= 1 || mKeyConfig.hasAction(ActionTypes.press, mKeyFlags))) {
+				if (down) {
 					if (Common.debug()) Log.d(tag, "Waiting for long press timeout");
 					
 					int curDelay = mKeyConfig.getLongPressDelay();
@@ -868,8 +878,8 @@ public class PhoneWindowManager {
 					}
 					
 				} else {
-					//Key up or no action for key down
-					//timeout if there are events following otherwise direct action (or default first)
+					//Key up 
+					//timeout if there are events following, otherwise direct action (or default first)
 					int curDelay = 0;
 					if (mKeyConfig.hasMoreAction(ActionTypes.tap, mKeyFlags, true)) {
 						if(Common.debug()) Log.d(tag, "Waiting for tap timeout");
@@ -1185,7 +1195,11 @@ public class PhoneWindowManager {
 			}
 			
 		} else {
+			try {
 			mContext.startActivity(intent);
+			} catch (final Exception e) {
+				Log.e(TAG, e.getMessage(), e);
+			}
 		}
 	}
 	
