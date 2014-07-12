@@ -643,6 +643,20 @@ public class PhoneWindowManager {
 				final KeyFlags wasFlags = flags.CloneFlags();
 				final int delay = m_resetAtPowerPress * 1000;
 				
+				//Haptic feedback that reboot is pending
+				mHandler.postDelayed(new Runnable() {
+					public void run() {
+						if (mKeyFlags.SameFlags(wasFlags))
+						{
+							if(Common.debug()) Log.d(tag, "Power press, reboot in seconds...");
+							pokeUserActivity(SystemClock.uptimeMillis(),true);
+							final Vibrator v = (Vibrator)mContext.getSystemService(Context.VIBRATOR_SERVICE);
+							final long[] pattern = {50, 100, 50, 50};
+							v.vibrate(pattern, -1);
+						}
+					}
+				}, mKeyConfig.getLongPressDelay()+1000);
+				
 				mHandler.postDelayed(new Runnable() {
 					public void run() {
 						if (mKeyFlags.SameFlags(wasFlags))
@@ -1181,7 +1195,11 @@ public class PhoneWindowManager {
 			}
 			
 		} else {
+			try {
 			mContext.startActivity(intent);
+			} catch (final Exception e) {
+				Log.e(TAG, e.getMessage(), e);
+			}
 		}
 	}
 	
