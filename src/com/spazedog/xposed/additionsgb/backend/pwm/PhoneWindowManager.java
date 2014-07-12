@@ -278,14 +278,14 @@ public final class PhoneWindowManager {
 					
 					param.setResult(Mediator.ORIGINAL.QUEUEING_REJECT);
 					
-				} else {
-					/*
-					 * Check to see if this is a new event (Which means not a continued tap event or a general key up event).
-					 */
-					Integer[] ongoing = mEventManager.hasOngoingKeyCodes() ? mEventManager.clearOngoingKeyCodes(true) : null;
-					
-					if (mEventManager.registerKey(keyCode, down, policyFlags)) {
+				} else {					
+					if (mEventManager.registerKey(keyCode, down, mMediator.fixPolicyFlags(keyCode, policyFlags))) {
 						if(Common.debug()) Log.d(tag, "Starting a new event");
+						
+						/*
+						 * Check to see if this is a new event (Which means not a continued tap event or a general key up event).
+						 */
+						Integer[] ongoing = mEventManager.hasOngoingKeyCodes() ? mEventManager.clearOngoingKeyCodes(true) : null;
 						
 						if (ongoing != null) {
 							for (int i=0; i < ongoing.length; i++) {
@@ -330,9 +330,13 @@ public final class PhoneWindowManager {
 						mMediator.performHapticFeedback(keyEvent, HapticFeedbackConstants.VIRTUAL_KEY, policyFlags);
 					}
 					
-					if(Common.debug()) Log.d(tag, "Parsing the event to the queue");
-					
-					param.setResult(Mediator.ORIGINAL.QUEUEING_ALLOW);
+					if (mEventManager.getState() != State.CANCELED && mEventManager.getEventKey(keyCode) != null) {
+						if(Common.debug()) Log.d(tag, "Parsing the event to the queue");
+						param.setResult(Mediator.ORIGINAL.QUEUEING_ALLOW);
+						
+					} else {
+						if(Common.debug()) Log.d(tag, "The event has been canceled, skipping");
+					}
 				}
 			}
 		}
@@ -381,11 +385,11 @@ public final class PhoneWindowManager {
 					
 					do {
 						try {
-							Thread.sleep(10);
+							Thread.sleep(1);
 							
 						} catch (Throwable e) {}
 						
-						curTimeout -= 10;
+						curTimeout -= 1;
 						
 					} while (mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode && curTimeout > 0);
 					
@@ -403,33 +407,32 @@ public final class PhoneWindowManager {
 				
 				return;
 				
-			} else if (!down && (mEventManager.getState() == State.INVOKED_DEFAULT || mEventManager.getState() == State.INVOKED)) {
-				if (key != null) {
+			} else if (!down && mEventManager.getState() != State.ONGOING) {
+				if (mEventManager.hasOngoingKeyCodes(keyCode) || (key != null && mEventManager.getState() != State.PENDING)) {
 					if(Common.debug()) Log.d(tag, "Releasing key");
 					
 					mEventManager.removeOngoingKeyCode(keyCode);
-					mMediator.injectInputEvent(keyCode, KeyEvent.ACTION_UP, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, key.getPolicFlags());
+					mMediator.injectInputEvent(keyCode, KeyEvent.ACTION_UP, 0L, 0L, 0, policyFlags);
 					
 				} else {
 					return;
 				}
 				
-			} else if (mEventManager.getState() == State.ONGOING) {
+			} else if (mEventManager.getState() == State.ONGOING && key != null) {
 				if (down) {
 					if(Common.debug()) Log.d(tag, "Waiting on long press timeout");
 					
 					Integer pressTimeout = mEventManager.getPressTimeout();
-					Integer curTimeout = 0;
 					
 					do {
 						try {
-							Thread.sleep(10);
+							Thread.sleep(1);
 							
 						} catch (Throwable e) {}
 						
-						curTimeout += 10;
+						pressTimeout -= 1;
 						
-					} while (mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode && curTimeout < pressTimeout);
+					} while (mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode && pressTimeout > 0);
 					
 					synchronized(mQueueLock) {
 						if (mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode) {
@@ -476,17 +479,16 @@ public final class PhoneWindowManager {
 						if(Common.debug()) Log.d(tag, "Waiting on tap timeout");
 						
 						Integer tapTimeout = mEventManager.getTapTimeout();
-						Integer curTimeout = 0;
 						
 						do {
 							try {
-								Thread.sleep(10);
+								Thread.sleep(1);
 								
 							} catch (Throwable e) {}
 							
-							curTimeout += 10;
+							tapTimeout -= 1;
 							
-						} while (!mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode && curTimeout < tapTimeout);
+						} while (!mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode && tapTimeout > 0);
 					}
 					
 					synchronized(mQueueLock) {
@@ -520,12 +522,15 @@ public final class PhoneWindowManager {
 					}
 				}
 				
-			} else if (mEventManager.getState() == State.PENDING) {
+			} else if (mEventManager.getState() == State.PENDING || key == null) {
+				if(Common.debug()) Log.d(tag, "This key is not being handled by the module, skipping...");
 				/*
 				 * The module is not handling this event 
 				 */
 				return;
 			}
+			
+			if(Common.debug()) Log.d(tag, "Sending even to dispatching");
 			
 			param.setResult(Mediator.ORIGINAL.DISPATCHING_REJECT);
 		}

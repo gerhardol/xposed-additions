@@ -1,11 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.spazedog.xposed.additionsgb"
-    android:versionCode="51"
-    android:versionName="3.3.0b2" >
+    android:versionCode="53"
+    android:versionName="3.3.0-pre" >
 
     <uses-sdk
         android:minSdkVersion="9"
         android:targetSdkVersion="19" />
+    
+    <uses-permission android:name="net.dinglisch.android.tasker.PERMISSION_RUN_TASKS"/>
 
     <application
         android:icon="@drawable/ic_launcher"

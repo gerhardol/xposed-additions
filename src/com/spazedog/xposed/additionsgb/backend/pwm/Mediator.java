@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.dinglisch.android.tasker.TaskerIntent;
+
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.ActivityManager;
@@ -152,6 +154,7 @@ public final class Mediator {
 		public static Integer FLAG_INJECTED;
 		public static Integer FLAG_VIRTUAL;
 		public static Integer FLAG_WAKE;
+		public static Integer FLAG_WAKE_DROPPED;
 		
 		public static Integer QUEUEING_ALLOW;
 		public static Integer QUEUEING_REJECT;
@@ -196,7 +199,13 @@ public final class Mediator {
 		mXServiceManager = xManager;
 		mContext = pwm.findFieldDeep("mContext").getValueToInstance();
 		mPhoneWindowManager = pwm;
-		mHandler = new Handler();
+		
+		try {
+			mHandler = (Handler) pwm.findFieldDeep("mHandler").getValue();
+			
+		} catch (ReflectException e) {
+			mHandler = new Handler();
+		}
 		
 		/*
 		 * Get all needed original property values
@@ -206,6 +215,7 @@ public final class Mediator {
 		ORIGINAL.FLAG_INJECTED = (Integer) wmp.findField("FLAG_INJECTED").getValue();
 		ORIGINAL.FLAG_VIRTUAL = (Integer) wmp.findField("FLAG_VIRTUAL").getValue();
 		ORIGINAL.FLAG_WAKE = (Integer) ((wmp.findField("FLAG_WAKE").getValue()));
+		ORIGINAL.FLAG_WAKE_DROPPED = (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
 		
 		ORIGINAL.QUEUEING_ALLOW = (Integer) wmp.findFieldDeep("ACTION_PASS_TO_USER").getValue();
 		ORIGINAL.QUEUEING_REJECT = 0;
@@ -321,7 +331,16 @@ public final class Mediator {
 				mXServiceManager.putBoolean("variable:remap.support.global_actions", true);
 				
 			} catch (ReflectException e) {
-				if(Common.debug()) Log.d(TAG, "Missing PhoneWindowManager.showGlobalActionsDialog()");
+				try {
+					/*
+					 * Support for ROM's like SlimKat that uses a 'boolean pokeWakeLock' parameter
+					 */
+					mMethods.put("showGlobalActionsDialog.custom", mPhoneWindowManager.findMethodDeep("showGlobalActionsDialog", Match.BEST, Boolean.TYPE));
+					mXServiceManager.putBoolean("variable:remap.support.global_actions", true);
+					
+				} catch (ReflectException ei) {
+					if(Common.debug()) Log.d(TAG, "Missing PhoneWindowManager.showGlobalActionsDialog()");
+				}
 			}
 			
 			mRecentApplicationsDialog = ReflectClass.forName( SDK.MANAGER_RECENT_DIALOG_VERSION > 1 ? "com.android.internal.statusbar.IStatusBarService" : "com.android.internal.policy.impl.RecentApplicationsDialog" );
@@ -376,6 +395,14 @@ public final class Mediator {
 			mMethods.put("freezeRotation", mWindowManagerService.findMethodDeep("freezeRotation", Match.BEST, Integer.TYPE));
 			mMethods.put("thawRotation", mWindowManagerService.findMethodDeep("thawRotation"));
 		}
+		
+		/*
+		 * Find tools to handle wake keys
+		 */
+		try {
+			mMethods.put("isWakeKeyWhenScreenOff", mPhoneWindowManager.findMethodDeep("isWakeKeyWhenScreenOff", Match.BEST, Integer.TYPE));
+			
+		} catch (ReflectException e) {}
 		
 		/*
 		 * Start searching for torch support
@@ -884,7 +911,12 @@ public final class Mediator {
 		sendCloseSystemWindows("globalactions");
 		
 		try {
-			mMethods.get("showGlobalActionsDialog").invoke();
+			if (mMethods.containsKey("showGlobalActionsDialog.custom")) {
+				mMethods.get("showGlobalActionsDialog.custom").invoke(true);
+				
+			} else {
+				mMethods.get("showGlobalActionsDialog").invoke();
+			}
 			
 		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
@@ -974,6 +1006,26 @@ public final class Mediator {
 				res.activityInfo.packageName : "com.android.launcher";
 	}
 	
+	public Boolean isWakeKeyWhenScreenOff(Integer keyCode) {
+		if (mMethods.get("isWakeKeyWhenScreenOff") != null) {
+			return (Boolean) mMethods.get("isWakeKeyWhenScreenOff").invoke(keyCode);
+		}
+		
+		return true;
+	}
+	
+	public Integer fixPolicyFlags(Integer keyCode, Integer policyFlags) {
+		if (!isWakeKeyWhenScreenOff(keyCode)) {
+			if ((policyFlags & ORIGINAL.FLAG_WAKE) != 0) 
+				policyFlags &= ~ORIGINAL.FLAG_WAKE;
+			
+			if ((policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) 
+				policyFlags &= ~ORIGINAL.FLAG_WAKE_DROPPED;
+		}
+		
+		return policyFlags;
+	}
+	
 	protected Boolean handleKeyAction(final String action, final ActionType actionType, final Boolean isScreenOn, final Boolean invokeCallbutton, final Long eventDownTime, final Integer policyFlags) {		
 		if (actionType != ActionType.CLICK) {
 			performHapticFeedback(null, HapticFeedbackConstants.LONG_PRESS, policyFlags);
@@ -984,7 +1036,7 @@ public final class Mediator {
 		 * when executing handlers while in deep sleep. 
 		 * Some times they will need a few key presses before reacting. 
 		 */
-		if (!isScreenOn && ((action != null && action.equals("" + KeyEvent.KEYCODE_POWER)) || (action == null && (policyFlags & ORIGINAL.FLAG_WAKE) != 0))) {
+		if (!isScreenOn && ((action != null && action.equals("" + KeyEvent.KEYCODE_POWER)) || (action == null && (policyFlags & (ORIGINAL.FLAG_WAKE | ORIGINAL.FLAG_WAKE_DROPPED)) != 0))) {
 			changeDisplayState(eventDownTime, true); return true;
 			
 		} else if (invokeCallbutton && invokeCallButton()) {
@@ -1047,6 +1099,9 @@ public final class Mediator {
 						}
 					}
 					
+				} else if ("tasker".equals(type)) { 
+					sendBroadcast(new TaskerIntent(action.replace("tasker:", "")));
+				
 				} else {
 					injectInputEvent(Integer.parseInt(action), KeyEvent.ACTION_MULTIPLE, eventDownTime, 0L, 0, policyFlags);
 				}
