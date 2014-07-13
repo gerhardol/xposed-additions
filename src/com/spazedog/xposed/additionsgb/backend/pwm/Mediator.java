@@ -536,6 +536,10 @@ public final class Mediator {
 		final KeyEvent keyEvent = event instanceof KeyEvent ? (KeyEvent) event : null;
 		final Integer keyCode = event instanceof KeyEvent ? keyEvent.getKeyCode() : (Integer) event;
 
+		if (mXServiceManager.getBoolean(Settings.REMAP_ALLOW_ANY)) {
+			return true;
+		}
+
 		if (keyEvent != null && keyEvent.getDeviceId() != -1) {
 			final Integer source = keyEvent.getSource();
 			final InputDevice device = keyEvent.getDevice();

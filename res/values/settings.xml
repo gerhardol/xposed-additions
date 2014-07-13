@@ -10,6 +10,7 @@
     <bool name="layout_rotation_switch">false</bool>
     <bool name="enable_debug">false</bool>
     <bool name="remap_allow_externals">false</bool>
+    <bool name="remap_allow_any">false</bool>
     
     <string name="usb_plug_action" translatable="false">usb</string>
     <string name="usb_unplug_action" translatable="false">off</string>

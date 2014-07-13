@@ -18,6 +18,8 @@ public class Settings {
 	public static final String LAYOUT_ENABLE_GLOBAL_ROTATION = "layout_rotation_switch";
 	public static final String DEBUG_ENABLE_LOGGING = "enable_debug";
 	public static final String REMAP_ALLOW_EXTERNALS = "remap_allow_externals";
+	//Hidden setting to allow any key source (for instance GENYmotion)
+	public static final String REMAP_ALLOW_ANY = "remap_allow_any";
 	
 	public static final String LAYOUT_GLOBAL_ROTATION_BLACKLIST = "layout_rotation_blacklist";
 	public static final String REMAP_LIST_KEYS = "remap_keys";
