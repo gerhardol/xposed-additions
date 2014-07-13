@@ -49,8 +49,16 @@ public class EventManager {
 		synchronized (mLock) {
 			mIsExtended = mXServiceManager.isPackageUnlocked();
 			mIsCallButton = mXServiceManager.getBooleanGroup(Settings.REMAP_KEY_ENABLE_CALLBTN, (mPrimaryKey.mKeyCode + ":" + mSecondaryKey.mKeyCode));
-			mTapTimeout = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_DOUBLECLICK, ViewConfiguration.getDoubleTapTimeout());
 			mPressTimeout = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_LONGPRESS, ViewConfiguration.getLongPressTimeout());
+			if (this.mPressTimeout <= 0) {
+				this.mPressTimeout = ViewConfiguration.getLongPressTimeout();
+			}
+			mTapTimeout = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_DOUBLECLICK, ViewConfiguration.getDoubleTapTimeout());
+			if (this.mTapTimeout == 0) {
+				this.mTapTimeout = ViewConfiguration.getDoubleTapTimeout();
+			} else if (this.mTapTimeout < 0) {
+				this.mTapTimeout = this.mPressTimeout;
+			}
 			mCurrentApplication = inKeyguard ? "keyguard" : currentApplication;
 			mIsScreenOn = isScreenOn;
 
