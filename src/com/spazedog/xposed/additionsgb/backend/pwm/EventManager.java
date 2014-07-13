@@ -7,9 +7,11 @@ import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
 import com.spazedog.xposed.additionsgb.configs.Settings;
 
 import android.os.SystemClock;
+import android.util.Log;
 import android.view.ViewConfiguration;
 
 public class EventManager {
+	public static enum ActionType { CLICK, PRESS }
 	public static enum State { PENDING, ONGOING, INVOKED, INVOKED_DEFAULT, CANCELED }
 	public static enum Priority { PRIMARY, SECONDARY }
 
@@ -20,8 +22,10 @@ public class EventManager {
 	private Integer mTapTimeout = 0;
 	private Integer mPressTimeout = 0;
 
-	private final String[] mClickActions = new String[3];
-	private final String[] mPressActions = new String[3];
+	protected static final int maxActions = 3*2; //ActionTypes.values().length;
+
+	//actions in the order they appear: press 1, tap 1, press 2, tap 2 etc
+	private final String[] mActions = new String[maxActions];
 
 	private Boolean mIsCallButton = false;
 	private Boolean mIsExtended = false;
@@ -74,7 +78,7 @@ public class EventManager {
 			 *  - 4 = Triple Click
 			 *  - 5 = Triple Long Press
 			 */
-			final Integer[] oldConfig = new Integer[]{0,1,4,2,3,5};
+			final Integer[] oldConfig = new Integer[]{2,0,3,1,5,4};
 			final String keyGroupName = mPrimaryKey.mKeyCode + ":" + mSecondaryKey.mKeyCode;
 			final String appCondition = !isScreenOn ? null : inKeyguard ? "guard" : mIsExtended ? currentApplication : null;
 			List<String> actions = appCondition != null ? mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(appCondition), keyGroupName, null) : null;
@@ -85,18 +89,12 @@ public class EventManager {
 
 			for (int i=0; i < oldConfig.length; i++) {
 				final Integer x = oldConfig[i];
-
 				/*
 				 * Only include Click and Long Press along with excluding Application Launch on non-pro versions
 				 */
-				final String action = ((x == 0 || x == 2) || mIsExtended) && actions.size() > x && (mIsExtended || !".".equals(actions.get(x))) ? actions.get(x) : null;
+				final String action = ((i < 2) || mIsExtended) && actions.size() > x && (mIsExtended || !".".equals(actions.get(x))) ? actions.get(x) : null;
 
-				if (i < 3) {
-					mClickActions[i] = action;
-
-				} else {
-					mPressActions[i-3] = action;
-				}
+				mActions[i] = action;
 			}
 		}
 	}
@@ -229,13 +227,6 @@ public class EventManager {
 		return mIsExtended;
 	}
 
-	public Boolean hasTapActions() {
-		return mClickActions[1] != null ||
-				mClickActions[2] != null || 
-				mPressActions[1] != null ||
-				mPressActions[2] != null;
-	}
-
 	public Boolean hasOngoingKeyCodes() {
 		return mOnGoingKeyCodes.size() > 0;
 	}
@@ -266,14 +257,30 @@ public class EventManager {
 		mOnGoingKeyCodes.remove(keyCode);
 	}
 
-	public String getAction(final Boolean isKeyDown) {
-		return getAction(isKeyDown, mTapCount);
+	private int getActionIndex(final ActionType atype) {
+		int index = mTapCount * 2;
+		if (atype == ActionType.CLICK) {index++;}
+		return index;
 	}
 
-	public String getAction(final Boolean isKeyDown, final Integer tapCount) {
-		return isKeyDown ? 
-				(tapCount < mPressActions.length ? mPressActions[tapCount] : null) : 
-					(tapCount < mClickActions.length ? mClickActions[tapCount] : null);
+	public boolean hasMoreAction(final ActionType atype, final boolean next) {
+		boolean result = false;
+		int index = getActionIndex(atype);
+		if (next){ index++; }
+		while (index < maxActions) {
+			if (mActions[index] != null) {
+				result = true;
+				break;
+			}
+			index++;
+		}
+		return result;
+	}
+
+	public String getAction(final ActionType atype) {
+		final int index = getActionIndex(atype);
+		if (index >= mActions.length) { return null; }
+		return mActions[index];
 	}
 
 	public Integer getTapTimeout() {

@@ -16,7 +16,7 @@ import com.spazedog.lib.reflecttools.ReflectClass;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.xposed.additionsgb.Common;
 import com.spazedog.xposed.additionsgb.backend.pwm.EventManager.State;
-import com.spazedog.xposed.additionsgb.backend.pwm.Mediator.ActionType;
+import com.spazedog.xposed.additionsgb.backend.pwm.EventManager.ActionType;
 import com.spazedog.xposed.additionsgb.backend.pwm.Mediator.SDK;
 import com.spazedog.xposed.additionsgb.backend.pwm.Mediator.StackAction;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
@@ -354,6 +354,7 @@ public final class PhoneWindowManager {
 	 * 		- ICS & Above: PhoneWindowManager.interceptKeyBeforeDispatching(WindowState win, KeyEvent event, Integer policyFlags)
 	 */	
 	protected XC_MethodHook hook_interceptKeyBeforeDispatching = new XC_MethodHook() {
+		//xxx wakeKeyHandling? checkPowerPress
 		@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
@@ -368,6 +369,7 @@ public final class PhoneWindowManager {
 			final Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
 			final Boolean down = action == KeyEvent.ACTION_DOWN;
 			final EventKey key = mEventManager.getEventKey(keyCode);
+			//TODO time stamp
 			final String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
 
 			/*
@@ -397,6 +399,7 @@ public final class PhoneWindowManager {
 							mEventManager.invokeDefaultEvent(keyCode);
 							mMediator.injectInputEvent(keyCode, KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), repeatCount+1, key.getPolicFlags());
 						}
+						//TODO Power key special handling
 					}
 				}
 
@@ -435,13 +438,13 @@ public final class PhoneWindowManager {
 
 					synchronized(mQueueLock) {
 						if (mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode) {
-							final String eventAction = mEventManager.getAction(true);
+							final String eventAction = mEventManager.getAction(ActionType.PRESS);
 
 							if (eventAction != null) {
 								if(Common.debug()) Log.d(tag, "Invoking custom long press action");
 
 								mEventManager.invokeEvent();
-								mMediator.handleKeyAction(eventAction, ActionType.PRESS, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), key.getPolicFlags());
+								mMediator.handleKeyAction(eventAction, mEventManager.getTapCount() == 0, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), key.getPolicFlags());
 
 							} else {
 								if(Common.debug()) Log.d(tag, "Invoking default long press action");
@@ -474,7 +477,7 @@ public final class PhoneWindowManager {
 					}
 
 				} else {
-					if (mEventManager.hasTapActions() && mEventManager.getTapCount() < 3) {
+					if (mEventManager.hasMoreAction(ActionType.CLICK, true)) {
 						if(Common.debug()) Log.d(tag, "Waiting on tap timeout");
 
 						Integer tapTimeout = mEventManager.getTapTimeout();
@@ -494,12 +497,11 @@ public final class PhoneWindowManager {
 						if (!mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode) {
 							if(Common.debug()) Log.d(tag, "Invoking custom click action");
 
-							final String eventAction = mEventManager.getAction(false);
-							final ActionType actionType = mEventManager.getTapCount() == 0 ? ActionType.CLICK : ActionType.TAP;
+							final String eventAction = mEventManager.getAction(ActionType.CLICK);
 
 							mEventManager.invokeEvent();
 
-							if (!mMediator.handleKeyAction(eventAction, actionType, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), key.getPolicFlags())) {
+							if (!mMediator.handleKeyAction(eventAction, false, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), key.getPolicFlags())) {
 								if(Common.debug()) Log.d(tag, "No custom click action available, invoking default actions");
 
 								if (mEventManager.isCombiEvent()) {
@@ -507,6 +509,7 @@ public final class PhoneWindowManager {
 
 									final EventKey parentKey = mEventManager.getParentEventKey(keyCode);
 
+									//xxx should probably not be ongoing here
 									mEventManager.addOngoingKeyCode(parentKey.getKeyCode());
 									mMediator.injectInputEvent(parentKey.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, parentKey.getPolicFlags());
 								}

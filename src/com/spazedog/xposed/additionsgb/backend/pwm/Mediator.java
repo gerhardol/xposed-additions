@@ -47,7 +47,6 @@ import com.spazedog.xposed.additionsgb.configs.Settings;
 public final class Mediator {
 	public static final String TAG = Mediator.class.getName();
 
-	public static enum ActionType { CLICK, TAP, PRESS }
 	public static enum StackAction { EXLUDE_HOME, INCLUDE_HOME, JUMP_HOME }
 
 	/**
@@ -602,6 +601,7 @@ public final class Mediator {
 			if ((flags & ORIGINAL.FLAG_INJECTED) == 0) 
 				flags |= ORIGINAL.FLAG_INJECTED;
 
+			//TODO: Vibrate if long-long press
 			if ((flags & KeyEvent.FLAG_LONG_PRESS) == 0 && repeatCount == 1) 
 				flags |= KeyEvent.FLAG_LONG_PRESS;
 
@@ -1029,8 +1029,8 @@ public final class Mediator {
 		return policyFlags;
 	}
 
-	protected Boolean handleKeyAction(final String action, final ActionType actionType, final Boolean isScreenOn, final Boolean invokeCallbutton, final Long eventDownTime, final Integer policyFlags) {		
-		if (actionType != ActionType.CLICK) {
+	protected Boolean handleKeyAction(final String action, final Boolean firstDown, final Boolean isScreenOn, final Boolean invokeCallbutton, final Long eventDownTime, final Integer policyFlags) {		
+		if (firstDown) {
 			performHapticFeedback(null, HapticFeedbackConstants.LONG_PRESS, policyFlags);
 		}
 
