@@ -601,7 +601,6 @@ public final class Mediator {
 			if ((flags & ORIGINAL.FLAG_INJECTED) == 0) 
 				flags |= ORIGINAL.FLAG_INJECTED;
 
-			//TODO: Vibrate if long-long press
 			if ((flags & KeyEvent.FLAG_LONG_PRESS) == 0 && repeatCount == 1) 
 				flags |= KeyEvent.FLAG_LONG_PRESS;
 
@@ -659,6 +658,19 @@ public final class Mediator {
 		}
 	}
 
+	protected void performLongPressFeedback() {
+		//Feedback to the user that key long-press occurs, 
+		//to give control of long-long press also if "Vibrate on Touch" is not active
+		//TBD
+//		final int val = Settings.System.getInt(mContext.getContentResolver(),
+//				Settings.System.HAPTIC_FEEDBACK_ENABLED, 0);
+//		if (val == 0) {
+//			final Vibrator v = (Vibrator)mContext.getSystemService(Context.VIBRATOR_SERVICE);
+//			final long[] pattern = {0, 100};
+//			v.vibrate(pattern, -1);
+//		}
+	}
+	
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	protected void pokeUserActivity(final Long time, final Boolean forced) {
 		if (forced) {
@@ -1040,7 +1052,8 @@ public final class Mediator {
 		 * Some times they will need a few key presses before reacting. 
 		 */
 		if (!isScreenOn && ((action != null && action.equals("" + KeyEvent.KEYCODE_POWER)) || (action == null && (policyFlags & (ORIGINAL.FLAG_WAKE | ORIGINAL.FLAG_WAKE_DROPPED)) != 0))) {
-			changeDisplayState(eventDownTime, true); return true;
+			changeDisplayState(eventDownTime, true);
+			return true;
 
 		} else if (invokeCallbutton && invokeCallButton()) {
 			return true;

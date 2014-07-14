@@ -13,7 +13,7 @@ import android.view.ViewConfiguration;
 public class EventManager {
 	public static enum ActionType { CLICK, PRESS }
 	public static enum State { PENDING, ONGOING, INVOKED, INVOKED_DEFAULT, CANCELED }
-	public static enum Priority { PRIMARY, SECONDARY }
+	public static enum Priority { PRIMARY, SECONDARY, INVOKED }
 
 	private final XServiceManager mXServiceManager;
 
@@ -42,6 +42,7 @@ public class EventManager {
 
 	private final EventKey mPrimaryKey = new EventKey(Priority.PRIMARY);
 	private final EventKey mSecondaryKey = new EventKey(Priority.SECONDARY);
+	private final EventKey mInvokedKey = new EventKey(Priority.INVOKED);
 
 	private final Object mLock = new Object();
 
@@ -172,6 +173,7 @@ public class EventManager {
 
 			mEventTime = time;
 
+			//TBD: Should not be distributed to the KeyEvent
 			mPrimaryKey.mIsLastQueued = mPrimaryKey.mKeyCode == keyCode;
 			mSecondaryKey.mIsLastQueued = mSecondaryKey.mKeyCode == keyCode;
 
@@ -181,13 +183,15 @@ public class EventManager {
 
 	public EventKey getEventKey(final Integer keyCode) {
 		return mPrimaryKey.getKeyCode() == keyCode ? mPrimaryKey : 
-			mSecondaryKey.getKeyCode() == keyCode ? mSecondaryKey : null;
+				mSecondaryKey.getKeyCode() == keyCode ? mSecondaryKey :
+				mInvokedKey.getKeyCode() == keyCode ? mInvokedKey : null;
 	}
 
 	public EventKey getEventKey(final Priority priority) {
 		switch (priority) {
 		case PRIMARY: return mPrimaryKey;
 		case SECONDARY: return mSecondaryKey;
+		case INVOKED: return mInvokedKey;
 		}
 
 		return null;
@@ -202,6 +206,8 @@ public class EventManager {
 		switch (priority) {
 		case PRIMARY: return mSecondaryKey;
 		case SECONDARY: return mPrimaryKey;
+		default:
+			break;
 		}
 
 		return null;
@@ -331,13 +337,16 @@ public class EventManager {
 		}
 	}
 
+	//TODO: This could have a EventKey parameter. Rename to invokeLongPress? mRepeatCount is unused
 	public void invokeDefaultEvent(final Integer keyCode) {
 		synchronized (mLock) {
-			if (mState == State.ONGOING || mState == State.INVOKED_DEFAULT) {
+			if (mState == State.ONGOING || mState == State.INVOKED_DEFAULT || mState == State.INVOKED) {
 				final EventKey key = getEventKey(keyCode);
 
 				if (key != null) {
-					mState = State.INVOKED_DEFAULT;
+					if (mState != State.INVOKED) {
+						mState = State.INVOKED_DEFAULT;
+					}
 					key.mRepeatCount += 1;
 
 				} else {
