@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
@@ -38,6 +39,10 @@ public final class PhoneWindowManager {
 
 	private final Object mQueueLock = new Object();
 
+	private static int shortTime(){
+		return (int)(SystemClock.uptimeMillis() % 10000);
+	}
+	
 	/**
 	 * This is a static initialization method.
 	 */
@@ -225,7 +230,7 @@ public final class PhoneWindowManager {
 				final Integer repeatCount = methodVersion == 1 ? 0 : keyEvent.getRepeatCount();
 				final Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
 				final Boolean down = action == KeyEvent.ACTION_DOWN;
-				final String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
+				final String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):" ;
 
 				/*
 				 * Using KitKat work-around from the InputManager Hook
@@ -246,6 +251,7 @@ public final class PhoneWindowManager {
 						 * the original methods themselves seams to be handling this just fine, but a few 
 						 * stock ROM's are treating these as both new and repeated events. 
 						 */
+						if(Common.debug()) Log.d(tag, "Injected repeated key, no event change");
 						param.setResult(Mediator.ORIGINAL.QUEUEING_ALLOW);
 
 					} else if ((policyFlags & Mediator.ORIGINAL.FLAG_INJECTED) != 0) {
@@ -330,7 +336,7 @@ public final class PhoneWindowManager {
 					}
 
 					if (mEventManager.getState() != State.CANCELED && mEventManager.getEventKey(keyCode) != null) {
-						if(Common.debug()) Log.d(tag, "Parsing the event to the queue");
+						if(Common.debug()) Log.d(tag, "Passing the event to the queue");
 						param.setResult(Mediator.ORIGINAL.QUEUEING_ALLOW);
 
 					} else {
@@ -369,8 +375,7 @@ public final class PhoneWindowManager {
 			final Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
 			final Boolean down = action == KeyEvent.ACTION_DOWN;
 			final EventKey key = mEventManager.getEventKey(keyCode);
-			//TODO time stamp
-			final String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
+			final String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):" ;
 
 			/*
 			 * Using KitKat work-around from the InputManager Hook
@@ -439,18 +444,20 @@ public final class PhoneWindowManager {
 					synchronized(mQueueLock) {
 						if (mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode) {
 							final String eventAction = mEventManager.getAction(ActionType.PRESS);
+							if (Common.debug()) Log.d(tag, shortTime() + " Invoking long press action: " + eventAction);
 
 							if (eventAction != null) {
-								if(Common.debug()) Log.d(tag, "Invoking custom long press action");
+								//custom long press action
 
 								mEventManager.invokeEvent();
 								mMediator.handleKeyAction(eventAction, mEventManager.getTapCount() == 0, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), key.getPolicFlags());
 
 							} else {
-								if(Common.debug()) Log.d(tag, "Invoking default long press action");
+								//default long press action
 
 								mEventManager.invokeDefaultEvent(keyCode);
 
+								//TODO: Handle tapCount() (or ignore multi actions)
 								if(mEventManager.isCombiEvent()) {
 									if(Common.debug()) Log.d(tag, "Injecting primary combo event");
 
@@ -467,7 +474,7 @@ public final class PhoneWindowManager {
 								 * The first one MUST be dispatched throughout the system.
 								 * Applications can ONLY start tracking from the original event object.
 								 */
-								if(Common.debug()) Log.d(tag, "Parsing event to the dispatcher");
+								if(Common.debug()) Log.d(tag, "Passing event to the dispatcher");
 
 								param.setResult(Mediator.ORIGINAL.DISPATCHING_ALLOW); 
 
@@ -495,21 +502,20 @@ public final class PhoneWindowManager {
 
 					synchronized(mQueueLock) {
 						if (!mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode) {
-							if(Common.debug()) Log.d(tag, "Invoking custom click action");
-
 							final String eventAction = mEventManager.getAction(ActionType.CLICK);
+							if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: " + eventAction);
 
 							mEventManager.invokeEvent();
 
 							if (!mMediator.handleKeyAction(eventAction, false, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), key.getPolicFlags())) {
-								if(Common.debug()) Log.d(tag, "No custom click action available, invoking default actions");
+								//No custom click action available, invoking default actions
 
 								if (mEventManager.isCombiEvent()) {
 									if(Common.debug()) Log.d(tag, "Injecting primary combo event");
 
 									final EventKey parentKey = mEventManager.getParentEventKey(keyCode);
 
-									//xxx should probably not be ongoing here
+									//TODO: Handle tapCount() (or ignore multi actions)
 									mEventManager.addOngoingKeyCode(parentKey.getKeyCode());
 									mMediator.injectInputEvent(parentKey.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, parentKey.getPolicFlags());
 								}
@@ -532,7 +538,7 @@ public final class PhoneWindowManager {
 				return;
 			}
 
-			if(Common.debug()) Log.d(tag, "Sending even to dispatching");
+			if(Common.debug()) Log.d(tag, "Sending to dispatching");
 
 			param.setResult(Mediator.ORIGINAL.DISPATCHING_REJECT);
 		}
