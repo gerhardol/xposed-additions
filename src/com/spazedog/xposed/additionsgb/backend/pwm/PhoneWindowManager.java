@@ -448,10 +448,10 @@ public final class PhoneWindowManager {
 
 						pressTimeout -= 1;
 
-					} while (mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode && pressTimeout > 0);
+					} while (mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode && pressTimeout > 0);
 
 					synchronized(mQueueLock) {
-						if (mEventManager.getState() == State.ONGOING && mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode) {
+						if (mEventManager.getState() == State.ONGOING && mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode) {
 							String eventAction = mEventManager.getAction(ActionType.PRESS);
 							if (Common.debug()) Log.d(tag, shortTime() + " Invoking long press action: " + eventAction);
 
@@ -540,11 +540,11 @@ public final class PhoneWindowManager {
 
 							tapTimeout -= 1;
 
-						} while (!mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode && tapTimeout > 0);
+						} while (!mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode && tapTimeout > 0);
 					}
 
 					synchronized(mQueueLock) {
-						if (!mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode) {
+						if (!mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode) {
 							final String eventAction = mEventManager.getAction(ActionType.CLICK);
 							if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: " + eventAction);
 

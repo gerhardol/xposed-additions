@@ -8,8 +8,6 @@ public class EventKey {
 	protected Integer mKeyCode = 0;
 	protected Integer mPolicyFlags = 0;
 	protected Boolean mIsKeyDown = false;
-	protected Boolean mIsLastQueued = false;
-	protected Integer mRepeatCount = 0;
 
 	public EventKey(final Priority priority) {
 		mPriority = priority;
@@ -29,13 +27,5 @@ public class EventKey {
 
 	public Boolean isKeyDown() {
 		return mIsKeyDown;
-	}
-
-	public Boolean isLastQueued() {
-		return mIsLastQueued;
-	}
-
-	public Integer getRepeatCount() {
-		return mRepeatCount;
 	}
 }

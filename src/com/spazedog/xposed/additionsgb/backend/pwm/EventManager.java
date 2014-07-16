@@ -33,6 +33,7 @@ public class EventManager {
 
 	private State mState = State.PENDING;
 	private LongPressType mLongPress = LongPressType.NONE;
+	private Integer mLastQueuedKey = 0;
 	private Boolean mIsDownEvent = false;
 	private Boolean mIsCombiEvent = false;
 	private Integer mTapCount = 0;
@@ -163,9 +164,6 @@ public class EventManager {
 				mIsDownEvent = true;
 				mIsCallButton = false;
 
-				mPrimaryKey.mRepeatCount = 0;
-				mSecondaryKey.mRepeatCount = 0;
-
 			} else {
 				if (keyCode == mSecondaryKey.mKeyCode) {
 					mSecondaryKey.mIsKeyDown = false;
@@ -179,9 +177,7 @@ public class EventManager {
 
 			mEventTime = time;
 
-			//TBD: Should not be distributed to the KeyEvent
-			mPrimaryKey.mIsLastQueued = mPrimaryKey.mKeyCode == keyCode;
-			mSecondaryKey.mIsLastQueued = mSecondaryKey.mKeyCode == keyCode;
+			this.mLastQueuedKey = keyCode;
 
 			return newEvent;
 		} 
@@ -343,7 +339,6 @@ public class EventManager {
 		}
 	}
 	
-	//Note: This "replaced" invokeDefaultEvent and key.mRepeatCount is unused
 	public void setLongPress(LongPressType longPress) {
 		synchronized (mLock) {
 			mLongPress = longPress;
@@ -352,5 +347,9 @@ public class EventManager {
 
 	public LongPressType getLongPress() {
 		return mLongPress;
+	}
+	
+	public Integer getLastQueuedKey() {
+		return this.mLastQueuedKey;
 	}
 }
