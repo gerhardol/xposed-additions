@@ -583,7 +583,7 @@ public final class PhoneWindowManager {
 					}
 
 					synchronized(mQueueLock) {
-						if (!mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode) {
+						if (mEventManager.getState() == State.ONGOING && !mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode) {
 							final String eventAction = mEventManager.getAction(ActionType.CLICK);
 							if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: " + eventAction);
 
