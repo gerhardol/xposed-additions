@@ -419,8 +419,10 @@ public final class PhoneWindowManager {
 					} while (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode && curTimeout > 0);
 
 					synchronized(mQueueLock) {
-						if (curTimeout <= 0) {
-							mMediator.injectInputEvent(key.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), repeatCount+1, key.getPolicFlags());
+						if (mEventManager.getState() == State.INVOKED && mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode && curTimeout > 0) {
+							if (curTimeout <= 0) {
+								mMediator.injectInputEvent(key.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), repeatCount+1, key.getPolicFlags());
+							}
 						}
 					}
 					if (curTimeout <= 0 && repeatCount == 0 && mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
