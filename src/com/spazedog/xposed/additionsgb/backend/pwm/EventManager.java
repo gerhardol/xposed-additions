@@ -12,7 +12,8 @@ import android.view.ViewConfiguration;
 
 public class EventManager {
 	public static enum ActionType { CLICK, PRESS }
-	public static enum State { PENDING, ONGOING, INVOKED, INVOKED_DEFAULT, CANCELED }
+	public static enum State { PENDING, ONGOING, INVOKED, CANCELED }
+	public static enum LongPressType { NONE, DEFAULT_ACTION, CUSTOM_ACTION, POWER_ACTION }
 	public static enum Priority { PRIMARY, SECONDARY, INVOKED }
 
 	private final XServiceManager mXServiceManager;
@@ -31,6 +32,7 @@ public class EventManager {
 	private Boolean mIsExtended = false;
 
 	private State mState = State.PENDING;
+	private LongPressType mLongPress = LongPressType.NONE;
 	private Boolean mIsDownEvent = false;
 	private Boolean mIsCombiEvent = false;
 	private Integer mTapCount = 0;
@@ -106,7 +108,8 @@ public class EventManager {
 			Boolean newEvent = false;
 
 			if (isKeyDown) {
-				if ((time - mEventTime) > 1000) {
+				//Set to PENDING if time larger than any possible timeout
+				if ((time - mEventTime) > 4 * mPressTimeout) {
 					mState = State.PENDING;
 				}
 
@@ -138,6 +141,7 @@ public class EventManager {
 						mTapCount = 0;
 						mDownTime = time;
 						mIsCombiEvent = false;
+						mLongPress = LongPressType.NONE;
 
 						mPrimaryKey.mKeyCode = keyCode;
 						mPrimaryKey.mPolicyFlags = policyFlags;
@@ -146,6 +150,8 @@ public class EventManager {
 						mSecondaryKey.mKeyCode = 0;
 						mSecondaryKey.mPolicyFlags = 0;
 						mSecondaryKey.mIsKeyDown = false;
+
+						mInvokedKey.mKeyCode = 0;
 
 						newEvent = true;
 
@@ -336,23 +342,15 @@ public class EventManager {
 			}
 		}
 	}
-
-	//TODO: This could have a EventKey parameter. Rename to invokeLongPress? mRepeatCount is unused
-	public void invokeDefaultEvent(final Integer keyCode) {
+	
+	//Note: This "replaced" invokeDefaultEvent and key.mRepeatCount is unused
+	public void setLongPress(LongPressType longPress) {
 		synchronized (mLock) {
-			if (mState == State.ONGOING || mState == State.INVOKED_DEFAULT || mState == State.INVOKED) {
-				final EventKey key = getEventKey(keyCode);
-
-				if (key != null) {
-					if (mState != State.INVOKED) {
-						mState = State.INVOKED_DEFAULT;
-					}
-					key.mRepeatCount += 1;
-
-				} else {
-					mState = State.CANCELED;
-				}
-			}
+			mLongPress = longPress;
 		}
+	}
+
+	public LongPressType getLongPress() {
+		return mLongPress;
 	}
 }
