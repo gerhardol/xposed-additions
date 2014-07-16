@@ -23,6 +23,7 @@ import android.os.Handler;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
+import android.os.Vibrator;
 import android.util.Log;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -660,17 +661,15 @@ public final class Mediator {
 
 	protected void performLongPressFeedback() {
 		//Feedback to the user that key long-press occurs, 
-		//to give control of long-long press also if "Vibrate on Touch" is not active
-		//TBD
-//		final int val = Settings.System.getInt(mContext.getContentResolver(),
-//				Settings.System.HAPTIC_FEEDBACK_ENABLED, 0);
-//		if (val == 0) {
-//			final Vibrator v = (Vibrator)mContext.getSystemService(Context.VIBRATOR_SERVICE);
-//			final long[] pattern = {0, 100};
-//			v.vibrate(pattern, -1);
-//		}
+		//to give control of long-long press. May duplicate normal feedback.
+		final boolean val = mXServiceManager.getBoolean(Settings.ENABLE_LONGPRESS_FEEDBACK, false);
+		if (val) {
+			final Vibrator v = (Vibrator)(((Context) mContext.getReceiver()).getSystemService(Context.VIBRATOR_SERVICE));
+			final long[] pattern = {0, 100};
+			v.vibrate(pattern, -1);
+		}
 	}
-	
+
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	protected void pokeUserActivity(final Long time, final Boolean forced) {
 		if (forced) {
