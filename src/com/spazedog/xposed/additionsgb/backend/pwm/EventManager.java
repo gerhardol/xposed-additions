@@ -13,7 +13,7 @@ import android.view.ViewConfiguration;
 public class EventManager {
 	public static enum ActionType { CLICK, PRESS }
 	public static enum State { PENDING, ONGOING, INVOKED, CANCELED }
-	public static enum LongPressType { NONE, DEFAULT_ACTION, CUSTOM_ACTION, POWER_ACTION }
+	public static enum LongPressType { NONE, DEFAULT_ACTION, CUSTOM_ACTION }
 	public static enum Priority { PRIMARY, SECONDARY, INVOKED }
 
 	private final XServiceManager mXServiceManager;

@@ -198,6 +198,8 @@ public final class PhoneWindowManager {
 	 * But since we cannot change code inside original methods in order to change this timeout, 
 	 * we instead change the output of the methods delivering that timeout value.
 	 * 
+	 * Note: The original methods are called in register event, this must not be active.
+	 * 
 	 * Original Implementations:
 	 * 		- android.view.ViewConfiguration.getLongPressTimeout
 	 * 		- android.view.ViewConfiguration.getGlobalActionKeyTimeout
@@ -205,8 +207,15 @@ public final class PhoneWindowManager {
 	private final XC_MethodHook hook_viewConfigTimeouts = new XC_MethodHook() {
 		@Override
 		protected final void afterHookedMethod(final MethodHookParam param) {
-			if (mEventManager.getState() == State.INVOKED && mEventManager.getLongPress() == LongPressType.DEFAULT_ACTION && mEventManager.isDownEvent()) {
-				param.setResult(10);
+			if (mEventManager.getState() == State.INVOKED && mEventManager.isDownEvent()) {
+				if (mEventManager.getLongPress() == LongPressType.DEFAULT_ACTION) {
+					//The timeout has already occurred when default is dispatched
+					param.setResult(10);
+				}
+				else if (mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
+					//The timeout is longer than usual, handled after the first injected key
+					param.setResult(mEventManager.getPressTimeout()*2+10);
+				}
 			}
 		}
 	};
@@ -441,15 +450,16 @@ public final class PhoneWindowManager {
 
 					} while (mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode && pressTimeout > 0);
 
-					boolean specialKey = false;
-					EventKey keyLong = key;
 					synchronized(mQueueLock) {
 						if (mEventManager.getState() == State.ONGOING && mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode) {
 							String eventAction = mEventManager.getAction(ActionType.PRESS);
 							if (Common.debug()) Log.d(tag, shortTime() + " Invoking long press action: " + eventAction);
 
-							boolean defaultEvent = false;
+							final EventKey keyLong;
+							final boolean defaultEvent;
+							final boolean keyAction;
 							if (eventAction != null) {
+								defaultEvent = false;
 								//custom long press action
 								//TODO: Implementation done to give minimal diff, should be rewritten
 								//TODO: wakeup is not fully handled (power and wake is dispatched when screen is off)
@@ -458,33 +468,32 @@ public final class PhoneWindowManager {
 								keyLong.mPolicyFlags = 0;
 								//TODO: This handling should probably set the keycode already when parsing the preferences
 								if ("dispatch".equals(type)) {
+									keyAction = true;
 									//This is a keyevent, handled mostly as default
 									keyLong.mKeyCode = Integer.parseInt(eventAction);
 									if (keyLong.mKeyCode == KeyEvent.KEYCODE_POWER) {
 										//set flag, to handle in handleKeyAction()
 										keyLong.mPolicyFlags = ORIGINAL.FLAG_WAKE;
-										//special handling for Power, handling long-press timeout before first down event
-										//(LongPressType is set later if needed)
-										specialKey = true;
-									} else {
-										mEventManager.setLongPress(LongPressType.CUSTOM_ACTION);
-									//}
+									}
+									mEventManager.setLongPress(LongPressType.CUSTOM_ACTION);
 									mMediator.performLongPressFeedback();
 									//Set action to null, still handling in handleKeyAction()
 									eventAction = null;
+								} else {
+									keyAction = false;
 								}
 							} else {
 								defaultEvent = true;
+								keyLong = key;
+								keyAction = true;
 								mEventManager.setLongPress(LongPressType.DEFAULT_ACTION);
 							}
-							//TODO: Better indicator of pending long-press, from mEventManager to avoid these special variables
-							final boolean keyAction = (eventAction == null);
 
 							mEventManager.invokeEvent();
 							//TODO: (suggest snippet waking up to be separated to injectInputEvent)
 							mMediator.handleKeyAction(eventAction, mEventManager.getTapCount() == 0, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), keyLong.getPolicFlags());
 
-							if (keyAction && !specialKey) {
+							if (keyAction) {
 								//TODO: Handle tapCount() (or ignore multi actions)
 								
 								//The long-press flag will be set next the key is handled by this function
@@ -517,35 +526,6 @@ public final class PhoneWindowManager {
 						}
 					}
 					
-					if (specialKey) {
-						//Keys (POWER) where click/long-press is decided instantly
-						pressTimeout = 2 * mEventManager.getPressTimeout();
-						if (Common.debug()) Log.d(tag,  shortTime() + " Waiting for special key long-long timeout: " + keyLong.mKeyCode);
-
-						do {
-							try {
-								Thread.sleep(1);
-							} catch (final Throwable e) {}
-
-							pressTimeout -= 1;
-
-						} while (mEventManager.isDownEvent() && key.isLastQueued() && key.getKeyCode() == keyCode && pressTimeout > 0);
-
-						synchronized(mQueueLock) {
-							if (mEventManager.getState() == State.INVOKED) {
-
-								if (pressTimeout > 0) {
-									//Special key (Power) where up-down would be detected as long-press
-									mMediator.injectInputEvent(keyLong.mKeyCode, KeyEvent.ACTION_MULTIPLE, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, keyLong.getPolicFlags());									
-								} else {
-									mEventManager.setLongPress(LongPressType.POWER_ACTION);
-									mEventManager.addOngoingKeyCode(keyLong.mKeyCode);
-									mMediator.injectInputEvent(keyLong.mKeyCode, KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, keyLong.getPolicFlags());
-								}
-							}
-						}	
-					}
-
 				} else {
 					if (mEventManager.hasMoreAction(ActionType.CLICK, true)) {
 						if(Common.debug()) Log.d(tag, "Waiting on tap timeout");
