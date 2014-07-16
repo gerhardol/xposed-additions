@@ -22,6 +22,8 @@ public class Settings {
 	public static final String REMAP_ALLOW_ANY = "remap_allow_any";
 	//Hidden setting to get feedback for longpress
 	public static final String ENABLE_LONGPRESS_FEEDBACK = "enable_longpress_feedback";
+	//Hidden setting (on by default) to reset when power button is pressed for longer time
+	public static final String POWER_PRESS_DELAY_RESET = "power_press_delay_reset";
 
 	public static final String LAYOUT_GLOBAL_ROTATION_BLACKLIST = "layout_rotation_blacklist";
 	public static final String REMAP_LIST_KEYS = "remap_keys";
