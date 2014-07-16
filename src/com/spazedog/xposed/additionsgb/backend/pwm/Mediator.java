@@ -670,6 +670,18 @@ public final class Mediator {
 		}
 	}
 
+	protected void performPowerPressNotification() {
+		if(Common.debug()) Log.d(TAG, "Power press, reboot in seconds...");
+		final Vibrator v = (Vibrator)(((Context) mContext.getReceiver()).getSystemService(Context.VIBRATOR_SERVICE));
+		final long[] pattern = {50, 100, 50, 50};
+		v.vibrate(pattern, -1);
+	}
+
+	protected void performPowerPressReset(final int resetAtPowerPress) {
+		if(Common.debug()) Log.d(TAG, "Power press for " + resetAtPowerPress + "s, rebooting");
+		((PowerManager) mPowerManager.getReceiver()).reboot(null);
+	}
+	
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	protected void pokeUserActivity(final Long time, final Boolean forced) {
 		if (forced) {

@@ -25,6 +25,7 @@ import com.spazedog.xposed.additionsgb.backend.pwm.Mediator.SDK;
 import com.spazedog.xposed.additionsgb.backend.pwm.Mediator.StackAction;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager.XServiceBroadcastListener;
+import com.spazedog.xposed.additionsgb.configs.Settings;
 
 import de.robv.android.xposed.XC_MethodHook;
 
@@ -354,6 +355,38 @@ public final class PhoneWindowManager {
 		}
 	};
 
+
+	//Most ROM reboots after holding Power for 8-12s
+	//For those missing (like Omate TrueSmart) this is kind of a replacement
+	//Note that Power does not repeat, only sent once so this must be launched first time only
+	private final void checkPowerPress(final int keyCode, final EventKey key)
+	{
+		final int resetAtPowerPress = mXServiceManager.getInt(Settings.POWER_PRESS_DELAY_RESET, 15);
+
+		if (resetAtPowerPress > 0) {
+			
+			final long eventTime = mEventManager.getEventTime();
+			final int delay = resetAtPowerPress * 1000;
+			
+			//Haptic feedback that reboot is pending
+			mMediator.mHandler.postDelayed(new Runnable() {
+				public void run() {
+					if (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode) {
+						mMediator.performPowerPressNotification();
+					}
+				}
+			}, mEventManager.getPressTimeout()+1000);
+			
+			mMediator.mHandler.postDelayed(new Runnable() {
+				public void run() {
+					if (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode) {
+						mMediator.performPowerPressReset(resetAtPowerPress);
+					}
+				}
+			}, delay);
+		}
+	}
+
 	/**
 	 * This hook is used to do the actual handling of the keys
 	 * 
@@ -397,7 +430,11 @@ public final class PhoneWindowManager {
 					}
 				}
 			}
-			
+
+			if (down && repeatCount == 0 && !isInjected && key != null && keyCode == KeyEvent.KEYCODE_POWER) {
+				checkPowerPress(keyCode, key);
+			}
+
 			if (isInjected) {
 				if (down && key != null && mEventManager.isDownEvent() && 
 						mEventManager.getLongPress() != LongPressType.NONE && mEventManager.hasOngoingKeyCodes(keyCode)) {
