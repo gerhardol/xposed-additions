@@ -827,16 +827,15 @@ public final class Mediator {
 	}
 
 	protected void launchIntent(final Intent intent) {
-		if (SDK.MANAGER_MULTIUSER_VERSION > 0) {
-			try {
+		try {
+			if (SDK.MANAGER_MULTIUSER_VERSION > 0) {
 				mMethods.get("startActivityAsUser").invoke(intent, getUserInstance());
 
-			} catch (final ReflectException e) {
-				Log.e(TAG, e.getMessage(), e);
+			} else {
+				((Context) mContext.getReceiver()).startActivity(intent);
 			}
-
-		} else {
-			((Context) mContext.getReceiver()).startActivity(intent);
+		} catch (final ReflectException e) {
+			Log.e(TAG, e.getMessage(), e);
 		}
 	}
 
