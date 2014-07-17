@@ -296,7 +296,8 @@ public final class PhoneWindowManager {
 
 					param.setResult(Mediator.ORIGINAL.QUEUEING_REJECT);
 
-				} else {					
+				} else {
+					//TODO This should be synchronized
 					if (mEventManager.registerKey(keyCode, down, mMediator.fixPolicyFlags(keyCode, policyFlags))) {
 						if(Common.debug()) Log.d(tag, "Starting a new event");
 
@@ -456,10 +457,12 @@ public final class PhoneWindowManager {
 					} while (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode && curTimeout > 0);
 
 					synchronized(mQueueLock) {
-						if (mEventManager.getState() == State.INVOKED && mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode && curTimeout > 0) {
-							if (curTimeout <= 0) {
-								mMediator.injectInputEvent(key.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), repeatCount+1, key.getPolicFlags());
-							}
+						//Note: There is a possibility that the ROM inserts repeats when the timeout expires, why hook_viewConfigTimeouts
+						//must set slightly longer times than used here
+						//The full solution is to save the event time for for the repeat event and check that before inserting 
+						
+						if (mEventManager.getState() == State.INVOKED && mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode) {
+							mMediator.injectInputEvent(key.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), repeatCount+1, key.getPolicFlags());
 						}
 					}
 					if (curTimeout <= 0 && repeatCount == 0 && mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
@@ -501,7 +504,6 @@ public final class PhoneWindowManager {
 								defaultEvent = false;
 								//custom long press action
 								//TODO: Implementation done to give minimal diff, should be rewritten
-								//TODO: wakeup is not fully handled (power and wake is dispatched when screen is off)
 								final String type = Common.actionType(eventAction);
 								keyLong = mEventManager.getEventKey(Priority.INVOKED);
 								keyLong.mPolicyFlags = 0;
@@ -533,7 +535,7 @@ public final class PhoneWindowManager {
 							mMediator.handleKeyAction(eventAction, mEventManager.getTapCount() == 0, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), keyLong.getPolicFlags());
 
 							if (keyAction) {
-								//TODO: Handle tapCount() (or ignore multi actions)
+								//TODO: Handle tapCount() (or ignore multi actions) for default events. What is default for multiple taps?
 								
 								//The long-press flag will be set next the key is handled by this function
 								//For default keys, this is instant, for user key the delay is long-long
@@ -597,7 +599,7 @@ public final class PhoneWindowManager {
 
 									final EventKey parentKey = mEventManager.getParentEventKey(keyCode);
 
-									//TODO: Handle tapCount() (or ignore multi actions)
+									//TODO: Handle tapCount() (or ignore for primary)
 									mEventManager.addOngoingKeyCode(parentKey.getKeyCode());
 									mMediator.injectInputEvent(parentKey.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, parentKey.getPolicFlags());
 								}
