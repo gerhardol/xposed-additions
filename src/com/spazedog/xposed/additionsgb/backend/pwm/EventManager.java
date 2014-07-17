@@ -115,13 +115,14 @@ public class EventManager {
 				}
 
 				if (mState == State.ONGOING && (keyCode == mPrimaryKey.mKeyCode || keyCode == mSecondaryKey.mKeyCode)) {
-					mTapCount += 1;
 
 					if (keyCode == mSecondaryKey.mKeyCode) {
 						mSecondaryKey.mIsKeyDown = true;
 
 					} else {
 						mPrimaryKey.mIsKeyDown = true;
+						//Increase repeat on primary only
+						mTapCount += 1;
 					}
 
 				} else if (mState != State.CANCELED && mState != State.PENDING && mPrimaryKey.isKeyDown() && keyCode != mPrimaryKey.mKeyCode && (mSecondaryKey.mKeyCode == 0 || keyCode == mSecondaryKey.mKeyCode)) {
@@ -161,11 +162,18 @@ public class EventManager {
 					}
 				}
 
-				mIsDownEvent = true;
+				if (mTapCount == 0 || mPrimaryKey.mIsKeyDown) {
+					mIsDownEvent = true;
+				} else {
+					//The key is out of sequence, ignore
+					//repeat count increased on primary only (secondary not necessary for repeat)
+					mIsDownEvent = false;
+				}
 				mIsCallButton = false;
 
 			} else {
 				if (keyCode == mSecondaryKey.mKeyCode) {
+					//Note: No sequence checks on key up, the first occurrence is used, the second is possibly ignored
 					mSecondaryKey.mIsKeyDown = false;
 
 				} else {
