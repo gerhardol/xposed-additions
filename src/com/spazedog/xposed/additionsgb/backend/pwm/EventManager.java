@@ -114,7 +114,7 @@ public class EventManager {
 					mState = State.PENDING;
 				}
 
-				if (mState == State.ONGOING && (keyCode == mPrimaryKey.mKeyCode || keyCode == mSecondaryKey.mKeyCode)) {
+				if (mState == State.ONGOING && (keyCode.equals(mPrimaryKey.mKeyCode) || keyCode.equals(mSecondaryKey.mKeyCode))) {
 
 					if (keyCode == mSecondaryKey.mKeyCode) {
 						mSecondaryKey.mIsKeyDown = true;
@@ -125,7 +125,7 @@ public class EventManager {
 						mTapCount += 1;
 					}
 
-				} else if (mState != State.CANCELED && mState != State.PENDING && mPrimaryKey.isKeyDown() && keyCode != mPrimaryKey.mKeyCode && (mSecondaryKey.mKeyCode == 0 || keyCode == mSecondaryKey.mKeyCode)) {
+				} else if (mState != State.CANCELED && mState != State.PENDING && mPrimaryKey.isKeyDown() && keyCode != mPrimaryKey.mKeyCode && (mSecondaryKey.mKeyCode.equals(0) || keyCode.equals(mSecondaryKey.mKeyCode))) {
 					mState = State.ONGOING;
 					mTapCount = 0;
 					mIsCombiEvent = true;
@@ -165,14 +165,14 @@ public class EventManager {
 				if (mTapCount == 0 || mPrimaryKey.mIsKeyDown) {
 					mIsDownEvent = true;
 				} else {
-					//The key is out of sequence, ignore
-					//repeat count increased on primary only (secondary not necessary for repeat)
+
+
 					mIsDownEvent = false;
 				}
 				mIsCallButton = false;
 
 			} else {
-				if (keyCode == mSecondaryKey.mKeyCode) {
+				if (keyCode.equals(mSecondaryKey.mKeyCode)) {
 					//Note: No sequence checks on key up, the first occurrence is used, the second is possibly ignored
 					mSecondaryKey.mIsKeyDown = false;
 
@@ -192,9 +192,9 @@ public class EventManager {
 	}
 
 	public EventKey getEventKey(final Integer keyCode) {
-		return mPrimaryKey.getKeyCode() == keyCode ? mPrimaryKey : 
-				mSecondaryKey.getKeyCode() == keyCode ? mSecondaryKey :
-				mInvokedKey.getKeyCode() == keyCode ? mInvokedKey : null;
+		return mPrimaryKey.getKeyCode().equals(keyCode) ? mPrimaryKey :
+			mSecondaryKey.getKeyCode().equals(keyCode) ? mSecondaryKey :
+			mInvokedKey.getKeyCode().equals(keyCode) ? mInvokedKey : null;
 	}
 
 	public EventKey getEventKey(final Priority priority) {
@@ -208,8 +208,8 @@ public class EventManager {
 	}
 
 	public EventKey getParentEventKey(final Integer keyCode) {
-		return mPrimaryKey.getKeyCode() == keyCode ? mSecondaryKey : 
-			mSecondaryKey.getKeyCode() == keyCode ? mPrimaryKey : null;
+		return mPrimaryKey.getKeyCode().equals(keyCode) ? mSecondaryKey : 
+			mSecondaryKey.getKeyCode().equals(keyCode) ? mPrimaryKey : null;
 	}
 
 	public EventKey getParentEventKey(final Priority priority) {
@@ -346,7 +346,7 @@ public class EventManager {
 			}
 		}
 	}
-	
+
 	public void setLongPress(LongPressType longPress) {
 		synchronized (mLock) {
 			mLongPress = longPress;
@@ -356,7 +356,7 @@ public class EventManager {
 	public LongPressType getLongPress() {
 		return mLongPress;
 	}
-	
+
 	public Integer getLastQueuedKey() {
 		return this.mLastQueuedKey;
 	}

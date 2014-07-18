@@ -681,7 +681,7 @@ public final class Mediator {
 		if(Common.debug()) Log.d(TAG, "Power press for " + resetAtPowerPress + "s, rebooting");
 		((PowerManager) mPowerManager.getReceiver()).reboot(null);
 	}
-	
+
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	protected void pokeUserActivity(final Long time, final Boolean forced) {
 		if (forced) {

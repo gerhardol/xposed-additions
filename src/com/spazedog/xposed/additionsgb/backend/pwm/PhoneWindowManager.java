@@ -46,7 +46,7 @@ public final class PhoneWindowManager {
 	private static int shortTime(){
 		return (int)(SystemClock.uptimeMillis() % 10000);
 	}
-	
+
 	/**
 	 * This is a static initialization method.
 	 */
@@ -243,7 +243,7 @@ public final class PhoneWindowManager {
 				final Integer repeatCount = methodVersion == 1 ? 0 : keyEvent.getRepeatCount();
 				final Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
 				final Boolean down = action == KeyEvent.ACTION_DOWN;
-				final String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):" ;
+				final String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
 
 				/*
 				 * Using KitKat work-around from the InputManager Hook
@@ -365,22 +365,22 @@ public final class PhoneWindowManager {
 		final int resetAtPowerPress = mXServiceManager.getInt(Settings.POWER_PRESS_DELAY_RESET, 15);
 
 		if (resetAtPowerPress > 0) {
-			
+
 			final long eventTime = mEventManager.getEventTime();
 			final int delay = resetAtPowerPress * 1000;
-			
+
 			//Haptic feedback that reboot is pending
 			mMediator.mHandler.postDelayed(new Runnable() {
 				public void run() {
-					if (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode) {
+					if (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && mEventManager.getLastQueuedKey() == keyCode) {
 						mMediator.performPowerPressNotification();
 					}
 				}
 			}, mEventManager.getPressTimeout()+1000);
-			
+
 			mMediator.mHandler.postDelayed(new Runnable() {
 				public void run() {
-					if (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode) {
+					if (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && mEventManager.getLastQueuedKey() == keyCode) {
 						mMediator.performPowerPressReset(resetAtPowerPress);
 					}
 				}
@@ -410,7 +410,11 @@ public final class PhoneWindowManager {
 			final Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
 			final Boolean down = action == KeyEvent.ACTION_DOWN;
 			final EventKey key = mEventManager.getEventKey(keyCode);
-			final String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):" ;
+			final String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
+
+			if (Common.debug()) {
+				Log.d(tag, "Getting event with state " + mEventManager.getState().name() + " which is an " + (mEventManager.getEventKey(keyCode) != null ? "ongoing" : "non-ongoing") + " event");
+			}
 
 			/*
 			 * Using KitKat work-around from the InputManager Hook
@@ -443,31 +447,31 @@ public final class PhoneWindowManager {
 
 					final int longLongPressDelay = 2 * mEventManager.getPressTimeout(); //Wait 2 times normal long press
 					Integer curTimeout = (repeatCount == 0) ? (mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION ? longLongPressDelay : 0) :
-							SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
-					final long eventTime = mEventManager.getEventTime();
+						SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
+						final long eventTime = mEventManager.getEventTime();
 
-					do {
-						try {
-							Thread.sleep(1);
+						do {
+							try {
+								Thread.sleep(1);
 
-						} catch (final Throwable e) {}
+							} catch (final Throwable e) {}
 
-						curTimeout -= 1;
+							curTimeout -= 1;
 
-					} while (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode && curTimeout > 0);
+						} while (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode && curTimeout > 0);
 
-					synchronized(mQueueLock) {
-						//Note: There is a possibility that the ROM inserts repeats when the timeout expires, why hook_viewConfigTimeouts
-						//must set slightly longer times than used here
-						//The full solution is to save the event time for for the repeat event and check that before inserting 
-						
-						if (mEventManager.getState() == State.INVOKED && mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode) {
-							mMediator.injectInputEvent(key.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), repeatCount+1, key.getPolicFlags());
+						synchronized(mQueueLock) {
+							//Note: There is a possibility that the ROM inserts repeats when the timeout expires, why hook_viewConfigTimeouts
+							//must set slightly longer times than used here
+							//The full solution is to save the event time for for the repeat event and check that before inserting 
+
+							if (mEventManager.getState() == State.INVOKED && mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode) {
+								mMediator.injectInputEvent(key.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), repeatCount+1, key.getPolicFlags());
+							}
 						}
-					}
-					if (curTimeout <= 0 && repeatCount == 0 && mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
-						mMediator.performLongPressFeedback();
-					}
+						if (curTimeout <= 0 && repeatCount == 0 && mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
+							mMediator.performLongPressFeedback();
+						}
 				}
 
 				if ((policyFlags & Mediator.ORIGINAL.FLAG_INJECTED) != 0) {
@@ -476,11 +480,100 @@ public final class PhoneWindowManager {
 
 				return;
 
-			} else if (mEventManager.getState() == State.ONGOING && key != null) {
-				if (down) {
-					if(Common.debug()) Log.d(tag, "Waiting on long press timeout");
+			} else if (down && key != null && mEventManager.getState() == State.ONGOING && mEventManager.getLastQueuedKey() == keyCode) {
+				if(Common.debug()) Log.d(tag, "Waiting on long press timeout");
 
-					Integer pressTimeout = mEventManager.getPressTimeout();
+				Integer pressTimeout = mEventManager.getPressTimeout();
+
+				do {
+					try {
+						Thread.sleep(1);
+
+					} catch (final Throwable e) {}
+
+					pressTimeout -= 1;
+
+				} while (mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && pressTimeout > 0);
+
+				synchronized(mQueueLock) {
+					if (mEventManager.getState() == State.ONGOING && mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode) {
+						String eventAction = mEventManager.getAction(ActionType.PRESS);
+						if (Common.debug()) Log.d(tag, shortTime() + " Invoking long press action: " + eventAction);
+
+						final EventKey keyLong;
+						final boolean defaultEvent;
+						final boolean keyAction;
+						if (eventAction != null) {
+							defaultEvent = false;
+							//custom long press action
+							//TODO: Implementation done to give minimal diff, should be rewritten
+							final String type = Common.actionType(eventAction);
+							keyLong = mEventManager.getEventKey(Priority.INVOKED);
+							keyLong.mPolicyFlags = 0;
+							//TODO: This handling should probably set the keycode already when parsing the preferences
+							if ("dispatch".equals(type)) {
+								keyAction = true;
+								//This is a keyevent, handled mostly as default
+								keyLong.mKeyCode = Integer.parseInt(eventAction);
+								if (keyLong.mKeyCode == KeyEvent.KEYCODE_POWER) {
+									//set flag, to handle in handleKeyAction()
+									keyLong.mPolicyFlags = ORIGINAL.FLAG_WAKE;
+								}
+								mEventManager.setLongPress(LongPressType.CUSTOM_ACTION);
+								mMediator.performLongPressFeedback();
+								//Set action to null, still handling in handleKeyAction()
+								eventAction = null;
+							} else {
+								keyAction = false;
+							}
+						} else {
+							defaultEvent = true;
+							keyLong = key;
+							keyAction = true;
+							mEventManager.setLongPress(LongPressType.DEFAULT_ACTION);
+						}
+
+						mEventManager.invokeEvent();
+						//TODO: (suggest snippet waking up to be separated to injectInputEvent)
+						mMediator.handleKeyAction(eventAction, mEventManager.getTapCount() == 0, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), keyLong.getPolicFlags());
+
+						if (keyAction) {
+							//TODO: Handle tapCount() (or ignore multi actions) for default events. What is default for multiple taps?
+							//The long-press flag will be set next the key is handled by this function
+							//For default keys, this is instant, for user key the delay is long-long
+							//There is therefore a race condition that the default long-press is never set
+
+							if (defaultEvent && mEventManager.isCombiEvent()) {
+								if(Common.debug()) Log.d(tag, "Injecting primary combo event");
+
+								final EventKey parentKey = mEventManager.getParentEventKey(keyLong.mKeyCode);
+
+								mEventManager.addOngoingKeyCode(parentKey.getKeyCode());
+								mMediator.injectInputEvent(parentKey.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, parentKey.getPolicFlags());
+							}
+							mEventManager.addOngoingKeyCode(keyLong.mKeyCode);
+							mMediator.injectInputEvent(keyLong.mKeyCode, KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, keyLong.getPolicFlags());
+
+							if (defaultEvent) {
+								/*
+								 * The first one MUST be dispatched throughout the system.
+								 * Applications can ONLY start tracking from the original event object.
+								 */
+								if(Common.debug()) Log.d(tag, "Passing event to the dispatcher");
+
+								param.setResult(Mediator.ORIGINAL.DISPATCHING_ALLOW); 
+
+								return;
+							}
+						}
+					}
+				}
+
+			} else if (!down && key != null && mEventManager.getState() == State.ONGOING && mEventManager.getLastQueuedKey() == keyCode) {
+				if (mEventManager.hasMoreAction(ActionType.CLICK, true)) {
+					if(Common.debug()) Log.d(tag, "Waiting on tap timeout");
+
+					Integer tapTimeout = mEventManager.getTapTimeout();
 
 					do {
 						try {
@@ -488,137 +581,41 @@ public final class PhoneWindowManager {
 
 						} catch (final Throwable e) {}
 
-						pressTimeout -= 1;
+						tapTimeout -= 1;
 
-					} while (mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode && pressTimeout > 0);
+					} while (!mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && tapTimeout > 0);
+				}
 
-					synchronized(mQueueLock) {
-						if (mEventManager.getState() == State.ONGOING && mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode) {
-							String eventAction = mEventManager.getAction(ActionType.PRESS);
-							if (Common.debug()) Log.d(tag, shortTime() + " Invoking long press action: " + eventAction);
+				synchronized(mQueueLock) {
+					if (mEventManager.getState() == State.ONGOING && !mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode) {
+						final String eventAction = mEventManager.getAction(ActionType.CLICK);
+						if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: " + eventAction);
 
-							final EventKey keyLong;
-							final boolean defaultEvent;
-							final boolean keyAction;
-							if (eventAction != null) {
-								defaultEvent = false;
-								//custom long press action
-								//TODO: Implementation done to give minimal diff, should be rewritten
-								final String type = Common.actionType(eventAction);
-								keyLong = mEventManager.getEventKey(Priority.INVOKED);
-								keyLong.mPolicyFlags = 0;
-								//TODO: This handling should probably set the keycode already when parsing the preferences
-								if ("dispatch".equals(type)) {
-									keyAction = true;
-									//This is a keyevent, handled mostly as default
-									keyLong.mKeyCode = Integer.parseInt(eventAction);
-									if (keyLong.mKeyCode == KeyEvent.KEYCODE_POWER) {
-										//set flag, to handle in handleKeyAction()
-										keyLong.mPolicyFlags = ORIGINAL.FLAG_WAKE;
-									}
-									mEventManager.setLongPress(LongPressType.CUSTOM_ACTION);
-									mMediator.performLongPressFeedback();
-									//Set action to null, still handling in handleKeyAction()
-									eventAction = null;
-								} else {
-									keyAction = false;
-								}
-							} else {
-								defaultEvent = true;
-								keyLong = key;
-								keyAction = true;
-								mEventManager.setLongPress(LongPressType.DEFAULT_ACTION);
+						mEventManager.invokeEvent();
+
+						if (!mMediator.handleKeyAction(eventAction, false, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), key.getPolicFlags())) {
+							//No custom click action available, invoking default actions
+
+							if (mEventManager.isCombiEvent()) {
+								if(Common.debug()) Log.d(tag, "Injecting primary combo event");
+
+								final EventKey parentKey = mEventManager.getParentEventKey(keyCode);
+
+								//TODO: Handle tapCount() (or ignore for primary)
+								mEventManager.addOngoingKeyCode(parentKey.getKeyCode());
+								mMediator.injectInputEvent(parentKey.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, parentKey.getPolicFlags());
 							}
 
-							mEventManager.invokeEvent();
-							//TODO: (suggest snippet waking up to be separated to injectInputEvent)
-							mMediator.handleKeyAction(eventAction, mEventManager.getTapCount() == 0, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), keyLong.getPolicFlags());
+							for (int i=0; i <= mEventManager.getTapCount(); i++) {
+								if(Common.debug()) Log.d(tag, "Injecting default event");
 
-							if (keyAction) {
-								//TODO: Handle tapCount() (or ignore multi actions) for default events. What is default for multiple taps?
-								
-								//The long-press flag will be set next the key is handled by this function
-								//For default keys, this is instant, for user key the delay is long-long
-								//There is therefore a race condition that the default long-press is never set
-
-								if (defaultEvent && mEventManager.isCombiEvent()) {
-									if(Common.debug()) Log.d(tag, "Injecting primary combo event");
-
-									final EventKey parentKey = mEventManager.getParentEventKey(keyLong.mKeyCode);
-
-									mEventManager.addOngoingKeyCode(parentKey.getKeyCode());
-									mMediator.injectInputEvent(parentKey.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, parentKey.getPolicFlags());
-								}
-								mEventManager.addOngoingKeyCode(keyLong.mKeyCode);
-								mMediator.injectInputEvent(keyLong.mKeyCode, KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, keyLong.getPolicFlags());
-								
-								if (defaultEvent) {
-									/*
-									 * The first one MUST be dispatched throughout the system.
-									 * Applications can ONLY start tracking from the original event object.
-									 */
-									if(Common.debug()) Log.d(tag, "Passing event to the dispatcher");
-
-									param.setResult(Mediator.ORIGINAL.DISPATCHING_ALLOW); 
-
-									return;
-								}
-							}
-						}
-					}
-					
-				} else {
-					if (mEventManager.hasMoreAction(ActionType.CLICK, true)) {
-						if(Common.debug()) Log.d(tag, "Waiting on tap timeout");
-
-						Integer tapTimeout = mEventManager.getTapTimeout();
-
-						do {
-							try {
-								Thread.sleep(1);
-
-							} catch (final Throwable e) {}
-
-							tapTimeout -= 1;
-
-						} while (!mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode && tapTimeout > 0);
-					}
-
-					synchronized(mQueueLock) {
-						if (mEventManager.getState() == State.ONGOING && !mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && key.getKeyCode() == keyCode) {
-							final String eventAction = mEventManager.getAction(ActionType.CLICK);
-							if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: " + eventAction);
-
-							mEventManager.invokeEvent();
-
-							if (!mMediator.handleKeyAction(eventAction, false, mEventManager.isScreenOn(), mEventManager.isCallButtonEvent(), mEventManager.getDownTime(), key.getPolicFlags())) {
-								//No custom click action available, invoking default actions
-
-								if (mEventManager.isCombiEvent()) {
-									if(Common.debug()) Log.d(tag, "Injecting primary combo event");
-
-									final EventKey parentKey = mEventManager.getParentEventKey(keyCode);
-
-									//TODO: Handle tapCount() (or ignore for primary)
-									mEventManager.addOngoingKeyCode(parentKey.getKeyCode());
-									mMediator.injectInputEvent(parentKey.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, parentKey.getPolicFlags());
-								}
-
-								for (int i=0; i <= mEventManager.getTapCount(); i++) {
-									if(Common.debug()) Log.d(tag, "Injecting default event");
-
-									mMediator.injectInputEvent(keyCode, KeyEvent.ACTION_MULTIPLE, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, policyFlags);
-								}
+								mMediator.injectInputEvent(keyCode, KeyEvent.ACTION_MULTIPLE, mEventManager.getDownTime(), mEventManager.getEventTime(), 0, policyFlags);
 							}
 						}
 					}
 				}
-
 			} else if (mEventManager.getState() == State.PENDING || key == null) {
-				if(Common.debug()) Log.d(tag, "This key is not being handled by the module, skipping...");
-				/*
-				 * The module is not handling this event 
-				 */
+				if(Common.debug()) Log.d(tag, "Not an active key, returning it to the original dispatcher...");
 				return;
 			}
 
