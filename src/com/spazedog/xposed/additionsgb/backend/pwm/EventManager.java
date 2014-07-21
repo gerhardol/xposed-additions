@@ -7,7 +7,6 @@ import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
 import com.spazedog.xposed.additionsgb.configs.Settings;
 
 import android.os.SystemClock;
-import android.util.Log;
 import android.view.ViewConfiguration;
 
 public class EventManager {
@@ -26,7 +25,7 @@ public class EventManager {
 	protected static final int maxActions = 3*2; //ActionTypes.values().length;
 
 	//actions in the order they appear: press 1, tap 1, press 2, tap 2 etc
-	private final String[] mActions = new String[maxActions];
+	private String[] mActions = new String[maxActions];
 
 	private Boolean mIsCallButton = false;
 	private Boolean mIsExtended = false;
@@ -49,11 +48,11 @@ public class EventManager {
 
 	private final Object mLock = new Object();
 
-	public EventManager(final XServiceManager xserviceManager) {
+	public EventManager(XServiceManager xserviceManager) {
 		mXServiceManager = xserviceManager;
 	}
 
-	public void registerEvent(final String currentApplication, final Boolean inKeyguard, final Boolean isScreenOn) {
+	public void registerEvent(String currentApplication, Boolean inKeyguard, Boolean isScreenOn) {
 		synchronized (mLock) {
 			mIsExtended = mXServiceManager.isPackageUnlocked();
 			mIsCallButton = mXServiceManager.getBooleanGroup(Settings.REMAP_KEY_ENABLE_CALLBTN, (mPrimaryKey.mKeyCode + ":" + mSecondaryKey.mKeyCode));
@@ -82,9 +81,9 @@ public class EventManager {
 			 *  - 4 = Triple Click
 			 *  - 5 = Triple Long Press
 			 */
-			final Integer[] oldConfig = new Integer[]{2,0,3,1,5,4};
-			final String keyGroupName = mPrimaryKey.mKeyCode + ":" + mSecondaryKey.mKeyCode;
-			final String appCondition = !isScreenOn ? null : inKeyguard ? "guard" : mIsExtended ? currentApplication : null;
+			Integer[] oldConfig = new Integer[]{2,0,3,1,5,4};
+			String keyGroupName = mPrimaryKey.mKeyCode + ":" + mSecondaryKey.mKeyCode;
+			String appCondition = !isScreenOn ? null : inKeyguard ? "guard" : mIsExtended ? currentApplication : null;
 			List<String> actions = appCondition != null ? mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(appCondition), keyGroupName, null) : null;
 
 			if ((mIsCombiEvent && !mIsExtended) || (actions == null && (actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), keyGroupName, null)) == null)) {
@@ -92,7 +91,7 @@ public class EventManager {
 			}
 
 			for (int i=0; i < oldConfig.length; i++) {
-				final Integer x = oldConfig[i];
+				Integer x = oldConfig[i];
 				/*
 				 * Only include Click and Long Press along with excluding Application Launch on non-pro versions
 				 */
@@ -103,9 +102,9 @@ public class EventManager {
 		}
 	}
 
-	public Boolean registerKey(final Integer keyCode, final Boolean isKeyDown, final Integer policyFlags) {
+	public Boolean registerKey(Integer keyCode, Boolean isKeyDown, Integer policyFlags) {
 		synchronized (mLock) {
-			final Long time = SystemClock.uptimeMillis();
+			Long time = SystemClock.uptimeMillis();
 			Boolean newEvent = false;
 
 			if (isKeyDown) {
@@ -197,7 +196,7 @@ public class EventManager {
 			mInvokedKey.getKeyCode().equals(keyCode) ? mInvokedKey : null;
 	}
 
-	public EventKey getEventKey(final Priority priority) {
+	public EventKey getEventKey(Priority priority) {
 		switch (priority) {
 		case PRIMARY: return mPrimaryKey;
 		case SECONDARY: return mSecondaryKey;
@@ -207,12 +206,12 @@ public class EventManager {
 		return null;
 	}
 
-	public EventKey getParentEventKey(final Integer keyCode) {
+	public EventKey getParentEventKey(Integer keyCode) {
 		return mPrimaryKey.getKeyCode().equals(keyCode) ? mSecondaryKey : 
-			mSecondaryKey.getKeyCode().equals(keyCode) ? mPrimaryKey : null;
+				mSecondaryKey.getKeyCode().equals(keyCode) ? mPrimaryKey : null;
 	}
 
-	public EventKey getParentEventKey(final Priority priority) {
+	public EventKey getParentEventKey(Priority priority) {
 		switch (priority) {
 		case PRIMARY: return mSecondaryKey;
 		case SECONDARY: return mPrimaryKey;
@@ -247,11 +246,11 @@ public class EventManager {
 		return mOnGoingKeyCodes.size() > 0;
 	}
 
-	public Boolean hasOngoingKeyCodes(final Integer keyCode) {
+	public Boolean hasOngoingKeyCodes(Integer keyCode) {
 		return mOnGoingKeyCodes.contains(keyCode);
 	}
 
-	public Integer[] clearOngoingKeyCodes(final Boolean returList) {
+	public Integer[] clearOngoingKeyCodes(Boolean returList) {
 		Integer[] keys = null; 
 
 		if (returList) {
@@ -263,13 +262,13 @@ public class EventManager {
 		return keys;
 	}
 
-	public void addOngoingKeyCode(final Integer keyCode) {
+	public void addOngoingKeyCode(Integer keyCode) {
 		if (!mOnGoingKeyCodes.contains(keyCode)) {
 			mOnGoingKeyCodes.add(keyCode);
 		}
 	}
 
-	public void removeOngoingKeyCode(final Integer keyCode) {
+	public void removeOngoingKeyCode(Integer keyCode) {
 		mOnGoingKeyCodes.remove(keyCode);
 	}
 
@@ -331,7 +330,7 @@ public class EventManager {
 		cancelEvent(false);
 	}
 
-	public void cancelEvent(final Boolean forcedReset) {
+	public void cancelEvent(Boolean forcedReset) {
 		synchronized (mLock) {
 			if (mState == State.ONGOING || forcedReset) {
 				mState = forcedReset ? State.PENDING : State.CANCELED;

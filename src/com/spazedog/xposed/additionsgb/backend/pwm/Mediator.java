@@ -59,7 +59,7 @@ public final class Mediator {
 	 */
 	public static final class SDK {
 		private static Integer calcSamsungAPI() {
-			final ReflectClass spwm = ReflectClass.forName("com.android.internal.policy.impl.sec.SamsungPhoneWindowManager", Match.SUPPRESS);
+			ReflectClass spwm = ReflectClass.forName("com.android.internal.policy.impl.sec.SamsungPhoneWindowManager", Match.SUPPRESS);
 
 			if (spwm.exists()) {
 				return spwm.findMethod("performSystemKeyFeedback", Match.SUPPRESS, KeyEvent.class).exists() ? 1 : 
@@ -70,7 +70,7 @@ public final class Mediator {
 		}
 
 		private static Integer calcInputDeviceAIP() {
-			final ReflectClass id = ReflectClass.forName("android.view.InputDevice", Match.SUPPRESS);
+			ReflectClass id = ReflectClass.forName("android.view.InputDevice", Match.SUPPRESS);
 
 			if (id.exists() && id.findMethod("isExternal", Match.SUPPRESS, KeyEvent.class).exists()) {
 				return 2;
@@ -190,11 +190,11 @@ public final class Mediator {
 
 	private Boolean mReady = false;
 
-	private final Map<String, ReflectConstructor> mConstructors = new HashMap<String, ReflectConstructor>();
-	private final Map<String, ReflectMethod> mMethods = new HashMap<String, ReflectMethod>();
-	private final Map<String, ReflectField> mFields = new HashMap<String, ReflectField>();
+	private Map<String, ReflectConstructor> mConstructors = new HashMap<String, ReflectConstructor>();
+	private Map<String, ReflectMethod> mMethods = new HashMap<String, ReflectMethod>();
+	private Map<String, ReflectField> mFields = new HashMap<String, ReflectField>();
 
-	protected Mediator(final ReflectClass pwm, final XServiceManager xManager) {
+	protected Mediator(ReflectClass pwm, XServiceManager xManager) {
 		mXServiceManager = xManager;
 		mContext = pwm.findFieldDeep("mContext").getValueToInstance();
 		mPhoneWindowManager = pwm;
@@ -202,14 +202,14 @@ public final class Mediator {
 		try {
 			mHandler = (Handler) pwm.findFieldDeep("mHandler").getValue();
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			mHandler = new Handler();
 		}
 
 		/*
 		 * Get all needed original property values
 		 */
-		final ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
+		ReflectClass wmp = ReflectClass.forName("android.view.WindowManagerPolicy");
 
 		ORIGINAL.FLAG_INJECTED = (Integer) wmp.findField("FLAG_INJECTED").getValue();
 		ORIGINAL.FLAG_VIRTUAL = (Integer) wmp.findField("FLAG_VIRTUAL").getValue();
@@ -255,7 +255,7 @@ public final class Mediator {
 		mKeyguardMediator = pwm.findFieldDeep( SDK.MANAGER_KEYGUARD_VERSION > 1 ? "mKeyguardDelegate" : "mKeyguardMediator" ).getValueToInstance();
 		mKeyguardMediator.setOnErrorListener(new OnErrorListener(){
 			@Override
-			public void onError(final ReflectMember<?> member) {
+			public void onError(ReflectMember<?> member) {
 				member.getReflectClass().setReceiver(
 						mPhoneWindowManager.findField( SDK.MANAGER_KEYGUARD_VERSION > 1 ? "mKeyguardDelegate" : "mKeyguardMediator" ).getValue()
 						);
@@ -329,7 +329,7 @@ public final class Mediator {
 				mMethods.put("showGlobalActionsDialog", mPhoneWindowManager.findMethodDeep("showGlobalActionsDialog"));
 				mXServiceManager.putBoolean("variable:remap.support.global_actions", true);
 
-			} catch (final ReflectException e) {
+			} catch (ReflectException e) {
 				try {
 					/*
 					 * Support for ROM's like SlimKat that uses a 'boolean pokeWakeLock' parameter
@@ -337,7 +337,7 @@ public final class Mediator {
 					mMethods.put("showGlobalActionsDialog.custom", mPhoneWindowManager.findMethodDeep("showGlobalActionsDialog", Match.BEST, Boolean.TYPE));
 					mXServiceManager.putBoolean("variable:remap.support.global_actions", true);
 
-				} catch (final ReflectException ei) {
+				} catch (ReflectException ei) {
 					if(Common.debug()) Log.d(TAG, "Missing PhoneWindowManager.showGlobalActionsDialog()");
 				}
 			}
@@ -345,7 +345,7 @@ public final class Mediator {
 			mRecentApplicationsDialog = ReflectClass.forName( SDK.MANAGER_RECENT_DIALOG_VERSION > 1 ? "com.android.internal.statusbar.IStatusBarService" : "com.android.internal.policy.impl.RecentApplicationsDialog" );
 			mRecentApplicationsDialog.setOnReceiverListener(new OnReceiverListener(){
 				@Override
-				public Object onReceiver(final ReflectMember<?> member) {
+				public Object onReceiver(ReflectMember<?> member) {
 					Object recentAppsService;
 
 					if (SDK.MANAGER_RECENT_DIALOG_VERSION > 1) {
@@ -362,7 +362,7 @@ public final class Mediator {
 			});
 			mRecentApplicationsDialog.setOnErrorListener(new OnErrorListener(){
 				@Override
-				public void onError(final ReflectMember<?> member) {
+				public void onError(ReflectMember<?> member) {
 					member.getReflectClass().setReceiver(null);
 				}
 			});
@@ -370,7 +370,7 @@ public final class Mediator {
 			mMethods.put("toggleRecentApps", mRecentApplicationsDialog.findMethodDeep( SDK.MANAGER_RECENT_DIALOG_VERSION > 1 ? "toggleRecentApps" : "show" ));
 			mXServiceManager.putBoolean("variable:remap.support.recent_dialog", true);
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			if(Common.debug()) Log.d(TAG, "Missing IActivityManager.closeSystemDialogs()");
 		}
 
@@ -384,7 +384,7 @@ public final class Mediator {
 			mMethods.put("takeScreenshot", mPhoneWindowManager.findMethodDeep("takeScreenshot"));
 			mXServiceManager.putBoolean("variable:remap.support.screenshot", true);
 
-		} catch (final ReflectException e) {}
+		} catch (ReflectException e) {}
 
 		/*
 		 * Get Rotation Tools
@@ -401,7 +401,7 @@ public final class Mediator {
 		try {
 			mMethods.put("isWakeKeyWhenScreenOff", mPhoneWindowManager.findMethodDeep("isWakeKeyWhenScreenOff", Match.BEST, Integer.TYPE));
 
-		} catch (final ReflectException e) {}
+		} catch (ReflectException e) {}
 
 		/*
 		 * Start searching for torch support
@@ -438,23 +438,23 @@ public final class Mediator {
 							 * their name. In these cases we don't care about consistency. If you are going to borrow from others, 
 							 * then make sure to keep compatibility.
 							 */
-							final ReflectClass torchConstants = ReflectClass.forName("com.android.internal.util.cm.TorchConstants");
+							ReflectClass torchConstants = ReflectClass.forName("com.android.internal.util.cm.TorchConstants");
 							mTorchIntent = new Intent((String) torchConstants.findField("ACTION_TOGGLE_STATE").getValue());
 
 							if(Common.debug()) Log.d(TAG + "$torchLocator()", "Found CyanogenMod Intent");
 
-						} catch (final ReflectException er) {
+						} catch (ReflectException er) {
 							if(Common.debug()) Log.d(TAG + "$torchLocator()", "No CyanogenMod Intent found. Searching in installed applications");
 
 							/*
 							 * Search for Torch Apps that supports <package name>.TOGGLE_FLASHLIGHT intents
 							 */
-							final PackageManager pm = ((Context) mContext.getReceiver()).getPackageManager();
-							final List<PackageInfo> packages = pm.getInstalledPackages(0);
+							PackageManager pm = ((Context) mContext.getReceiver()).getPackageManager();
+							List<PackageInfo> packages = pm.getInstalledPackages(0);
 
-							for (final PackageInfo pkg : packages) {
-								final Intent intent = new Intent(pkg.packageName + ".TOGGLE_FLASHLIGHT");
-								final List<ResolveInfo> recievers = pm.queryBroadcastReceivers(intent, 0);
+							for (PackageInfo pkg : packages) {
+								Intent intent = new Intent(pkg.packageName + ".TOGGLE_FLASHLIGHT");
+								List<ResolveInfo> recievers = pm.queryBroadcastReceivers(intent, 0);
 
 								if (recievers.size() > 0) {
 									if(Common.debug()) Log.d(TAG + "$torchLocator()", "Found Application Intent for " + pkg.packageName);
@@ -467,7 +467,7 @@ public final class Mediator {
 
 							if (!mTorchReceiverSet) {
 								mTorchReceiverSet = true;
-								final IntentFilter filter = new IntentFilter();
+								IntentFilter filter = new IntentFilter();
 								filter.addAction(Intent.ACTION_PACKAGE_ADDED);
 								filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
 								filter.addAction(Intent.ACTION_PACKAGE_CHANGED);
@@ -476,12 +476,12 @@ public final class Mediator {
 
 								((Context) mContext.getReceiver()).registerReceiver(new BroadcastReceiver() {
 									@Override
-									public void onReceive(final Context context, final Intent intent) {
+									public void onReceive(Context context, Intent intent) {
 										if(Common.debug()) Log.d(TAG + "$torchLocator()", "Receiving Application changes. Checking new state of Torch Intents");
 
-										final Uri uri = intent.getData();
-										final String packageName = uri != null ? uri.getSchemeSpecificPart() : null;
-										final String action = intent.getAction();
+										Uri uri = intent.getData();
+										String packageName = uri != null ? uri.getSchemeSpecificPart() : null;
+										String action = intent.getAction();
 
 										if (packageName != null && ((mTorchIntent == null && Intent.ACTION_PACKAGE_ADDED.equals(action)) || (mTorchIntent != null && packageName.equals(mTorchIntent.getPackage())))) {
 											/*
@@ -489,9 +489,9 @@ public final class Mediator {
 											 */
 											synchronized (mtorchLocatorLock) {}
 
-											final PackageManager pm = context.getPackageManager();
-											final Intent pkgIntent = new Intent(packageName + ".TOGGLE_FLASHLIGHT");
-											final List<ResolveInfo> recievers = pm.queryBroadcastReceivers(pkgIntent, 0);
+											PackageManager pm = context.getPackageManager();
+											Intent pkgIntent = new Intent(packageName + ".TOGGLE_FLASHLIGHT");
+											List<ResolveInfo> recievers = pm.queryBroadcastReceivers(pkgIntent, 0);
 
 											if (Intent.ACTION_PACKAGE_ADDED.equals(action)) {
 												if (recievers.size() > 0) {
@@ -528,21 +528,21 @@ public final class Mediator {
 	/*
 	 * DOTO: Make a cache based on deviceId. To much IPC communication in this one.
 	 */
-	public Boolean validateDeviceType(final Object event) {
+	public Boolean validateDeviceType(Object event) {
 		/*
 		 * Gingerbread has no access to the KeyEvent in the intercept method.
 		 * Instead we parse the keycode on these versions and skip the first check here. 
 		 */
-		final KeyEvent keyEvent = event instanceof KeyEvent ? (KeyEvent) event : null;
-		final Integer keyCode = event instanceof KeyEvent ? keyEvent.getKeyCode() : (Integer) event;
+		KeyEvent keyEvent = event instanceof KeyEvent ? (KeyEvent) event : null;
+		Integer keyCode = event instanceof KeyEvent ? keyEvent.getKeyCode() : (Integer) event;
 
 		if (mXServiceManager.getBoolean(Settings.REMAP_ALLOW_ANY)) {
 			return true;
 		}
 
 		if (keyEvent != null && keyEvent.getDeviceId() != -1) {
-			final Integer source = keyEvent.getSource();
-			final InputDevice device = keyEvent.getDevice();
+			Integer source = keyEvent.getSource();
+			InputDevice device = keyEvent.getDevice();
 
 			/*
 			 * We do not want to handle regular Keyboards or gaming devices. 
@@ -563,7 +563,7 @@ public final class Mediator {
 		 */
 		if (!mXServiceManager.getBoolean(Settings.REMAP_ALLOW_EXTERNALS)) {
 			if (SDK.INPUT_DEVICESTORAGE_VERSION > 1) {
-				final InputDevice device = keyEvent.getDevice();
+				InputDevice device = keyEvent.getDevice();
 
 				try {
 					/*
@@ -571,7 +571,7 @@ public final class Mediator {
 					 */
 					return device == null || (Boolean) mMethods.get("isDeviceExternal").invokeReceiver(device);
 
-				} catch (final ReflectException e) { 
+				} catch (ReflectException e) { 
 					Log.e(TAG, e.getMessage(), e);
 				}
 
@@ -584,11 +584,11 @@ public final class Mediator {
 	}
 
 	@SuppressLint("NewApi")
-	protected void injectInputEvent(final Object event, final Integer action, Long downTime, Long eventTime, final Integer repeatCount, Integer flags) {
+	protected void injectInputEvent(Object event, Integer action, Long downTime, Long eventTime, Integer repeatCount, Integer flags) {
 		synchronized(PhoneWindowManager.class) {
 			KeyEvent keyEvent = null;
-			final Integer[] actions = action == KeyEvent.ACTION_MULTIPLE ? new Integer[]{KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP} : new Integer[]{action};
-			final Long time = SystemClock.uptimeMillis();
+			Integer[] actions = action == KeyEvent.ACTION_MULTIPLE ? new Integer[]{KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP} : new Integer[]{action};
+			Long time = SystemClock.uptimeMillis();
 
 			if (downTime == 0L)
 				downTime = time;
@@ -631,14 +631,14 @@ public final class Mediator {
 						mMethods.get("injectInputEvent").invoke(keyEvent);
 					}
 
-				} catch (final ReflectException e) {
+				} catch (ReflectException e) {
 					Log.e(TAG, e.getMessage(), e);
 				}	
 			}
 		}
 	}
 
-	protected void performHapticFeedback(final KeyEvent keyEvent, final Integer type, final Integer policyFlags) {
+	protected void performHapticFeedback(KeyEvent keyEvent, Integer type, Integer policyFlags) {
 		try {
 			if (type == HapticFeedbackConstants.VIRTUAL_KEY) {
 				if (SDK.SAMSUNG_FEEDBACK_VERSION == 1) {
@@ -654,7 +654,7 @@ public final class Mediator {
 
 			mMethods.get("performHapticFeedback").invokeOriginal(null, type, false);
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -683,7 +683,7 @@ public final class Mediator {
 	}
 
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-	protected void pokeUserActivity(final Long time, final Boolean forced) {
+	protected void pokeUserActivity(Long time, Boolean forced) {
 		if (forced) {
 			if (SDK.MANAGER_POWER_VERSION > 1) {
 				((PowerManager) mPowerManager.getReceiver()).wakeUp(time);
@@ -698,7 +698,7 @@ public final class Mediator {
 				try {
 					mMethods.get("forceUserActivityLocked").invoke();
 
-				} catch (final ReflectException e) {
+				} catch (ReflectException e) {
 					Log.e(TAG, e.getMessage(), e);
 				}
 			}
@@ -713,7 +713,7 @@ public final class Mediator {
 	}
 
 	@SuppressLint("NewApi")
-	protected void changeDisplayState(final Long time, final Boolean on) {
+	protected void changeDisplayState(Long time, Boolean on) {
 		if (on) {
 			pokeUserActivity(time, true);
 
@@ -726,7 +726,7 @@ public final class Mediator {
 		try {
 			return (Boolean) mMethods.get("KeyguardMediator.isShowing").invoke();
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 
@@ -738,7 +738,7 @@ public final class Mediator {
 			try {
 				return !((Boolean) mMethods.get("KeyguardMediator.isRestricted").invoke());
 
-			} catch (final ReflectException e) {
+			} catch (ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 			}
 		}
@@ -750,7 +750,7 @@ public final class Mediator {
 		try {
 			return (Boolean) mMethods.get("KeyguardMediator.isLocked").invoke();
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 
@@ -762,18 +762,18 @@ public final class Mediator {
 			try {
 				mMethods.get("KeyguardMediator.dismiss").invoke(false, true);
 
-			} catch (final ReflectException e) {
+			} catch (ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 			}
 		}
 	}
 
-	public ActivityManager.RunningTaskInfo getPackageFromStack(final Integer stack, final StackAction action) {
-		final List<ActivityManager.RunningTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRunningTasks(5);
-		final String currentHome = action != StackAction.EXLUDE_HOME ? getHomePackage() : null;
+	public ActivityManager.RunningTaskInfo getPackageFromStack(Integer stack, StackAction action) {
+		List<ActivityManager.RunningTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRunningTasks(5);
+		String currentHome = action != StackAction.EXLUDE_HOME ? getHomePackage() : null;
 
 		for (int i=stack; i < packages.size(); i++) {
-			final String packageName = packages.get(i).baseActivity.getPackageName();
+			String packageName = packages.get(i).baseActivity.getPackageName();
 
 			if (!packageName.equals("com.android.systemui") && packages.get(i).id != 0) {
 				if (action == StackAction.INCLUDE_HOME || !packageName.equals(currentHome)) {
@@ -790,20 +790,20 @@ public final class Mediator {
 		return null;
 	}
 
-	public String getPackageNameFromStack(final Integer stack, final StackAction action) {
-		final ActivityManager.RunningTaskInfo pkg = getPackageFromStack(stack, action);
+	public String getPackageNameFromStack(Integer stack, StackAction action) {
+		ActivityManager.RunningTaskInfo pkg = getPackageFromStack(stack, action);
 
 		return pkg != null ? pkg.baseActivity.getPackageName() : null;
 	}
 
-	public Integer getPackageIdFromStack(final Integer stack, final StackAction action) {
-		final ActivityManager.RunningTaskInfo pkg = getPackageFromStack(stack, action);
+	public Integer getPackageIdFromStack(Integer stack, StackAction action) {
+		ActivityManager.RunningTaskInfo pkg = getPackageFromStack(stack, action);
 
 		return pkg != null ? pkg.id : 0;
 	}
 
 	protected Boolean invokeCallButton() {
-		final Integer mode = ((AudioManager) mAudioManager.getReceiver()).getMode();
+		Integer mode = ((AudioManager) mAudioManager.getReceiver()).getMode();
 		Integer callCode = 0;
 
 		if (mode == AudioManager.MODE_IN_CALL || mode == AudioManager.MODE_IN_COMMUNICATION) {
@@ -839,7 +839,7 @@ public final class Mediator {
 		}
 	}
 
-	protected void launchPackage(final String packageName) {
+	protected void launchPackage(String packageName) {
 		Intent intent = ((Context) mContext.getReceiver()).getPackageManager().getLaunchIntentForPackage(packageName);
 
 		if (isKeyguardLockedAndInsecure()) {
@@ -864,14 +864,14 @@ public final class Mediator {
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	protected void togglePreviousApplication() {
 		if (SDK.MANAGER_ACTIVITY_VERSION > 1) {
-			final Integer packageId = getPackageIdFromStack(1, StackAction.JUMP_HOME);
+			Integer packageId = getPackageIdFromStack(1, StackAction.JUMP_HOME);
 
 			if (packageId > 0) {
 				((ActivityManager) mActivityManager.getReceiver()).moveTaskToFront(packageId, 0);
 			}
 
 		} else {
-			final String packageName = getPackageNameFromStack(1, StackAction.JUMP_HOME);
+			String packageName = getPackageNameFromStack(1, StackAction.JUMP_HOME);
 
 			if (packageName != null) {
 				launchPackage(packageName);
@@ -880,7 +880,7 @@ public final class Mediator {
 	}
 
 	protected void killForegroundApplication() {
-		final String packageName = getPackageNameFromStack(0, StackAction.EXLUDE_HOME);
+		String packageName = getPackageNameFromStack(0, StackAction.EXLUDE_HOME);
 
 		if (packageName != null) {
 			if(Common.debug()) Log.d(TAG, "Invoking force stop on " + packageName);
@@ -893,18 +893,18 @@ public final class Mediator {
 					mMethods.get("forceStopPackage").invoke(packageName);
 				}
 
-			} catch (final ReflectException e) {
+			} catch (ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 			}
 		}
 	}
 
-	protected void sendBroadcast(final Intent intent) {
+	protected void sendBroadcast(Intent intent) {
 		if (SDK.MANAGER_MULTIUSER_VERSION > 0) {
 			try {
 				mMethods.get("sendBroadcastAsUser").invoke(intent, getUserInstance());
 
-			} catch (final ReflectException e) {
+			} catch (ReflectException e) {
 				Log.e(TAG, e.getMessage(), e);
 			}
 
@@ -919,13 +919,13 @@ public final class Mediator {
 		}
 	}
 
-	protected void sendCloseSystemWindows(final String reason) {
+	protected void sendCloseSystemWindows(String reason) {
 		if(Common.debug()) Log.d(TAG, "Closing all system windows");
 
 		try {
 			mMethods.get("closeSystemDialogs").invoke(reason);
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -943,7 +943,7 @@ public final class Mediator {
 				mMethods.get("showGlobalActionsDialog").invoke();
 			}
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -956,7 +956,7 @@ public final class Mediator {
 		try {
 			mMethods.get("toggleRecentApps").invoke();
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -965,7 +965,7 @@ public final class Mediator {
 		try {
 			mMethods.get("takeScreenshot").invoke();
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
@@ -982,7 +982,7 @@ public final class Mediator {
 				try {
 					mMethods.get("freezeRotation").invoke(orientation);
 
-				} catch (final ReflectException e) {
+				} catch (ReflectException e) {
 					Log.e(TAG, e.getMessage(), e);
 				}
 
@@ -990,7 +990,7 @@ public final class Mediator {
 				try {
 					mMethods.get("thawRotation").invoke();
 
-				} catch (final ReflectException e) {
+				} catch (ReflectException e) {
 					Log.e(TAG, e.getMessage(), e);
 				}
 			}
@@ -1008,30 +1008,30 @@ public final class Mediator {
 		try {
 			return (Integer) mMethods.get("getRotation").invoke();
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 		}
 
 		return 0;
 	}
 
-	public Integer getNextRotation(final Boolean backwards) {
-		final Integer  position = getCurrentRotation();
+	public Integer getNextRotation(Boolean backwards) {
+		Integer  position = getCurrentRotation();
 
 		return (position == Surface.ROTATION_90 || position == Surface.ROTATION_0) && backwards ? 270 : 
 			(position == Surface.ROTATION_270 || position == Surface.ROTATION_0) && !backwards ? 90 : 0;
 	}
 
 	public String getHomePackage() {
-		final Intent intent = new Intent(Intent.ACTION_MAIN);
+		Intent intent = new Intent(Intent.ACTION_MAIN);
 		intent.addCategory(Intent.CATEGORY_HOME);
-		final ResolveInfo res = ((Context) mContext.getReceiver()).getPackageManager().resolveActivity(intent, 0);
+		ResolveInfo res = ((Context) mContext.getReceiver()).getPackageManager().resolveActivity(intent, 0);
 
 		return res.activityInfo != null && !"android".equals(res.activityInfo.packageName) ? 
 				res.activityInfo.packageName : "com.android.launcher";
 	}
 
-	public Boolean isWakeKeyWhenScreenOff(final Integer keyCode) {
+	public Boolean isWakeKeyWhenScreenOff(Integer keyCode) {
 		if (mMethods.get("isWakeKeyWhenScreenOff") != null) {
 			return (Boolean) mMethods.get("isWakeKeyWhenScreenOff").invoke(keyCode);
 		}
@@ -1039,7 +1039,7 @@ public final class Mediator {
 		return true;
 	}
 
-	public Integer fixPolicyFlags(final Integer keyCode, Integer policyFlags) {
+	public Integer fixPolicyFlags(Integer keyCode, Integer policyFlags) {
 		if (!isWakeKeyWhenScreenOff(keyCode)) {
 			if ((policyFlags & ORIGINAL.FLAG_WAKE) != 0) 
 				policyFlags &= ~ORIGINAL.FLAG_WAKE;
@@ -1080,7 +1080,7 @@ public final class Mediator {
 		mHandler.post(new Runnable() {
 			@Override
 			public void run() {
-				final String type = Common.actionType(action);
+				String type = Common.actionType(action);
 
 				if ("launcher".equals(type)) {
 					launchPackage(action);

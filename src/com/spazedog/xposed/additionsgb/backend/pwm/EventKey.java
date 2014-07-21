@@ -9,7 +9,7 @@ public class EventKey {
 	protected Integer mPolicyFlags = 0;
 	protected Boolean mIsKeyDown = false;
 
-	public EventKey(final Priority priority) {
+	public EventKey(Priority priority) {
 		mPriority = priority;
 	}
 

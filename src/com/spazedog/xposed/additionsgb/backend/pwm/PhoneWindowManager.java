@@ -59,7 +59,7 @@ public final class PhoneWindowManager {
 			 * create an instance of our own. 
 			 */
 			pwm = ReflectClass.forName("com.android.internal.policy.impl.PhoneWindowManager");
-			final PhoneWindowManager instance = new PhoneWindowManager();
+			PhoneWindowManager instance = new PhoneWindowManager();
 
 			/*
 			 * Hook the init method of the PhoneWindowManager class.
@@ -69,7 +69,7 @@ public final class PhoneWindowManager {
 			 */
 			pwm.inject("init", instance.hook_init);
 
-		} catch (final ReflectException e) {
+		} catch (ReflectException e) {
 			Log.e(TAG, e.getMessage(), e);
 
 			if (pwm != null) {
@@ -99,78 +99,78 @@ public final class PhoneWindowManager {
 			 * Let's wait until everything is up and running. 
 			 */
 			((Context) param.args[0]).registerReceiver(
-					new BroadcastReceiver() {
-						@Override
-						public void onReceive(final Context context, final Intent intent) {
-							/*
-							 * Let's get an instance of our own Service Manager and
-							 * make sure that the related service is running, before continuing.
-							 */
-							mXServiceManager = XServiceManager.getInstance();
+				new BroadcastReceiver() {
+					@Override
+					public void onReceive(Context context, Intent intent) {
+						/*
+						 * Let's get an instance of our own Service Manager and
+						 * make sure that the related service is running, before continuing.
+						 */
+						mXServiceManager = XServiceManager.getInstance();
 
-							if (mXServiceManager != null) {
-								ReflectClass pwm = null;
+						if (mXServiceManager != null) {
+							ReflectClass pwm = null;
 
-								try {
+							try {
+								/*
+								 * Now we need to initialize our own Mediator. 
+								 * And once again, do not continue without it as
+								 * it contains all of our tools. 
+								 */
+								pwm = ReflectClass.forReceiver(param.thisObject);
+								mMediator = new Mediator(pwm, mXServiceManager);
+
+								if (mMediator.isReady()) {
 									/*
-									 * Now we need to initialize our own Mediator. 
-									 * And once again, do not continue without it as
-									 * it contains all of our tools. 
+									 * Add the remaining PhoneWindowManager hooks
 									 */
-									pwm = ReflectClass.forReceiver(param.thisObject);
-									mMediator = new Mediator(pwm, mXServiceManager);
+									pwm.inject("interceptKeyBeforeQueueing", hook_interceptKeyBeforeQueueing);
+									pwm.inject("interceptKeyBeforeDispatching", hook_interceptKeyBeforeDispatching);
+									pwm.inject("performHapticFeedbackLw", hook_performHapticFeedbackLw);
 
-									if (mMediator.isReady()) {
-										/*
-										 * Add the remaining PhoneWindowManager hooks
-										 */
-										pwm.inject("interceptKeyBeforeQueueing", hook_interceptKeyBeforeQueueing);
-										pwm.inject("interceptKeyBeforeDispatching", hook_interceptKeyBeforeDispatching);
-										pwm.inject("performHapticFeedbackLw", hook_performHapticFeedbackLw);
-
-										if (SDK.SAMSUNG_FEEDBACK_VERSION > 0) {
-											final ReflectClass spwm = ReflectClass.forName("com.android.internal.policy.impl.sec.SamsungPhoneWindowManager");
-											spwm.inject("performSystemKeyFeedback", hook_performHapticFeedbackLw);
-										}
-
-										/*
-										 * Add hooks to the ViewConfiguration class for this process,
-										 * allowing us to control key timeout values that will affect the original class.
-										 */
-										final ReflectClass wc = ReflectClass.forName("android.view.ViewConfiguration");
-
-										wc.inject("getLongPressTimeout", hook_viewConfigTimeouts);
-										wc.inject("getGlobalActionKeyTimeout", hook_viewConfigTimeouts);
-
-										/*
-										 * Create key class instances for key control
-										 */
-										mEventManager = new EventManager(mXServiceManager);
-
-										/*
-										 * Add listener to receive broadcasts from the XService
-										 */
-										mXServiceManager.addBroadcastListener(listener_XServiceBroadcast);
+									if (SDK.SAMSUNG_FEEDBACK_VERSION > 0) {
+										ReflectClass spwm = ReflectClass.forName("com.android.internal.policy.impl.sec.SamsungPhoneWindowManager");
+										spwm.inject("performSystemKeyFeedback", hook_performHapticFeedbackLw);
 									}
 
-								} catch (final Throwable e) {
-									Log.e(TAG, e.getMessage(), e);
+									/*
+									 * Add hooks to the ViewConfiguration class for this process,
+									 * allowing us to control key timeout values that will affect the original class.
+									 */
+									ReflectClass wc = ReflectClass.forName("android.view.ViewConfiguration");
 
-									if (pwm != null) {
-										/*
-										 * On error, disable this part of the module.
-										 */
-										pwm.removeInjections();
-									}
+									wc.inject("getLongPressTimeout", hook_viewConfigTimeouts);
+									wc.inject("getGlobalActionKeyTimeout", hook_viewConfigTimeouts);
+
+									/*
+									 * Create key class instances for key control
+									 */
+									mEventManager = new EventManager(mXServiceManager);
+
+									/*
+									 * Add listener to receive broadcasts from the XService
+									 */
+									mXServiceManager.addBroadcastListener(listener_XServiceBroadcast);
 								}
 
-							} else {
-								Log.e(TAG, "XService has not been started", null);
-							}
-						}
+							} catch (Throwable e) {
+								Log.e(TAG, e.getMessage(), e);
 
-					}, new IntentFilter("android.intent.action.BOOT_COMPLETED")
-					);
+								if (pwm != null) {
+									/*
+									 * On error, disable this part of the module.
+									 */
+									pwm.removeInjections();
+								}
+							}
+
+						} else {
+							Log.e(TAG, "XService has not been started", null);
+						}
+					}
+
+				}, new IntentFilter("android.intent.action.BOOT_COMPLETED")
+			);
 		}
 	};
 
@@ -179,7 +179,7 @@ public final class PhoneWindowManager {
 	 */
 	private final XServiceBroadcastListener listener_XServiceBroadcast = new XServiceBroadcastListener() {
 		@Override
-		public void onBroadcastReceive(final String action, final Bundle data) {
+		public void onBroadcastReceive(String action, Bundle data) {
 			if (action.equals("keyIntercepter:enable")) {
 				mInterceptKeyCode = true;
 
@@ -234,21 +234,21 @@ public final class PhoneWindowManager {
 			synchronized(mQueueLock) {
 				mActiveQueueing = true;
 
-				final Integer methodVersion = Mediator.SDK.METHOD_INTERCEPT_VERSION;
-				final KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[0];
-				final Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
-				final Integer policyFlagsPos = methodVersion == 1 ? 5 : 1;
-				final Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
-				final Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
-				final Integer repeatCount = methodVersion == 1 ? 0 : keyEvent.getRepeatCount();
-				final Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
-				final Boolean down = action == KeyEvent.ACTION_DOWN;
-				final String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
+				Integer methodVersion = Mediator.SDK.METHOD_INTERCEPT_VERSION;
+				KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[0];
+				Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
+				Integer policyFlagsPos = methodVersion == 1 ? 5 : 1;
+				Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
+				Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
+				Integer repeatCount = methodVersion == 1 ? 0 : keyEvent.getRepeatCount();
+				Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
+				Boolean down = action == KeyEvent.ACTION_DOWN;
+				String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
 
 				/*
 				 * Using KitKat work-around from the InputManager Hook
 				 */
-				final Boolean isInjected = Mediator.SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ? 
+				Boolean isInjected = Mediator.SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ? 
 						(((KeyEvent) param.args[0]).getFlags() & Mediator.ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & Mediator.ORIGINAL.FLAG_INJECTED) != 0;
 
 				/*
@@ -274,18 +274,18 @@ public final class PhoneWindowManager {
 						param.args[policyFlagsPos] = policyFlags & ~Mediator.ORIGINAL.FLAG_INJECTED;
 					}
 
-					/*
-					 * No need to do anything if the settings part of the module
-					 * has asked for the keys. However, do make sure that the screen is on.
-					 * The display could have been auto turned off while in the settings remap part.
-					 * We don't want to create a situation where users can't turn the screen back on.
-					 */
+				/*
+				 * No need to do anything if the settings part of the module
+				 * has asked for the keys. However, do make sure that the screen is on.
+				 * The display could have been auto turned off while in the settings remap part.
+				 * We don't want to create a situation where users can't turn the screen back on.
+				 */
 				} else if (mInterceptKeyCode && isScreenOn) {
 					if (down) {
 						mMediator.performHapticFeedback(keyEvent, HapticFeedbackConstants.VIRTUAL_KEY, policyFlags);
 
 					} else if (mMediator.validateDeviceType(keyEvent == null ? keyCode : keyEvent)) {
-						final Bundle bundle = new Bundle();
+						Bundle bundle = new Bundle();
 						bundle.putInt("keyCode", keyCode);
 
 						/*
@@ -332,7 +332,7 @@ public final class PhoneWindowManager {
 						}
 
 					} else if(Common.debug()) {
-						Log.d(tag, "Continuing ongoing event");
+						 Log.d(tag, "Continuing ongoing event");
 					}
 
 					if (down) {
@@ -401,16 +401,16 @@ public final class PhoneWindowManager {
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			mActiveDispatching = true;
 
-			final Integer methodVersion = Mediator.SDK.METHOD_INTERCEPT_VERSION;
-			final KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[1];
-			final Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
-			final Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
-			final Integer policyFlagsPos = methodVersion == 1 ? 7 : 2;
-			final Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
-			final Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
-			final Boolean down = action == KeyEvent.ACTION_DOWN;
-			final EventKey key = mEventManager.getEventKey(keyCode);
-			final String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
+			Integer methodVersion = Mediator.SDK.METHOD_INTERCEPT_VERSION;
+			KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[1];
+			Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
+			Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
+			Integer policyFlagsPos = methodVersion == 1 ? 7 : 2;
+			Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
+			Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
+			Boolean down = action == KeyEvent.ACTION_DOWN;
+			EventKey key = mEventManager.getEventKey(keyCode);
+			String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
 
 			if (Common.debug()) {
 				Log.d(tag, "Getting event with state " + mEventManager.getState().name() + " which is an " + (mEventManager.getEventKey(keyCode) != null ? "ongoing" : "non-ongoing") + " event");
@@ -419,7 +419,7 @@ public final class PhoneWindowManager {
 			/*
 			 * Using KitKat work-around from the InputManager Hook
 			 */
-			final Boolean isInjected = Mediator.SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ? 
+			Boolean isInjected = Mediator.SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ? 
 					(((KeyEvent) param.args[1]).getFlags() & Mediator.ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & Mediator.ORIGINAL.FLAG_INJECTED) != 0;
 
 			//Any up key interrupts ongoing key codes
@@ -489,7 +489,7 @@ public final class PhoneWindowManager {
 					try {
 						Thread.sleep(1);
 
-					} catch (final Throwable e) {}
+					} catch (Throwable e) {}
 
 					pressTimeout -= 1;
 
@@ -579,7 +579,7 @@ public final class PhoneWindowManager {
 						try {
 							Thread.sleep(1);
 
-						} catch (final Throwable e) {}
+						} catch (Throwable e) {}
 
 						tapTimeout -= 1;
 
