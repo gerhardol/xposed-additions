@@ -5,14 +5,11 @@ import java.util.List;
 import java.util.Map;
 
 import net.dinglisch.android.tasker.TaskerIntent;
-
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.ActivityManager;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -48,12 +45,13 @@ import com.spazedog.xposed.additionsgb.configs.Settings;
 public final class Mediator {
 	public static final String TAG = Mediator.class.getName();
 
+	public static enum ActionType { CLICK, TAP, PRESS }
 	public static enum StackAction { EXLUDE_HOME, INCLUDE_HOME, JUMP_HOME }
 
 	/**
 	 * A class containing different feature versions based on Gingerbread and up.
-	 * If a method or feature has changed since Gingerbread, the version is bumped up to the amount of 
-	 * changes from Gingerbread and to the current running Android version. For an example 
+	 * If a method or feature has changed since Gingerbread, the version is bumped up to the amount of
+	 * changes from Gingerbread and to the current running Android version. For an example
 	 * the parameters in the intercept methods was changed in API 11. So for API 11 and up, we assign
 	 * the version as 2.
 	 */
@@ -62,7 +60,7 @@ public final class Mediator {
 			ReflectClass spwm = ReflectClass.forName("com.android.internal.policy.impl.sec.SamsungPhoneWindowManager", Match.SUPPRESS);
 
 			if (spwm.exists()) {
-				return spwm.findMethod("performSystemKeyFeedback", Match.SUPPRESS, KeyEvent.class).exists() ? 1 : 
+				return spwm.findMethod("performSystemKeyFeedback", Match.SUPPRESS, KeyEvent.class).exists() ? 1 :
 					spwm.findMethod("performSystemKeyFeedback", Match.SUPPRESS, KeyEvent.class, Boolean.TYPE, Boolean.TYPE).exists() ? 2 : 0;
 			}
 
@@ -81,16 +79,16 @@ public final class Mediator {
 
 		/*
 		 * In Jellybean Google added a new method for checking whether a device is external or internal.
-		 * For some reason they have made this small method hidden, so we need reflection to use it. 
+		 * For some reason they have made this small method hidden, so we need reflection to use it.
 		 */
 		public static final Integer INPUT_DEVICESTORAGE_VERSION = calcInputDeviceAIP();
 
 		/*
-		 * Newer Samsung devices uses an internal haptic feedback method with hardcoded keycodes. 
+		 * Newer Samsung devices uses an internal haptic feedback method with hardcoded keycodes.
 		 * At the same time, they have removed the virtual policy flag, so we need to use their method
-		 * in order to get proper haptic control. 
-		 * There are two different version of this method with different parameter numbers. 
-		 * In version 2, the last one needs to be be true in order to allow haptic feedback. 
+		 * in order to get proper haptic control.
+		 * There are two different version of this method with different parameter numbers.
+		 * In version 2, the last one needs to be be true in order to allow haptic feedback.
 		 */
 		public static final Integer SAMSUNG_FEEDBACK_VERSION = calcSamsungAPI();
 
@@ -144,6 +142,11 @@ public final class Mediator {
 		 * ViewConfiguration.getKeyRepeatDelay() was not available until API 12
 		 */
 		public static final Integer VIEW_CONFIGURATION_VERSION = android.os.Build.VERSION.SDK_INT >= 12 ? 2 :1;
+
+		/*
+		 *
+		 */
+		public static final Integer HARDWARE_CAMERA_VERSION = android.os.Build.VERSION.SDK_INT >= 11 ? 2 :1;
 	}
 
 	/**
@@ -152,7 +155,6 @@ public final class Mediator {
 	public static final class ORIGINAL {
 		public static Integer FLAG_INJECTED;
 		public static Integer FLAG_VIRTUAL;
-		public static Integer FLAG_WAKE;
 		public static Integer FLAG_WAKE_DROPPED;
 
 		public static Integer QUEUEING_ALLOW;
@@ -169,22 +171,19 @@ public final class Mediator {
 	protected WakeLock mWakelock;
 
 	private Intent mTorchIntent;
-	private Boolean mTorchReceiverSet = false;
-
-	private final Object mtorchLocatorLock = new Object();
 
 	private XServiceManager mXServiceManager;
 
 	private ReflectClass mContext;
-	private ReflectClass mPhoneWindowManager; 					// com.android.internal.policy.impl.PhoneWindowManager
-	private ReflectClass mSamsungPhoneWindowManager; 			// com.android.internal.policy.impl.sec.SamsungPhoneWindowManager
-	private ReflectClass mWindowManagerService;					// android.view.IWindowManager (com.android.server.wm.WindowManagerService)
-	private ReflectClass mKeyguardMediator;						// com.android.internal.policy.impl.keyguard.KeyguardServiceDelegate or com.android.internal.policy.impl.KeyguardViewMediator
-	private ReflectClass mActivityManager;						// android.app.ActivityManager
-	private ReflectClass mActivityManagerService;				// android.app.IActivityManager (android.app.ActivityManagerNative)
-	private ReflectClass mPowerManager;							// android.os.PowerManager
-	private ReflectClass mPowerManagerService;					// android.os.IPowerManager (com.android.server.power.PowerManagerService)
-	private ReflectClass mInputManager;							// android.hardware.input.InputManager
+	private ReflectClass mPhoneWindowManager; // com.android.internal.policy.impl.PhoneWindowManager
+	private ReflectClass mSamsungPhoneWindowManager; // com.android.internal.policy.impl.sec.SamsungPhoneWindowManager
+	private ReflectClass mWindowManagerService;	// android.view.IWindowManager (com.android.server.wm.WindowManagerService)
+	private ReflectClass mKeyguardMediator;	// com.android.internal.policy.impl.keyguard.KeyguardServiceDelegate or com.android.internal.policy.impl.KeyguardViewMediator
+	private ReflectClass mActivityManager;	// android.app.ActivityManager
+	private ReflectClass mActivityManagerService;	// android.app.IActivityManager (android.app.ActivityManagerNative)
+	private ReflectClass mPowerManager;	// android.os.PowerManager
+	private ReflectClass mPowerManagerService;	// android.os.IPowerManager (com.android.server.power.PowerManagerService)
+	private ReflectClass mInputManager;	// android.hardware.input.InputManager
 	private ReflectClass mAudioManager;
 	private ReflectClass mRecentApplicationsDialog;	// com.android.internal.policy.impl.RecentApplicationsDialog or com.android.internal.statusbar.IStatusBarService
 
@@ -193,6 +192,20 @@ public final class Mediator {
 	private Map<String, ReflectConstructor> mConstructors = new HashMap<String, ReflectConstructor>();
 	private Map<String, ReflectMethod> mMethods = new HashMap<String, ReflectMethod>();
 	private Map<String, ReflectField> mFields = new HashMap<String, ReflectField>();
+
+	private Map<Integer, Boolean> mDeviceIds = new HashMap<Integer, Boolean>();
+
+	private Runnable mPowerHardResetRunnable = new Runnable(){
+		@Override
+		public void run() {
+			long[] pattern = {50l, 100l, 50l, 50l};
+
+			Vibrator vibrator = (Vibrator) (((Context) mContext.getReceiver()).getSystemService(Context.VIBRATOR_SERVICE));
+			vibrator.vibrate(pattern, -1);
+
+			((PowerManager) mPowerManager.getReceiver()).reboot(null);
+		}
+	};
 
 	protected Mediator(ReflectClass pwm, XServiceManager xManager) {
 		mXServiceManager = xManager;
@@ -213,7 +226,6 @@ public final class Mediator {
 
 		ORIGINAL.FLAG_INJECTED = (Integer) wmp.findField("FLAG_INJECTED").getValue();
 		ORIGINAL.FLAG_VIRTUAL = (Integer) wmp.findField("FLAG_VIRTUAL").getValue();
-		ORIGINAL.FLAG_WAKE = (Integer) ((wmp.findField("FLAG_WAKE").getValue()));
 		ORIGINAL.FLAG_WAKE_DROPPED = (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
 
 		ORIGINAL.QUEUEING_ALLOW = (Integer) wmp.findFieldDeep("ACTION_PASS_TO_USER").getValue();
@@ -411,7 +423,7 @@ public final class Mediator {
 		}
 
 		/*
-		 * 
+		 *
 		 */
 		mMethods.put("forceStopPackage", mActivityManagerService.findMethodDeep("forceStopPackage", Match.BEST, SDK.MANAGER_MULTIUSER_VERSION > 0 ? new Object[]{String.class, Integer.TYPE} : new Object[]{String.class}));
 
@@ -423,106 +435,52 @@ public final class Mediator {
 	}
 
 	protected void torchLocator() {
-		(new Thread() {
-			@Override
-			public void run() {
-				synchronized (mtorchLocatorLock) { 
-					if (mTorchIntent == null) {
-						if(Common.debug()) Log.d(TAG + "$torchLocator()", "Starting the search for a Torch app with Intent support");
+		try {
+			/*
+			 * If the ROM has CM Torch capabilities, then use that instead.
+			 *
+			 * Some ROM's who implements some of CM's capabilities, some times changes the name of this util.cm folder to match
+			 * their name. In these cases we don't care about consistency. If you are going to borrow from others,
+			 * then make sure to keep compatibility.
+			 */
+			ReflectClass torchConstants = ReflectClass.forName("com.android.internal.util.cm.TorchConstants");
+			mTorchIntent = new Intent((String) torchConstants.findField("ACTION_TOGGLE_STATE").getValue());
 
-						try {
-							/*
-							 * If the ROM has CM Torch capabilities, then use that instead. 
-							 * 
-							 * Some ROM's who implements some of CM's capabilities, some times changes the name of this util.cm folder to match 
-							 * their name. In these cases we don't care about consistency. If you are going to borrow from others, 
-							 * then make sure to keep compatibility.
-							 */
-							ReflectClass torchConstants = ReflectClass.forName("com.android.internal.util.cm.TorchConstants");
-							mTorchIntent = new Intent((String) torchConstants.findField("ACTION_TOGGLE_STATE").getValue());
+			if(Common.debug()) Log.d(TAG + "$torchLocator()", "Found CyanogenMod Intent");
 
-							if(Common.debug()) Log.d(TAG + "$torchLocator()", "Found CyanogenMod Intent");
+		} catch (ReflectException er) {
+			if (SDK.HARDWARE_CAMERA_VERSION > 1) {
+				if(Common.debug()) Log.d(TAG + "$torchLocator()", "Using native Torch service");
 
-						} catch (ReflectException er) {
-							if(Common.debug()) Log.d(TAG + "$torchLocator()", "No CyanogenMod Intent found. Searching in installed applications");
-
-							/*
-							 * Search for Torch Apps that supports <package name>.TOGGLE_FLASHLIGHT intents
-							 */
-							PackageManager pm = ((Context) mContext.getReceiver()).getPackageManager();
-							List<PackageInfo> packages = pm.getInstalledPackages(0);
-
-							for (PackageInfo pkg : packages) {
-								Intent intent = new Intent(pkg.packageName + ".TOGGLE_FLASHLIGHT");
-								List<ResolveInfo> recievers = pm.queryBroadcastReceivers(intent, 0);
-
-								if (recievers.size() > 0) {
-									if(Common.debug()) Log.d(TAG + "$torchLocator()", "Found Application Intent for " + pkg.packageName);
-
-									mTorchIntent = intent; break;
-								}
-							}
-
-							if(Common.debug() && mTorchIntent == null) Log.d(TAG + "$torchLocator()", "No Intents found in the installed applications");
-
-							if (!mTorchReceiverSet) {
-								mTorchReceiverSet = true;
-								IntentFilter filter = new IntentFilter();
-								filter.addAction(Intent.ACTION_PACKAGE_ADDED);
-								filter.addAction(Intent.ACTION_PACKAGE_REMOVED);
-								filter.addAction(Intent.ACTION_PACKAGE_CHANGED);
-								filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
-								filter.addDataScheme("package");
-
-								((Context) mContext.getReceiver()).registerReceiver(new BroadcastReceiver() {
-									@Override
-									public void onReceive(Context context, Intent intent) {
-										if(Common.debug()) Log.d(TAG + "$torchLocator()", "Receiving Application changes. Checking new state of Torch Intents");
-
-										Uri uri = intent.getData();
-										String packageName = uri != null ? uri.getSchemeSpecificPart() : null;
-										String action = intent.getAction();
-
-										if (packageName != null && ((mTorchIntent == null && Intent.ACTION_PACKAGE_ADDED.equals(action)) || (mTorchIntent != null && packageName.equals(mTorchIntent.getPackage())))) {
-											/*
-											 * We can't wrap the whole block below, as the receiver and the locator are executed in different Threads.
-											 */
-											synchronized (mtorchLocatorLock) {}
-
-											PackageManager pm = context.getPackageManager();
-											Intent pkgIntent = new Intent(packageName + ".TOGGLE_FLASHLIGHT");
-											List<ResolveInfo> recievers = pm.queryBroadcastReceivers(pkgIntent, 0);
-
-											if (Intent.ACTION_PACKAGE_ADDED.equals(action)) {
-												if (recievers.size() > 0) {
-													if(Common.debug()) Log.d(TAG + "$torchLocator()", "Found Application Intent for newly installed " + packageName);
-
-													mTorchIntent = pkgIntent;
-													mXServiceManager.putBoolean("variable:remap.support.torch", true);
-												}
-
-											} else {
-												if (recievers.size() == 0) {
-													if(Common.debug()) Log.d(TAG + "$torchLocator()", "Starting a new search for Torch Intents");
-
-													mTorchIntent = null;
-													mXServiceManager.putBoolean("variable:remap.support.torch", false);
-													torchLocator();
-												}
-											}
-										}
-									}
-
-								}, filter, null, mHandler);
-							}
-						}
-
-						mXServiceManager.putBoolean("variable:remap.support.torch", mTorchIntent != null);
-					}
-				}
+				mTorchIntent = new Intent();
+				mTorchIntent.setClassName(Common.PACKAGE_NAME, Common.PACKAGE_NAME + ".ServiceTorch");
+				mTorchIntent.setAction(Common.TORCH_INTENT_ACTION);
 			}
 
-		}).start();
+			new Thread() {
+				@Override
+				public void run() {
+					PackageManager pm = ((Context) mContext.getReceiver()).getPackageManager();
+					List<PackageInfo> packages = pm.getInstalledPackages(0);
+
+					for (PackageInfo pkg : packages) {
+						Intent intent = new Intent(pkg.packageName + ".TOGGLE_FLASHLIGHT");
+						List<ResolveInfo> recievers = pm.queryBroadcastReceivers(intent, 0);
+
+						if (recievers.size() > 0) {
+							mTorchIntent = intent;
+							mXServiceManager.putBoolean("variable:remap.support.torch", true);
+
+							break;
+						}
+					}
+				}
+
+			}.start();
+
+		} finally {
+			mXServiceManager.putBoolean("variable:remap.support.torch", mTorchIntent != null);
+		}
 	}
 
 	/*
@@ -531,7 +489,7 @@ public final class Mediator {
 	public Boolean validateDeviceType(Object event) {
 		/*
 		 * Gingerbread has no access to the KeyEvent in the intercept method.
-		 * Instead we parse the keycode on these versions and skip the first check here. 
+		 * Instead we parse the keycode on these versions and skip the first check here.
 		 */
 		KeyEvent keyEvent = event instanceof KeyEvent ? (KeyEvent) event : null;
 		Integer keyCode = event instanceof KeyEvent ? keyEvent.getKeyCode() : (Integer) event;
@@ -540,47 +498,68 @@ public final class Mediator {
 			return true;
 		}
 
-		if (keyEvent != null && keyEvent.getDeviceId() != -1) {
-			Integer source = keyEvent.getSource();
-			InputDevice device = keyEvent.getDevice();
-
-			/*
-			 * We do not want to handle regular Keyboards or gaming devices. 
-			 * Do not trust KeyCharacterMap.getKeyboardType() as it can easily display anything
-			 * as a FULL PC Keyboard. InputDevice.getKeyboardType() should be safer. 
-			 */
-			if ((device != null && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) || 
-					(source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-					(source & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD || 
-					(source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
-
-				return false;
-			}
-		}
+		/*
+		 * Older Android version does not parse the KeyEvent object to the PhoneWindowManager class.
+		 * For these we validate individual key codes instead. Not as exact, but is does the job in most cases.
+		 */
+		Integer deviceId = keyEvent != null ? keyEvent.getDeviceId() : keyCode;
+		Integer allowExternals = -2;
 
 		/*
-		 * Now that we know that the device type is supported, let's see if we should handle external once.
+		 * If the settings change, we have to re-validate the keys
 		 */
-		if (!mXServiceManager.getBoolean(Settings.REMAP_ALLOW_EXTERNALS)) {
-			if (SDK.INPUT_DEVICESTORAGE_VERSION > 1) {
-				InputDevice device = keyEvent.getDevice();
-
-				try {
-					/*
-					 * @Google get a grip, this method should be publicly accessible. Makes no sense to hide it.
-					 */
-					return device == null || (Boolean) mMethods.get("isDeviceExternal").invokeReceiver(device);
-
-				} catch (ReflectException e) { 
-					Log.e(TAG, e.getMessage(), e);
-				}
-
-			} else {
-				return KeyCharacterMap.deviceHasKey(keyCode);
-			}
+		if (!mDeviceIds.containsKey(allowExternals) || !mDeviceIds.get(allowExternals).equals(mXServiceManager.getBoolean(Settings.REMAP_ALLOW_EXTERNALS))) {
+			mDeviceIds.clear();
+			mDeviceIds.put(allowExternals, mXServiceManager.getBoolean(Settings.REMAP_ALLOW_EXTERNALS));
 		}
 
-		return true;
+		if (!mDeviceIds.containsKey(deviceId)) {
+			Boolean validated = true;
+
+			if (keyEvent != null && keyEvent.getDeviceId() != -1) {
+				Integer source = keyEvent.getSource();
+				InputDevice device = keyEvent.getDevice();
+
+				/*
+				 * We do not want to handle regular Keyboards or gaming devices.
+				 * Do not trust KeyCharacterMap.getKeyboardType() as it can easily display anything
+				 * as a FULL PC Keyboard. InputDevice.getKeyboardType() should be safer.
+				 */
+				if ((device != null && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) ||
+						(source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+						(source & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD ||
+						(source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
+
+					validated = false;
+				}
+			}
+
+			/*
+			 * Now that we know that the device type is supported, let's see if we should handle external once.
+			 */
+			if (validated && !mDeviceIds.get(allowExternals)) {
+				if (SDK.INPUT_DEVICESTORAGE_VERSION > 1) {
+					InputDevice device = keyEvent.getDevice();
+
+					try {
+						/*
+						 * @Google get a grip, this method should be publicly accessible. Makes no sense to hide it.
+						 */
+						validated = device == null || (Boolean) mMethods.get("isDeviceExternal").invokeReceiver(device);
+
+					} catch (ReflectException e) {
+						Log.e(TAG, e.getMessage(), e);
+					}
+
+				} else {
+					validated = KeyCharacterMap.deviceHasKey(keyCode);
+				}
+			}
+
+			mDeviceIds.put(deviceId, validated);
+		}
+
+		return mDeviceIds.get(deviceId);
 	}
 
 	@SuppressLint("NewApi")
@@ -596,16 +575,16 @@ public final class Mediator {
 			if (eventTime == 0L)
 				eventTime = time;
 
-			if ((flags & KeyEvent.FLAG_FROM_SYSTEM) == 0) 
+			if ((flags & KeyEvent.FLAG_FROM_SYSTEM) == 0)
 				flags |= KeyEvent.FLAG_FROM_SYSTEM;
 
-			if ((flags & ORIGINAL.FLAG_INJECTED) == 0) 
+			if ((flags & ORIGINAL.FLAG_INJECTED) == 0)
 				flags |= ORIGINAL.FLAG_INJECTED;
 
-			if ((flags & KeyEvent.FLAG_LONG_PRESS) == 0 && repeatCount == 1) 
+			if ((flags & KeyEvent.FLAG_LONG_PRESS) == 0 && repeatCount == 1)
 				flags |= KeyEvent.FLAG_LONG_PRESS;
 
-			if ((flags & KeyEvent.FLAG_LONG_PRESS) != 0 && repeatCount != 1) 
+			if ((flags & KeyEvent.FLAG_LONG_PRESS) != 0 && repeatCount != 1)
 				flags &= ~KeyEvent.FLAG_LONG_PRESS;
 
 			if (event instanceof KeyEvent) {
@@ -617,7 +596,7 @@ public final class Mediator {
 
 			for (int i=0; i < actions.length; i++) {
 				/*
-				 * This is for when we have both an up and down event. 
+				 * This is for when we have both an up and down event.
 				 */
 				if (keyEvent.getAction() != actions[i]) {
 					keyEvent = KeyEvent.changeAction(keyEvent, actions[i]);
@@ -638,17 +617,22 @@ public final class Mediator {
 		}
 	}
 
-	protected void performHapticFeedback(KeyEvent keyEvent, Integer type, Integer policyFlags) {
+	protected void performHapticFeedback(Object keyEvent, Integer type, Integer policyFlags) {
 		try {
 			if (type == HapticFeedbackConstants.VIRTUAL_KEY) {
-				if (SDK.SAMSUNG_FEEDBACK_VERSION == 1) {
-					mMethods.get("samsung.performSystemKeyFeedback").invokeOriginal(keyEvent); return;
+				List<String> forcedKeys = (List<String>) mXServiceManager.getStringArray(Settings.REMAP_LIST_FORCED_HAPTIC, null);
+				Integer keyCode = keyEvent instanceof KeyEvent ? ((KeyEvent) keyEvent).getKeyCode() : (Integer) keyEvent;
 
-				} else if (SDK.SAMSUNG_FEEDBACK_VERSION == 2) {
-					mMethods.get("samsung.performSystemKeyFeedback").invokeOriginal(keyEvent, false, true); return;
+				if (forcedKeys == null || !forcedKeys.contains(""+keyCode)) {
+					if (SDK.SAMSUNG_FEEDBACK_VERSION == 1) {
+						mMethods.get("samsung.performSystemKeyFeedback").invokeOriginal(keyEvent); return;
 
-				} else if ((policyFlags & ORIGINAL.FLAG_VIRTUAL) == 0) {
-					return;
+					} else if (SDK.SAMSUNG_FEEDBACK_VERSION == 2) {
+						mMethods.get("samsung.performSystemKeyFeedback").invokeOriginal(keyEvent, false, true); return;
+
+					} else if ((policyFlags & ORIGINAL.FLAG_VIRTUAL) == 0) {
+						return;
+					}
 				}
 			}
 
@@ -670,18 +654,6 @@ public final class Mediator {
 		}
 	}
 
-	protected void performPowerPressNotification() {
-		if(Common.debug()) Log.d(TAG, "Power press, reboot in seconds...");
-		final Vibrator v = (Vibrator)(((Context) mContext.getReceiver()).getSystemService(Context.VIBRATOR_SERVICE));
-		final long[] pattern = {50, 100, 50, 50};
-		v.vibrate(pattern, -1);
-	}
-
-	protected void performPowerPressReset(final int resetAtPowerPress) {
-		if(Common.debug()) Log.d(TAG, "Power press for " + resetAtPowerPress + "s, rebooting");
-		((PowerManager) mPowerManager.getReceiver()).reboot(null);
-	}
-
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	protected void pokeUserActivity(Long time, Boolean forced) {
 		if (forced) {
@@ -691,8 +663,8 @@ public final class Mediator {
 			} else {
 				/*
 				 * API's below 17 does not support PowerManager#wakeUp, so
-				 * instead we will trick our way into the hidden IPowerManager#forceUserActivityLocked which 
-				 * is not accessible trough the regular PowerManager class. It is the same method that 
+				 * instead we will trick our way into the hidden IPowerManager#forceUserActivityLocked which
+				 * is not accessible trough the regular PowerManager class. It is the same method that
 				 * turns on the screen when you plug in your USB cable.
 				 */
 				try {
@@ -719,6 +691,19 @@ public final class Mediator {
 
 		} else {
 			((PowerManager) mPowerManager.getReceiver()).goToSleep(time);
+		}
+	}
+
+	protected void powerHardResetTimer(Integer keyCode, Boolean isKeyDown) {
+		if (keyCode.equals(KeyEvent.KEYCODE_POWER)) {
+			Integer delay = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_HARD_RESET, 8000);
+
+			if (isKeyDown && delay > 0) {
+				mHandler.postDelayed(mPowerHardResetRunnable, delay);
+
+			} else if (delay > 0) {
+				mHandler.removeCallbacks(mPowerHardResetRunnable);
+			}
 		}
 	}
 
@@ -826,16 +811,18 @@ public final class Mediator {
 				);
 	}
 
-	protected void launchIntent(final Intent intent) {
-		try {
-			if (SDK.MANAGER_MULTIUSER_VERSION > 0) {
+	protected void launchIntent(Intent intent) {
+		if (SDK.MANAGER_MULTIUSER_VERSION > 0) {
+			try {
 				mMethods.get("startActivityAsUser").invoke(intent, getUserInstance());
 
-			} else {
-				((Context) mContext.getReceiver()).startActivity(intent);
+			} catch (ReflectException e) {
+				Log.e(TAG, e.getMessage(), e);
 			}
-		} catch (final ReflectException e) {
-			Log.e(TAG, e.getMessage(), e);
+
+		} else {
+			//TODO: try/catch
+			((Context) mContext.getReceiver()).startActivity(intent);
 		}
 	}
 
@@ -915,7 +902,16 @@ public final class Mediator {
 
 	protected void toggleFlashLight() {
 		if (mTorchIntent != null) {
-			sendBroadcast(mTorchIntent);
+			if (Common.TORCH_INTENT_ACTION.equals(mTorchIntent.getAction())) {
+				if(Common.debug()) Log.d(TAG, "Toggling native Torch service");
+
+				((Context) mContext.getReceiver()).startService(mTorchIntent);
+
+			} else {
+				if(Common.debug()) Log.d(TAG, "Sending Torch Intent");
+
+				sendBroadcast(mTorchIntent);
+			}
 		}
 	}
 
@@ -1016,9 +1012,9 @@ public final class Mediator {
 	}
 
 	public Integer getNextRotation(Boolean backwards) {
-		Integer  position = getCurrentRotation();
+		Integer position = getCurrentRotation();
 
-		return (position == Surface.ROTATION_90 || position == Surface.ROTATION_0) && backwards ? 270 : 
+		return (position == Surface.ROTATION_90 || position == Surface.ROTATION_0) && backwards ? 270 :
 			(position == Surface.ROTATION_270 || position == Surface.ROTATION_0) && !backwards ? 90 : 0;
 	}
 
@@ -1027,7 +1023,7 @@ public final class Mediator {
 		intent.addCategory(Intent.CATEGORY_HOME);
 		ResolveInfo res = ((Context) mContext.getReceiver()).getPackageManager().resolveActivity(intent, 0);
 
-		return res.activityInfo != null && !"android".equals(res.activityInfo.packageName) ? 
+		return res.activityInfo != null && !"android".equals(res.activityInfo.packageName) ?
 				res.activityInfo.packageName : "com.android.launcher";
 	}
 
@@ -1040,30 +1036,31 @@ public final class Mediator {
 	}
 
 	public Integer fixPolicyFlags(Integer keyCode, Integer policyFlags) {
-		if (!isWakeKeyWhenScreenOff(keyCode)) {
-			if ((policyFlags & ORIGINAL.FLAG_WAKE) != 0) 
-				policyFlags &= ~ORIGINAL.FLAG_WAKE;
+		if (!keyCode.equals(KeyEvent.KEYCODE_POWER)
+				&& !isWakeKeyWhenScreenOff(keyCode)
+				&& (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) {
 
-			if ((policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) 
-				policyFlags &= ~ORIGINAL.FLAG_WAKE_DROPPED;
+			policyFlags &= ~ORIGINAL.FLAG_WAKE_DROPPED;
+
+		} else if (keyCode.equals(KeyEvent.KEYCODE_POWER) && (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) == 0) {
+			policyFlags |= ORIGINAL.FLAG_WAKE_DROPPED;
 		}
 
 		return policyFlags;
 	}
 
-	protected Boolean handleKeyAction(final String action, final Boolean firstDown, final Boolean isScreenOn, final Boolean invokeCallbutton, final Long eventDownTime, final Integer policyFlags) {		
+	protected Boolean handleKeyAction(final String action, final Boolean firstDown, final Boolean isScreenOn, final Boolean invokeCallbutton, final Long eventDownTime, final Integer policyFlags) {
 		if (firstDown) {
 			performHapticFeedback(null, HapticFeedbackConstants.LONG_PRESS, policyFlags);
 		}
 
 		/*
 		 * We handle display on here, because some devices has issues
-		 * when executing handlers while in deep sleep. 
-		 * Some times they will need a few key presses before reacting. 
+		 * when executing handlers while in deep sleep.
+		 * Some times they will need a few key presses before reacting.
 		 */
-		if (!isScreenOn && ((action != null && action.equals("" + KeyEvent.KEYCODE_POWER)) || (action == null && (policyFlags & (ORIGINAL.FLAG_WAKE | ORIGINAL.FLAG_WAKE_DROPPED)) != 0))) {
-			changeDisplayState(eventDownTime, true);
-			return true;
+		if (!isScreenOn && ((action != null && action.equals("" + KeyEvent.KEYCODE_POWER)) || (action == null && (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0))) {
+			changeDisplayState(eventDownTime, true); return true;
 
 		} else if (invokeCallbutton && invokeCallButton()) {
 			return true;
@@ -1073,12 +1070,11 @@ public final class Mediator {
 		}
 
 		/*
-		 * This should always be wrapped and sent to a handler. 
-		 * If this is executed directly, some of the actions will crash with the error 
+		 * This should always be wrapped and sent to a handler.
+		 * If this is executed directly, some of the actions will crash with the error
 		 * -> 'Can't create handler inside thread that has not called Looper.prepare()'
 		 */
 		mHandler.post(new Runnable() {
-			@Override
 			public void run() {
 				String type = Common.actionType(action);
 
@@ -1126,7 +1122,7 @@ public final class Mediator {
 						}
 					}
 
-				} else if ("tasker".equals(type)) { 
+				} else if ("tasker".equals(type)) {
 					sendBroadcast(new TaskerIntent(action.replace("tasker:", "")));
 
 				} else {

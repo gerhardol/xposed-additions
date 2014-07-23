@@ -15,9 +15,9 @@ public class EventManager {
 	public static enum LongPressType { NONE, DEFAULT_ACTION, CUSTOM_ACTION }
 	public static enum Priority { PRIMARY, SECONDARY, INVOKED }
 
-	private final XServiceManager mXServiceManager;
+	private XServiceManager mXServiceManager;
 
-	private final List<Integer> mOnGoingKeyCodes = new ArrayList<Integer>();
+	private List<Integer> mOnGoingKeyCodes = new ArrayList<Integer>();
 
 	private Integer mTapTimeout = 0;
 	private Integer mPressTimeout = 0;
@@ -68,7 +68,7 @@ public class EventManager {
 			}
 			mCurrentApplication = inKeyguard ? "keyguard" : currentApplication;
 			mIsScreenOn = isScreenOn;
-
+			/*
 			/*
 			 * This array is to help extract the actions from the preference array.
 			 * Since triple actions was not added until later, these was placed at the end to 
@@ -93,9 +93,10 @@ public class EventManager {
 			for (int i=0; i < oldConfig.length; i++) {
 				Integer x = oldConfig[i];
 				/*
+				/*
 				 * Only include Click and Long Press along with excluding Application Launch on non-pro versions
 				 */
-				final String action = ((i < 2) || mIsExtended) && actions.size() > x && (mIsExtended || !".".equals(actions.get(x))) ? actions.get(x) : null;
+				String action = ((i < 2) || mIsExtended) && actions.size() > x && (mIsExtended || !".".equals(actions.get(x))) ? actions.get(x) : null;
 
 				mActions[i] = action;
 			}
@@ -108,12 +109,11 @@ public class EventManager {
 			Boolean newEvent = false;
 
 			if (isKeyDown) {
-				//Set to PENDING if time larger than any possible timeout
-				if ((time - mEventTime) > 4 * mPressTimeout) {
+				if ((time - mEventTime) > (1000 + (mPressTimeout * 2))) {
 					mState = State.PENDING;
 				}
 
-				if (mState == State.ONGOING && (keyCode.equals(mPrimaryKey.mKeyCode) || keyCode.equals(mSecondaryKey.mKeyCode))) {
+				if (mState == State.ONGOING && ((!mIsCombiEvent && keyCode.equals(mPrimaryKey.mKeyCode)) || (mIsCombiEvent && keyCode.equals(mSecondaryKey.mKeyCode)))) {
 
 					if (keyCode == mSecondaryKey.mKeyCode) {
 						mSecondaryKey.mIsKeyDown = true;
@@ -124,20 +124,22 @@ public class EventManager {
 						mTapCount += 1;
 					}
 
-				} else if (mState != State.CANCELED && mState != State.PENDING && mPrimaryKey.isKeyDown() && keyCode != mPrimaryKey.mKeyCode && (mSecondaryKey.mKeyCode.equals(0) || keyCode.equals(mSecondaryKey.mKeyCode))) {
+				} else if (mState != State.CANCELED && mState != State.PENDING && mPrimaryKey.isKeyDown() && !keyCode.equals(mPrimaryKey.mKeyCode) && (mSecondaryKey.mKeyCode.equals(0) || keyCode.equals(mSecondaryKey.mKeyCode))) {
+					if (!keyCode.equals(mSecondaryKey.mKeyCode)) {
+						newEvent = true;
+					}
+					
 					mState = State.ONGOING;
 					mTapCount = 0;
 					mIsCombiEvent = true;
-
+					
 					mSecondaryKey.mKeyCode = keyCode;
 					mSecondaryKey.mPolicyFlags = policyFlags;
 					mSecondaryKey.mIsKeyDown = true;
-
-					newEvent = true;
-
+					
 				} else {
 					mState = State.ONGOING != mState ? State.ONGOING : State.CANCELED;
-
+					
 					if (State.ONGOING == mState) {
 						mTapCount = 0;
 						mDownTime = time;
@@ -147,20 +149,24 @@ public class EventManager {
 						mPrimaryKey.mKeyCode = keyCode;
 						mPrimaryKey.mPolicyFlags = policyFlags;
 						mPrimaryKey.mIsKeyDown = true;
-
+						
 						mSecondaryKey.mKeyCode = 0;
 						mSecondaryKey.mPolicyFlags = 0;
 						mSecondaryKey.mIsKeyDown = false;
-
+						
 						mInvokedKey.mKeyCode = 0;
 
 						newEvent = true;
-
+						
 					} else {
 						return false;
 					}
 				}
-
+				
+				if (newEvent) {
+					mIsCallButton = false;
+				}
+				
 				if (mTapCount == 0 || mPrimaryKey.mIsKeyDown) {
 					mIsDownEvent = true;
 				} else {
@@ -174,23 +180,23 @@ public class EventManager {
 				if (keyCode.equals(mSecondaryKey.mKeyCode)) {
 					//Note: No sequence checks on key up, the first occurrence is used, the second is possibly ignored
 					mSecondaryKey.mIsKeyDown = false;
-
+					
 				} else {
 					mPrimaryKey.mIsKeyDown = false;
 				}
-
+				
 				mIsDownEvent = false;
 			}
-
+			
 			mEventTime = time;
-
+			
 			this.mLastQueuedKey = keyCode;
-
+			
 			return newEvent;
 		} 
 	}
-
-	public EventKey getEventKey(final Integer keyCode) {
+	
+	public EventKey getEventKey(Integer keyCode) {
 		return mPrimaryKey.getKeyCode().equals(keyCode) ? mPrimaryKey :
 			mSecondaryKey.getKeyCode().equals(keyCode) ? mSecondaryKey :
 			mInvokedKey.getKeyCode().equals(keyCode) ? mInvokedKey : null;
@@ -202,7 +208,7 @@ public class EventManager {
 		case SECONDARY: return mSecondaryKey;
 		case INVOKED: return mInvokedKey;
 		}
-
+		
 		return null;
 	}
 
@@ -218,58 +224,58 @@ public class EventManager {
 		default:
 			break;
 		}
-
+		
 		return null;
 	}
-
+	
 	public Boolean isCombiEvent() {
 		return mIsCombiEvent;
 	}
-
+	
 	public Boolean isDownEvent() {
 		return mIsDownEvent;
 	}
-
+	
 	public Boolean isCallButtonEvent() {
 		return mIsCallButton;
 	}
-
+	
 	public Boolean isScreenOn() {
 		return mIsScreenOn;
 	}
-
+	
 	public Boolean hasExtendedFeatures() {
 		return mIsExtended;
 	}
-
+	
 	public Boolean hasOngoingKeyCodes() {
 		return mOnGoingKeyCodes.size() > 0;
 	}
 
 	public Boolean hasOngoingKeyCodes(Integer keyCode) {
-		return mOnGoingKeyCodes.contains(keyCode);
+		return mOnGoingKeyCodes.contains((Object) keyCode);
 	}
 
 	public Integer[] clearOngoingKeyCodes(Boolean returList) {
 		Integer[] keys = null; 
-
+		
 		if (returList) {
 			keys = mOnGoingKeyCodes.toArray(new Integer[mOnGoingKeyCodes.size()]);
 		}
-
+		
 		mOnGoingKeyCodes.clear();
-
+		
 		return keys;
 	}
 
 	public void addOngoingKeyCode(Integer keyCode) {
-		if (!mOnGoingKeyCodes.contains(keyCode)) {
+		if (!mOnGoingKeyCodes.contains((Object) keyCode)) {
 			mOnGoingKeyCodes.add(keyCode);
 		}
 	}
 
 	public void removeOngoingKeyCode(Integer keyCode) {
-		mOnGoingKeyCodes.remove(keyCode);
+		mOnGoingKeyCodes.remove((Object) keyCode);
 	}
 
 	private int getActionIndex(final ActionType atype) {
@@ -301,31 +307,31 @@ public class EventManager {
 	public Integer getTapTimeout() {
 		return mTapTimeout;
 	}
-
+	
 	public Integer getPressTimeout() {
 		return mPressTimeout;
 	}
-
+	
 	public Long getDownTime() {
 		return mDownTime;
 	}
-
+	
 	public Long getEventTime() {
 		return mEventTime;
 	}
-
+	
 	public State getState() {
 		return mState;
 	}
-
+	
 	public Integer getTapCount() {
 		return mTapCount;
 	}
-
+	
 	public String getCurrentApplication() {
 		return mCurrentApplication;
 	}
-
+	
 	public void cancelEvent() {
 		cancelEvent(false);
 	}
@@ -337,7 +343,7 @@ public class EventManager {
 			}
 		}
 	}
-
+	
 	public void invokeEvent() {
 		synchronized (mLock) {
 			if (mState == State.ONGOING) {
