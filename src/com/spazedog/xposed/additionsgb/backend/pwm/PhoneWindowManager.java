@@ -301,7 +301,7 @@ public final class PhoneWindowManager {
 
 					 * For those missing (like Omate TrueSmart) this is kind of a replacement.
 					 */
-					mMediator.powerHardResetTimer(keyCode, down);
+					mMediator.powerHardResetTimer(keyCode, down, mEventManager.getPressTimeout());
 					
 					if (mEventManager.registerKey(keyCode, down, mMediator.fixPolicyFlags(keyCode, policyFlags))) {
 						if(Common.debug()) Log.d(tag, "Starting a new event");

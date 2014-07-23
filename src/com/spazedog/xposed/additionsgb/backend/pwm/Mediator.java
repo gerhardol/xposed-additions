@@ -195,14 +195,19 @@ public final class Mediator {
 
 	private Map<Integer, Boolean> mDeviceIds = new HashMap<Integer, Boolean>();
 
-	private Runnable mPowerHardResetRunnable = new Runnable(){
+	private Runnable mPowerHardResetVibrateRunnable = new Runnable(){
 		@Override
 		public void run() {
 			long[] pattern = {50l, 100l, 50l, 50l};
 
 			Vibrator vibrator = (Vibrator) (((Context) mContext.getReceiver()).getSystemService(Context.VIBRATOR_SERVICE));
 			vibrator.vibrate(pattern, -1);
+		}
+	};
 
+	private Runnable mPowerHardResetRunnable = new Runnable(){
+		@Override
+		public void run() {
 			((PowerManager) mPowerManager.getReceiver()).reboot(null);
 		}
 	};
@@ -694,14 +699,19 @@ public final class Mediator {
 		}
 	}
 
-	protected void powerHardResetTimer(Integer keyCode, Boolean isKeyDown) {
-		if (keyCode.equals(KeyEvent.KEYCODE_POWER)) {
-			Integer delay = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_HARD_RESET, 8000);
-
-			if (isKeyDown && delay > 0) {
+	protected void powerHardResetTimer(Integer keyCode, Boolean isKeyDown, int pressTimeout) {
+		Integer delay = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_HARD_RESET, 15000);
+		if (delay > 0) {
+			if (keyCode.equals(KeyEvent.KEYCODE_POWER) && isKeyDown) {
+				int vibrateDelay = pressTimeout * 2 + 1000;
+				if (vibrateDelay < delay) {
+					mHandler.postDelayed(mPowerHardResetVibrateRunnable, vibrateDelay);
+				}
+				Log.d(TAG, "Rebooting in " + delay + "ms (if no other key events)");
 				mHandler.postDelayed(mPowerHardResetRunnable, delay);
 
-			} else if (delay > 0) {
+			} else {
+				mHandler.removeCallbacks(mPowerHardResetVibrateRunnable);
 				mHandler.removeCallbacks(mPowerHardResetRunnable);
 			}
 		}
