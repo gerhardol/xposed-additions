@@ -113,7 +113,10 @@ public class EventManager {
 					mState = State.PENDING;
 				}
 
-				if (mState == State.ONGOING && ((!mIsCombiEvent && keyCode.equals(mPrimaryKey.mKeyCode)) || (mIsCombiEvent && keyCode.equals(mSecondaryKey.mKeyCode)))) {
+				if (mState == State.ONGOING && mIsCombiEvent && keyCode.equals(mPrimaryKey.mKeyCode)) {
+					//Ignore primary keys for combi events
+
+				} else if (mState == State.ONGOING && ((!mIsCombiEvent && keyCode.equals(mPrimaryKey.mKeyCode)) || (mIsCombiEvent && keyCode.equals(mSecondaryKey.mKeyCode)))) {
 					mTapCount += 1;
 					
 					if (keyCode.equals(mSecondaryKey.mKeyCode)) {
@@ -169,7 +172,6 @@ public class EventManager {
 
 			} else {
 				if (keyCode.equals(mSecondaryKey.mKeyCode)) {
-					//Note: No sequence checks on key up, the first occurrence is used, the second is possibly ignored
 					mSecondaryKey.mIsKeyDown = false;
 					
 				} else {
