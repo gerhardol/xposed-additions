@@ -114,14 +114,13 @@ public class EventManager {
 				}
 
 				if (mState == State.ONGOING && ((!mIsCombiEvent && keyCode.equals(mPrimaryKey.mKeyCode)) || (mIsCombiEvent && keyCode.equals(mSecondaryKey.mKeyCode)))) {
-
-					if (keyCode == mSecondaryKey.mKeyCode) {
+					mTapCount += 1;
+					
+					if (keyCode.equals(mSecondaryKey.mKeyCode)) {
 						mSecondaryKey.mIsKeyDown = true;
-
+						
 					} else {
 						mPrimaryKey.mIsKeyDown = true;
-						//Increase repeat on primary only
-						mTapCount += 1;
 					}
 
 				} else if (mState != State.CANCELED && mState != State.PENDING && mPrimaryKey.isKeyDown() && !keyCode.equals(mPrimaryKey.mKeyCode) && (mSecondaryKey.mKeyCode.equals(0) || keyCode.equals(mSecondaryKey.mKeyCode))) {
@@ -166,15 +165,7 @@ public class EventManager {
 				if (newEvent) {
 					mIsCallButton = false;
 				}
-				
-				if (mTapCount == 0 || mPrimaryKey.mIsKeyDown) {
-					mIsDownEvent = true;
-				} else {
-
-
-					mIsDownEvent = false;
-				}
-				mIsCallButton = false;
+				mIsDownEvent = true;
 
 			} else {
 				if (keyCode.equals(mSecondaryKey.mKeyCode)) {

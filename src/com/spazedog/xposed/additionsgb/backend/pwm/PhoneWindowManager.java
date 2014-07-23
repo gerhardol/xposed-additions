@@ -83,7 +83,7 @@ public final class PhoneWindowManager {
 			}
 		}
 	}
-	/**
+
 	/**
 	 * This method is used to hook the original PhoneWindowManager.init() method. 
 	 * 
@@ -139,16 +139,15 @@ public final class PhoneWindowManager {
 									 * allowing us to control key timeout values that will affect the original class.
 									 */
 									ReflectClass wc = ReflectClass.forName("android.view.ViewConfiguration");
-
+		
 									wc.inject("getLongPressTimeout", hook_viewConfigTimeouts);
 									wc.inject("getGlobalActionKeyTimeout", hook_viewConfigTimeouts);
-									/*
 									/*
 									 * Create key class instances for key control
 									 */
 									mEventManager = new EventManager(mXServiceManager);
 									/*
-									/*
+
 									 * Add listener to receive broadcasts from the XService
 									 */
 									mXServiceManager.addBroadcastListener(listener_XServiceBroadcast);
@@ -174,7 +173,7 @@ public final class PhoneWindowManager {
 			);
 		}
 	};
-	/**
+
 	/**
 	 * A listener that is used used to receive key intercept requests from the settings part of the module.
 	 */
@@ -189,7 +188,7 @@ public final class PhoneWindowManager {
 			}
 		}
 	};
-	/**
+
 	/**
 	 * This does not really belong to the PhoneWindowManager class. 
 	 * It is used as a small hack to change some internal method behavior, without
@@ -221,7 +220,7 @@ public final class PhoneWindowManager {
 			}
 		}
 	};
-	/**
+
 	/**
 	 * This hook is used to make all of the preparations of key handling
 	 * 
@@ -241,18 +240,18 @@ public final class PhoneWindowManager {
 				Integer policyFlagsPos = methodVersion == 1 ? 5 : 1;
 				Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
 				Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
-				Integer repeatCount = methodVersion == 1 ? 0 : keyEvent.getRepeatCount();
+				Integer repeatCount = (Integer) (methodVersion == 1 ? 0 : keyEvent.getRepeatCount());
 				Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
 				Boolean down = action == KeyEvent.ACTION_DOWN;
 				String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
 
-				/*
+
 				/*
 				 * Using KitKat work-around from the InputManager Hook
 				 */
 				Boolean isInjected = Mediator.SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ? 
 						(((KeyEvent) param.args[0]).getFlags() & Mediator.ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & Mediator.ORIGINAL.FLAG_INJECTED) != 0;
-				/*
+
 				/*
 				 * The module should not handle injected keys. 
 				 * First of all, we inject keys our self and would create a loop. 
@@ -275,7 +274,7 @@ public final class PhoneWindowManager {
 						 */
 						param.args[policyFlagsPos] = policyFlags & ~Mediator.ORIGINAL.FLAG_INJECTED;
 					}
-				/*
+
 				/*
 				 * No need to do anything if the settings part of the module
 				 * has asked for the keys. However, do make sure that the screen is on.
@@ -289,7 +288,6 @@ public final class PhoneWindowManager {
 					} else if (mMediator.validateDeviceType(keyEvent == null ? keyCode : keyEvent)) {
 						Bundle bundle = new Bundle();
 						bundle.putInt("keyCode", keyCode);
-						/*
 						/*
 						 * Send the key back to the settings part
 						 */
@@ -307,11 +305,11 @@ public final class PhoneWindowManager {
 					
 					if (mEventManager.registerKey(keyCode, down, mMediator.fixPolicyFlags(keyCode, policyFlags))) {
 						if(Common.debug()) Log.d(tag, "Starting a new event");
-						/*
+
 						/*
 						 * Check to see if this is a new event (Which means not a continued tap event or a general key up event).
-						 */
 						/*
+
 						/*
 						 * Make sure that we have a valid and supported device type
 						 */
@@ -319,18 +317,18 @@ public final class PhoneWindowManager {
 							/*
 							 * Prepare the event information for this key or key combo.
 							 */
-							mEventManager.registerEvent(mMediator.getPackageNameFromStack(0, StackAction.INCLUDE_HOME), mMediator.isKeyguardLocked(), isScreenOn);
+							mEventManager.registerEvent(mMediator.getPackageNameFromStack(0, StackAction.INCLUDE_HOME), mMediator.isKeyguardShowing(), isScreenOn);
 							/*
 							/*
 							 * If the screen is off, it's a good idea to poke the device out of deep sleep. 
 							 */
-							if (!isScreenOn) {								
+							if (!isScreenOn) {
 								mMediator.pokeUserActivity(mEventManager.getDownTime(), false);
 							}
 							
 						} else {
 							if(Common.debug()) Log.d(tag, "The key is not valid, skipping...");
-							/*
+
 							/*
 							 * Don't handle this event
 							 */
@@ -364,33 +362,6 @@ public final class PhoneWindowManager {
 		}
 	};
 
-	
-	/**
-
-		if (resetAtPowerPress > 0) {
-
-			final long eventTime = mEventManager.getEventTime();
-			final int delay = resetAtPowerPress * 1000;
-
-			//Haptic feedback that reboot is pending
-			mMediator.mHandler.postDelayed(new Runnable() {
-				public void run() {
-					if (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && mEventManager.getLastQueuedKey() == keyCode) {
-						mMediator.performPowerPressNotification();
-					}
-				}
-			}, mEventManager.getPressTimeout()+1000);
-
-			mMediator.mHandler.postDelayed(new Runnable() {
-				public void run() {
-					if (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && mEventManager.getLastQueuedKey() == keyCode) {
-						mMediator.performPowerPressReset(resetAtPowerPress);
-					}
-				}
-			}, delay);
-		}
-	}
-
 	/**
 	 * This hook is used to do the actual handling of the keys
 	 * 
@@ -403,7 +374,6 @@ public final class PhoneWindowManager {
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			mActiveDispatching = true;
-
 			Integer methodVersion = Mediator.SDK.METHOD_INTERCEPT_VERSION;
 			KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[1];
 			Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
@@ -418,7 +388,7 @@ public final class PhoneWindowManager {
 			if (Common.debug()) {
 				Log.d(tag, "Getting event with state " + mEventManager.getState().name() + " which is an " + (mEventManager.getEventKey(keyCode) != null ? "ongoing" : "non-ongoing") + " event");
 			}
-			/*
+
 			/*
 			 * Using KitKat work-around from the InputManager Hook
 			 */
