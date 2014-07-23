@@ -308,7 +308,7 @@ public final class PhoneWindowManager {
 							/*
 							 * Prepare the event information for this key or key combo.
 							 */
-							mEventManager.registerEvent(mMediator.getPackageNameFromStack(0, StackAction.INCLUDE_HOME), mMediator.isKeyguardLocked(), isScreenOn);
+							mEventManager.registerEvent(mMediator.getPackageNameFromStack(0, StackAction.INCLUDE_HOME), mMediator.isKeyguardShowing(), isScreenOn);
 							
 							/*
 							 * If the screen is off, it's a good idea to poke the device out of deep sleep. 
