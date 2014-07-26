@@ -191,6 +191,7 @@ public final class PhoneWindowManager {
 	 * Like long press timeout for the power key when displaying the power menu. 
 	 * But since we cannot change code inside original methods in order to change this timeout, 
 	 * we instead change the output of the methods delivering that timeout value.
+	 * This timeout should be just longer than the inserted timeouts
 	 * 
 	 * Original Implementations:
 	 * 		- android.view.ViewConfiguration.getLongPressTimeout
@@ -369,7 +370,7 @@ public final class PhoneWindowManager {
 			 */
 			Boolean isInjected = SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ? 
 					(((KeyEvent) param.args[1]).getFlags() & ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & ORIGINAL.FLAG_INJECTED) != 0;
-			
+
 			if (isInjected) {
 				/*
 				 * When we disallow applications from getting the event, we also disable repeats. 
@@ -378,10 +379,11 @@ public final class PhoneWindowManager {
 				 * If we did not have to support GB, then we could have just returned the timeout to force repeat without global dispatching. 
 				 * But since we have GB to think about, this is the best solution. 
 				 */
-				if (down && key != null && key.getRepeatCount() > 0 && mEventManager.hasState(State.REPEATING) && mEventManager.isDownEvent()) {
+				if (down && key != null && mEventManager.hasState(State.REPEATING) && mEventManager.isDownEvent()) {
 					if(Common.debug()) Log.d(tag, "Injecting a new repeat " + key.getRepeatCount());
 					
-					Integer curTimeout = SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
+					Integer curTimeout = repeatCount==0 ? 0 : 
+						SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
 					Boolean continueEvent = mEventManager.waitForChange(curTimeout);
 					
 					synchronized(mQueueLock) {
@@ -458,7 +460,7 @@ public final class PhoneWindowManager {
 					key.release();
 				}
 				
-				if(Common.debug()) Log.d(tag, "Disabling default dispatching (" + mEventManager.mState.name() + ")");
+				if(Common.debug()) Log.d(tag, "Disabling default dispatching (" + mEventManager.mState.name() + ")"+ ":" + shortTime());
 				
 				param.setResult(ORIGINAL.DISPATCHING_REJECT);
 				
