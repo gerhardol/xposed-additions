@@ -63,9 +63,9 @@ public class EventKey {
 		return mManager.getLastQueuedKeyCode().equals(mKeyCode);
 	}
 
-	public Boolean isOnGoing() {
-		return mIsOnGoing;
-	}
+	//public Boolean isOnGoing() {
+	//	return mIsOnGoing;
+	//}
 	
 	public void invokeAndRelease() {
 		if (!mIsOnGoing) {
@@ -74,11 +74,11 @@ public class EventKey {
 				
 				if (combo != null && !combo.mKeyCode.equals(mKeyCode) && !combo.mIsOnGoing) {
 					combo.mIsOnGoing = true;
-					mManager.injectInputEvent(combo.mKeyCode, KeyEvent.ACTION_DOWN, 0L, 0L, 0, combo.mFlags, combo.mMetaState);
+					combo.injectInputEvent(KeyEvent.ACTION_DOWN);
 				}
 			}
 			
-			mManager.injectInputEvent(mKeyCode, KeyEvent.ACTION_MULTIPLE, 0L, 0L, 0, mFlags, mMetaState);
+			this.injectInputEvent(KeyEvent.ACTION_MULTIPLE);
 			
 		} else {
 			release();
@@ -93,25 +93,27 @@ public class EventKey {
 					
 					if (combo != null && !combo.mKeyCode.equals(mKeyCode) && !combo.mIsOnGoing) {
 						combo.mIsOnGoing = true;
-						mManager.injectInputEvent(combo.mKeyCode, KeyEvent.ACTION_DOWN, 0L, 0L, 0, combo.mFlags, combo.mMetaState);
+						combo.injectInputEvent(KeyEvent.ACTION_DOWN);
 					}
 				}
 
 				mIsOnGoing = true;
 			}
 
+			this.injectInputEvent(KeyEvent.ACTION_DOWN);
 			mRepeatCount += 1;
-			mManager.injectInputEvent(mKeyCode, KeyEvent.ACTION_DOWN, 0L, 0L, mRepeatCount-1, mFlags, mMetaState);
 		}
+	}
+	
+	public void injectInputEvent(Integer action) {
+		int repeatCount = (action == KeyEvent.ACTION_DOWN) ? mRepeatCount : 0;
+		mManager.injectInputEvent(mKeyCode, action, 0L, 0L, repeatCount, mFlags, mMetaState);
 	}
 	
 	public void release() {
 		if (mIsOnGoing) {
-			Boolean wasRepeat = mRepeatCount > 1;
-			
-			mRepeatCount = 0;
 			mIsOnGoing = false;
-			mManager.injectInputEvent(mKeyCode, KeyEvent.ACTION_UP, 0L, 0L, wasRepeat ? 1 : 0, mFlags, mMetaState);
+			this.injectInputEvent(KeyEvent.ACTION_UP);
 		}
 	}
 }
