@@ -88,9 +88,14 @@ public final class EventManager extends IEventMediator {
 			
 			if (isKeyDown) {
 				if (mState == State.ONGOING && !newKey) {
-					if(Common.debug()) Log.d(TAG, "Registering new tap event");
-					
-					mTapCount += 1;
+					//Increase tapCount on the last key (secondary, until more than 2 combinations are supported)
+					//the other key(s) are optional
+					if (mEventKeys.size() > 1 && keyCode != mEventKeys.getAt(mEventKeys.size()-1).getCode()) {
+						if(Common.debug()) Log.d(TAG, "Repeated tap event");						
+					} else {
+						if(Common.debug()) Log.d(TAG, "Registering new tap event");
+						mTapCount += 1;
+					}
 					
 				} else if (hasState(State.ONGOING, State.INVOKED) && getKeyCount() > 1 && isDownEvent()) {
 					if(Common.debug()) Log.d(TAG, "Registering new combo event");
@@ -130,7 +135,7 @@ public final class EventManager extends IEventMediator {
 					if (appCondition != null && mIsExtended) {
 						actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(appCondition), configName, null);
 					}
-					if(actions == null) {
+					if (actions == null) {
 						actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), configName, null);
 					}
 					if (actions == null) {
