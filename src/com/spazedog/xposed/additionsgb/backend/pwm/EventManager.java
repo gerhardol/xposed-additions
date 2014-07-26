@@ -123,22 +123,28 @@ public final class EventManager extends IEventMediator {
 					mTapTimeout = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_DOUBLECLICK, ViewConfiguration.getDoubleTapTimeout());
 					mPressTimeout = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_LONGPRESS, ViewConfiguration.getLongPressTimeout());
 					String appCondition = !isScreenOn ? null : isKeyguardShowing() ? "guard" : mIsExtended ? getPackageNameFromStack(0, StackAction.INCLUDE_HOME) : null;
-					List<String> actions = appCondition != null ? mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(appCondition), configName, null) : null;
-					
-					if ((getKeyCount() > (newKey ? 0 : 1) && !mIsExtended) || (actions == null && (actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), configName, null)) == null)) {
-						actions = new ArrayList<String>();
+					List<String> actions = null;
+					if (appCondition != null && mIsExtended) {
+						actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(appCondition), configName, null);
+					}
+					if (actions == null) {
+						actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), configName, null);
 					}
 					
-					actions = convertOldConfig(actions);
+					if (actions == null) {
+						actions = new ArrayList<String>();
+					}
 					
 					/*
 					 * TODO: Update the config file to produce the same output as convertOldConfig()
 					 */
+					actions = convertOldConfig(actions);
+					
 					for (int i=0,x=0,y=0; i < actions.size(); i++) {
 						/*
 						 * Only include Click and Long Press along with excluding Application Launch on non-pro versions
 						 */
-						String action = mIsExtended || (i < 2 && (actions.get(i) != null && actions.get(i).matches("^[a-z0-9_]+$"))) ? actions.get(i) : null;
+						String action = mIsExtended || (getKeyCount() == 1 && i < 2 && (actions.get(i) != null && actions.get(i).matches("^[a-z0-9_]+$"))) ? actions.get(i) : null;
 
 						if (i == 0 || (i % 2) == 0) {
 							mClickActions[x] = action; x += 1;
