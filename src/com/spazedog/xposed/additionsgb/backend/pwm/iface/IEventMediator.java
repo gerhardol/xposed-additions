@@ -1,5 +1,6 @@
 package com.spazedog.xposed.additionsgb.backend.pwm.iface;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 	public static enum StackAction { EXLUDE_HOME, INCLUDE_HOME, JUMP_HOME }
 	
 	private Map<Integer, Boolean> mDeviceIds = new HashMap<Integer, Boolean>();
+	private ArrayList<String> mDeviceTypes;
 	
 	private Runnable mPowerHardResetRunnable = new Runnable(){
 		@Override
@@ -74,9 +76,17 @@ public abstract class IEventMediator extends IMediatorSetup {
 		/*
 		 * If the settings change, we have to re-validate the keys
 		 */
-		if (!mDeviceIds.containsKey(allowExternals) || !mDeviceIds.get(allowExternals).equals(mXServiceManager.getBoolean(Settings.REMAP_ALLOW_EXTERNALS))) {
-			mDeviceIds.clear();
-			mDeviceIds.put(allowExternals, mXServiceManager.getBoolean(Settings.REMAP_ALLOW_EXTERNALS));
+		if (SDK.METHOD_INTERCEPT_VERSION > 1) {
+			if (mDeviceTypes == null || !mDeviceTypes.equals(mXServiceManager.getStringArray(Settings.REMAP_EXTERNALS_LIST, mDeviceTypes))) {
+				mDeviceIds.clear();
+				mDeviceTypes = (ArrayList<String>) mXServiceManager.getStringArray(Settings.REMAP_EXTERNALS_LIST, new ArrayList<String>());
+			}
+			
+		} else {
+			if (!mDeviceIds.containsKey(allowExternals) || !mDeviceIds.get(allowExternals).equals(mXServiceManager.getBoolean(Settings.REMAP_ALLOW_EXTERNALS))) {
+				mDeviceIds.clear();
+				mDeviceIds.put(allowExternals, mXServiceManager.getBoolean(Settings.REMAP_ALLOW_EXTERNALS));
+			}
 		}
 		
 		if (!mDeviceIds.containsKey(deviceId)) {
@@ -91,10 +101,11 @@ public abstract class IEventMediator extends IMediatorSetup {
 				 * Do not trust KeyCharacterMap.getKeyboardType() as it can easily display anything
 				 * as a FULL PC Keyboard. InputDevice.getKeyboardType() should be safer. 
 				 */
-				if ((device != null && device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC) || 
-						(source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-						(source & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD || 
-						(source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
+				if (device != null && (device.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC && !mDeviceTypes.contains("keyboard")) ||
+						(((source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
+						|| (source & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD
+						|| (source & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) 
+							&& !mDeviceTypes.contains("controller"))) {
 					
 					validated = false;
 				}
@@ -103,7 +114,10 @@ public abstract class IEventMediator extends IMediatorSetup {
 			/*
 			 * Now that we know that the device type is supported, let's see if we should handle external once.
 			 */
-			if (validated && !mDeviceIds.get(allowExternals)) {
+			if (validated && 
+					((SDK.METHOD_INTERCEPT_VERSION == 1 && !mDeviceIds.get(allowExternals)) 
+							|| (SDK.METHOD_INTERCEPT_VERSION > 1 && mDeviceTypes.isEmpty()))) {
+				
 				if (SDK.INPUT_DEVICESTORAGE_VERSION > 1) {
 					InputDevice device = keyEvent.getDevice();
 					
@@ -129,7 +143,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 	}
 	
 	@SuppressLint("NewApi")
-	public void injectInputEvent(Object event, Integer action, Long downTime, Long eventTime, Integer repeatCount, Integer flags) {
+	public void injectInputEvent(Object event, Integer action, Long downTime, Long eventTime, Integer repeatCount, Integer flags, Integer metaState) {
 		synchronized(PhoneWindowManager.class) {
 			KeyEvent keyEvent = null;
 			Integer[] actions = action == KeyEvent.ACTION_MULTIPLE ? new Integer[]{KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP} : new Integer[]{action};
@@ -157,7 +171,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 				keyEvent = KeyEvent.changeTimeRepeat((KeyEvent) event, time, repeatCount, flags);
 				
 			} else {
-				keyEvent = new KeyEvent(downTime, eventTime, actions[0], (Integer) event, repeatCount, 0, (SDK.INPUT_CHARACTERMAP_VERSION > 1 ? KeyCharacterMap.VIRTUAL_KEYBOARD : 0), 0, flags, InputDevice.SOURCE_KEYBOARD);
+				keyEvent = new KeyEvent(downTime, eventTime, actions[0], (Integer) event, repeatCount, metaState, (SDK.INPUT_CHARACTERMAP_VERSION > 1 ? KeyCharacterMap.VIRTUAL_KEYBOARD : 0), 0, flags, InputDevice.SOURCE_KEYBOARD);
 			}
 			
 			for (int i=0; i < actions.length; i++) {
@@ -355,7 +369,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 		}
 		
 		if (callCode > 0) {
-			injectInputEvent(callCode, KeyEvent.ACTION_MULTIPLE, 0L, 0L, 0, 0); return true;
+			injectInputEvent(callCode, KeyEvent.ACTION_MULTIPLE, 0L, 0L, 0, 0, 0); return true;
 		}
 		
 		return false;
@@ -683,7 +697,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 					sendBroadcast(new TaskerIntent(action.replace("tasker:", "")));
 				
 				} else {
-					injectInputEvent(Integer.parseInt(action), KeyEvent.ACTION_MULTIPLE, eventDownTime, 0L, 0, policyFlags);
+					injectInputEvent(Integer.parseInt(action), KeyEvent.ACTION_MULTIPLE, eventDownTime, 0L, 0, policyFlags, 0);
 				}
 			}
 		});
