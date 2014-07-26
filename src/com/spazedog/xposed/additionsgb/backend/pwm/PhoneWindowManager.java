@@ -220,8 +220,8 @@ public final class PhoneWindowManager {
 			Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
 			Object keyObject = keyEvent == null ? keyCode : keyEvent;
 			Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
-			Integer policyFlags = (Integer) (methodVersion == 1 ? param.args[5] : param.args[1]);
 			Integer policyFlagsPos = methodVersion == 1 ? 5 : 1;
+			Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
 			Integer repeatCount = (Integer) (methodVersion == 1 ? 0 : keyEvent.getRepeatCount());
 			Integer metaState = (Integer) (methodVersion == 1 ? 0 : keyEvent.getMetaState());
 			Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
@@ -357,8 +357,8 @@ public final class PhoneWindowManager {
 			KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[1];
 			Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
 			Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
-			Integer policyFlags = (Integer) (methodVersion == 1 ? param.args[7] : param.args[2]);
 			Integer policyFlagsPos = methodVersion == 1 ? 7 : 2;
+			Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
 			Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
 			Boolean down = action == KeyEvent.ACTION_DOWN;
 			EventKey key = mEventManager.getKey(keyCode);
