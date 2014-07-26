@@ -3,6 +3,7 @@ package com.spazedog.xposed.additionsgb.backend.pwm;
 import java.util.ArrayList;
 import java.util.List;
 
+import android.annotation.SuppressLint;
 import android.util.Log;
 import android.view.ViewConfiguration;
 
@@ -31,9 +32,10 @@ public final class EventManager extends IEventMediator {
 	private Integer mTapTimeout = 0;
 	private Integer mPressTimeout = 0;
 	
-	private String[] mClickActions = new String[3];
-	private String[] mPressActions = new String[3];
-	
+	protected static final int maxActions = 3 * IEventMediator.ActionType.values().length;
+	//actions in the order they appear: press 1, tap 1, press 2, tap 2 etc
+	private String[] mKeyActions = new String[maxActions];
+
 	private final Object mEventLock = new Object();
 
 	protected EventManager(ReflectClass pwm, XServiceManager xServiceManager) {
@@ -122,15 +124,15 @@ public final class EventManager extends IEventMediator {
 					mIsCallButton = mXServiceManager.getBooleanGroup(Settings.REMAP_KEY_ENABLE_CALLBTN, configName);
 					mTapTimeout = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_DOUBLECLICK, ViewConfiguration.getDoubleTapTimeout());
 					mPressTimeout = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_LONGPRESS, ViewConfiguration.getLongPressTimeout());
+
 					String appCondition = !isScreenOn ? null : isKeyguardShowing() ? "guard" : mIsExtended ? getPackageNameFromStack(0, StackAction.INCLUDE_HOME) : null;
 					List<String> actions = null;
 					if (appCondition != null && mIsExtended) {
 						actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(appCondition), configName, null);
 					}
-					if (actions == null) {
+					if(actions == null) {
 						actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), configName, null);
 					}
-					
 					if (actions == null) {
 						actions = new ArrayList<String>();
 					}
@@ -138,19 +140,16 @@ public final class EventManager extends IEventMediator {
 					/*
 					 * TODO: Update the config file to produce the same output as convertOldConfig()
 					 */
-					actions = convertOldConfig(actions);
-					
-					for (int i=0,x=0,y=0; i < actions.size(); i++) {
-						/*
-						 * Only include Click and Long Press along with excluding Application Launch on non-pro versions
-						 */
-						String action = mIsExtended || (getKeyCount() == 1 && i < 2 && (actions.get(i) != null && actions.get(i).matches("^[a-z0-9_]+$"))) ? actions.get(i) : null;
+					mKeyActions = convertOldConfig(actions);
 
-						if (i == 0 || (i % 2) == 0) {
-							mClickActions[x] = action; x += 1;
-							
-						} else {
-							mPressActions[y] = action; y += 1;
+					if (!mIsExtended) {
+						for (int i=0; i < maxActions; i++) {
+							/*
+							 * Only include Click and Long Press along with excluding Application Launch on non-pro versions
+							 */
+							if (getKeyCount() != 1 || i >= 2 || (mKeyActions[i] != null && !mKeyActions[i].matches("^[a-z0-9_]+$"))) {
+								mKeyActions[i] = null;
+							}
 						}
 					}
 					
@@ -163,7 +162,8 @@ public final class EventManager extends IEventMediator {
 		}
 	}
 	
-	private List<String> convertOldConfig(List<String> oldConfig) {
+	@SuppressLint("Assert")
+	private String[] convertOldConfig(List<String> oldConfig) {
 		/*
 		 * This is a tmp method that will be used until
 		 * such time where the config file is updated to produce
@@ -180,13 +180,13 @@ public final class EventManager extends IEventMediator {
 		 *  - 4 = Triple Click
 		 *  - 5 = Triple Long Press
 		 */
-		Integer[] newLocations = new Integer[]{0,2,1,3,4,5};
-		List<String> newConfig = new ArrayList<String>(newLocations.length);
+		Integer[] newLocations = new Integer[]{2,0,3,1,5,4};
+		assert maxActions == newLocations.length;
+		String[] newConfig = new String[newLocations.length];
 		
 		for (int i=0; i < newLocations.length; i++) {
 			Integer x = newLocations[i];
-			
-			newConfig.add(oldConfig.size() > x ? oldConfig.get(x) : null);
+			newConfig[i] = (oldConfig.size() > x ? oldConfig.get(x) : null);
 		}
 		
 		return newConfig;
@@ -244,20 +244,26 @@ public final class EventManager extends IEventMediator {
 		return mTapTimeout;
 	}
 
-	public String getAction(ActionType type) {
-		switch (type) {
-			case PRESS: return mTapCount < mPressActions.length ? mPressActions[mTapCount] : null;
-			default: return mTapCount < mClickActions.length ? mClickActions[mTapCount] : null;
-		}
+	private int getActionIndex(final ActionType atype) {
+		int index = mTapCount * 2;
+		if (atype == ActionType.CLICK) {index++;}
+		return index;
+	}
+
+	public String getAction(final ActionType atype) {
+		final int index = getActionIndex(atype);
+		if (index >= mKeyActions.length) { return null; }
+		return mKeyActions[index];
 	}
 	
 	public Boolean hasMoreActions() {
-		for (int i=mTapCount+1; i < 3; i++) {
-			if (mClickActions[i] != null || mPressActions[i] != null) {
+		int index = 1 + getActionIndex(ActionType.CLICK);
+		while (index < maxActions) {
+			if (mKeyActions[index] != null) {
 				return true;
 			}
+			index++;
 		}
-		
 		return false;
 	}
 	
