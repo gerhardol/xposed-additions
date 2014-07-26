@@ -38,6 +38,7 @@ public class EventManager {
 	private Integer mTapCount = 0;
 	private Long mEventTime = 0L;
 	private Long mDownTime = 0L;
+	private Long mUniqueId = 0L;
 
 	private Boolean mIsScreenOn = true;
 	private String mCurrentApplication;
@@ -182,6 +183,9 @@ public class EventManager {
 			}
 			
 			mEventTime = time;
+			Long prevId = mUniqueId;
+			mUniqueId = mEventTime;
+			if (prevId == mUniqueId) { mUniqueId += 1; }
 			
 			this.mLastQueuedKey = keyCode;
 			
@@ -219,6 +223,10 @@ public class EventManager {
 		}
 		
 		return null;
+	}
+	
+	public Long getUniqueId() {
+		return mUniqueId;
 	}
 	
 	public Boolean isCombiEvent() {

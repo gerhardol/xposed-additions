@@ -417,24 +417,31 @@ public final class PhoneWindowManager {
 					final int longLongPressDelay = 2 * mEventManager.getPressTimeout(); //Wait 2 times normal long press
 					Integer curTimeout = (repeatCount == 0) ? (mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION ? longLongPressDelay : 0) :
 						SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
-						final long eventTime = mEventManager.getEventTime();
-					
+						final long eventId;
+						synchronized(mQueueLock) {
+							if (mEventManager.getState() == State.INVOKED && mEventManager.isDownEvent() && key.getKeyCode() == keyCode) {
+								eventId = mEventManager.getUniqueId();
+							} else {
+								eventId = 0;
+							}
+						}
+
 						do {
 							try {
 								Thread.sleep(1);
-							
-						} catch (Throwable e) {}
-						
+
+							} catch (Throwable e) {}
+
 							curTimeout -= 1;
-						
-						} while (mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode && curTimeout > 0);
+
+						} while (mEventManager.getUniqueId() == eventId && curTimeout > 0);
 					
 						synchronized(mQueueLock) {
 							//Note: There is a possibility that the ROM inserts repeats when the timeout expires, why hook_viewConfigTimeouts
 							//must set slightly longer times than used here
 							//The full solution is to save the event time for for the repeat event and check that before inserting 
 
-							if (mEventManager.getState() == State.INVOKED && mEventManager.isDownEvent() && mEventManager.getEventTime() == eventTime && key.getKeyCode() == keyCode) {
+							if (mEventManager.getUniqueId() == eventId && curTimeout <= 0) {
 								mMediator.injectInputEvent(key.getKeyCode(), KeyEvent.ACTION_DOWN, mEventManager.getDownTime(), mEventManager.getEventTime(), repeatCount+1, key.getPolicFlags());
 							}
 						}
@@ -453,6 +460,14 @@ public final class PhoneWindowManager {
 				if(Common.debug()) Log.d(tag, "Waiting on long press timeout");
 				
 				Integer pressTimeout = mEventManager.getPressTimeout();
+				final long eventId;
+				synchronized(mQueueLock) {
+					if (mEventManager.getState() == State.ONGOING && mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode) {
+						eventId = mEventManager.getUniqueId();
+					} else {
+						eventId = 0;
+					}
+				}
 				
 				do {
 					try {
@@ -462,10 +477,10 @@ public final class PhoneWindowManager {
 
 					pressTimeout -= 1;
 					
-				} while (mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && pressTimeout > 0);
+				} while (mEventManager.getUniqueId() == eventId && pressTimeout > 0);
 				
 				synchronized(mQueueLock) {
-					if (mEventManager.getState() == State.ONGOING && mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode) {
+					if (mEventManager.getUniqueId() == eventId) {
 						String eventAction = mEventManager.getAction(ActionType.PRESS);
 						if (Common.debug()) Log.d(tag, shortTime() + " Invoking long press action: " + eventAction);
 
@@ -540,6 +555,15 @@ public final class PhoneWindowManager {
 				}
 
 			} else if (!down && key != null && mEventManager.getState() == State.ONGOING && mEventManager.getLastQueuedKey() == keyCode) {
+				final long eventId;
+				synchronized(mQueueLock) {
+					if (!mEventManager.hasMoreAction(ActionType.CLICK, true) || mEventManager.getState() == State.ONGOING && !mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode) {
+						eventId = mEventManager.getUniqueId();
+					} else {
+						eventId = 0;
+					}
+				}
+				
 				if (mEventManager.hasMoreAction(ActionType.CLICK, true)) {
 					if(Common.debug()) Log.d(tag, "Waiting on tap timeout");
 					
@@ -553,11 +577,11 @@ public final class PhoneWindowManager {
 
 						tapTimeout -= 1;
 						
-					} while (!mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode && tapTimeout > 0);
+					} while (mEventManager.getUniqueId() == eventId && tapTimeout > 0);
 				}
 					
 				synchronized(mQueueLock) {
-					if (mEventManager.getState() == State.ONGOING && !mEventManager.isDownEvent() && mEventManager.getLastQueuedKey() == keyCode) {
+					if (mEventManager.getUniqueId() == eventId) {
 						final String eventAction = mEventManager.getAction(ActionType.CLICK);
 						if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: " + eventAction);
 
