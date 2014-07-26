@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
@@ -36,6 +37,13 @@ public final class PhoneWindowManager {
 	private Boolean mActiveDispatching = false;
 	
 	private final Object mQueueLock = new Object();
+
+	/**
+	 * Get a short timestamp to debug events
+	 */
+	private static int shortTime() {
+		return (int)(SystemClock.uptimeMillis() % 10000);
+	}
 
 	/**
 	 * This is a static initialization method.
@@ -218,7 +226,7 @@ public final class PhoneWindowManager {
 			Integer metaState = (Integer) (methodVersion == 1 ? 0 : keyEvent.getMetaState());
 			Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
 			Boolean down = action == KeyEvent.ACTION_DOWN;
-			String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
+			String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
 			
 			Long downTime = methodVersion == 1 ? (((Long) param.args[0]) / 1000) / 1000 : keyEvent.getDownTime();
 			Long eventTime = android.os.SystemClock.uptimeMillis();
@@ -354,7 +362,7 @@ public final class PhoneWindowManager {
 			Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
 			Boolean down = action == KeyEvent.ACTION_DOWN;
 			EventKey key = mEventManager.getKey(keyCode);
-			String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
+			String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
 			
 			/*
 			 * Using KitKat work-around from the InputManager Hook
@@ -399,11 +407,11 @@ public final class PhoneWindowManager {
 						
 						synchronized(mQueueLock) {
 							if (continueEvent && key.isLastQueued() && key.isPressed()) {
-								String eventAction = mEventManager.getAction(ActionType.PRESS);
 								mEventManager.setState(State.INVOKED);
+								String eventAction = mEventManager.getAction(ActionType.PRESS);
+								if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press action: '" + (eventAction != null ? eventAction : "") + "'");
 								
 								if (eventAction == null || !mEventManager.handleKeyAction(eventAction, ActionType.PRESS, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.isCallButton(), mEventManager.getEventTime(), 0)) {
-									if(Common.debug()) Log.d(tag, "Invoking default long press action");
 									
 									mEventManager.setState(State.REPEATING);
 									key.invoke();
@@ -418,8 +426,6 @@ public final class PhoneWindowManager {
 									
 									return;
 								}
-								
-								if(Common.debug()) Log.d(tag, "Invoking custom long press action");
 							}
 						}
 						
@@ -437,13 +443,9 @@ public final class PhoneWindowManager {
 
 						synchronized(mQueueLock) {
 							if (continueEvent && key.isLastQueued() && !key.isPressed()) {
-								if(Common.debug()) Log.d(tag, "Invoking Click Event");
-								
 								mEventManager.setState(State.INVOKED);
-
 								String eventAction = mEventManager.getAction(ActionType.CLICK);
-								
-								if(Common.debug()) Log.d(tag, "Using action '" + (eventAction != null ? eventAction : "") + "'");
+								if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: '" + (eventAction != null ? eventAction : "") + "'");
 								
 								if (!mEventManager.handleKeyAction(eventAction, ActionType.CLICK, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.isCallButton(), mEventManager.getEventTime(), mEventManager.getTapCount() == 0 ? key.getFlags() : 0)) {
 									key.invokeAndRelease();
