@@ -15,7 +15,7 @@
     <application
         android:icon="@drawable/ic_launcher"
         android:label="Xposed Additions"
-        android:theme="@style/AppTheme" >
+        android:theme="@style/AppTheme" android:allowBackup="true">
         
         <meta-data android:value="true" android:name="xposedmodule" />
         <meta-data android:value="30+" android:name="xposedminversion" />
