@@ -327,7 +327,7 @@ public final class PhoneWindowManager {
 						mEventManager.performHapticFeedback(keyObject, HapticFeedbackConstants.VIRTUAL_KEY, policyFlags);
 					}
 					
-					if(Common.debug()) Log.d(tag, "Parsing the event to the queue (" + mEventManager.mState.name() + ")");
+					if(Common.debug()) Log.d(tag, "Passing the event to the queue (" + mEventManager.mState.name() + ")");
 					
 					param.setResult(ORIGINAL.QUEUEING_ALLOW);
 				}
@@ -420,7 +420,7 @@ public final class PhoneWindowManager {
 									 * The first one MUST be dispatched throughout the system.
 									 * Applications can ONLY start tracking from the original event object.
 									 */
-									if(Common.debug()) Log.d(tag, "Parsing event to the dispatcher");
+									if(Common.debug()) Log.d(tag, "Passing event to the dispatcher");
 									
 									param.setResult(ORIGINAL.DISPATCHING_ALLOW); 
 									
