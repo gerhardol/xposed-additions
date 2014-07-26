@@ -290,7 +290,7 @@ public final class PhoneWindowManager {
 					 * Most ROM reboots after holding Power for 8-12s.
 					 * For those missing (like Omate TrueSmart) this is kind of a replacement.
 					 */
-					mEventManager.powerHardResetTimer(keyCode, down);
+					mEventManager.powerHardResetTimer(keyCode, down, mEventManager.getPressTimeout());
 					
 					if (mEventManager.registerKey(keyCode, down, isScreenOn, policyFlags, metaState, downTime, eventTime)) {
 						if(Common.debug()) Log.d(tag, "Starting a new event");
