@@ -1,6 +1,7 @@
 package com.spazedog.xposed.additionsgb.backend.pwm;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import android.annotation.SuppressLint;
@@ -9,6 +10,7 @@ import android.view.ViewConfiguration;
 
 import com.spazedog.lib.reflecttools.ReflectClass;
 import com.spazedog.xposed.additionsgb.Common;
+import com.spazedog.xposed.additionsgb.backend.pwm.EventKey.EventKeyType;
 import com.spazedog.xposed.additionsgb.backend.pwm.iface.IEventMediator;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
 import com.spazedog.xposed.additionsgb.configs.Settings;
@@ -16,13 +18,16 @@ import com.spazedog.xposed.additionsgb.tools.MapList;
 
 public final class EventManager extends IEventMediator {
 	
-	public static enum State { PENDING, ONGOING, REPEATING, INVOKED }
+	public static enum State { PENDING, ONGOING, INVOKED }
+	public static enum LongPressType { NONE, DEFAULT_ACTION, CUSTOM_ACTION }
 	
 	private final MapList<Integer, EventKey> mEventKeys = new MapList<Integer, EventKey>();
+	private final MapList<Integer, EventKey> mInvokedKeys = new MapList<Integer, EventKey>();
 	private final List<EventKey> mKeyCache = new ArrayList<EventKey>();
 	
 	private Integer mLastQueued = 0;
 	public State mState = State.PENDING;
+	private LongPressType mLongPress = LongPressType.NONE;
 	private Integer mTapCount = 0;
 	private Long mEventTime = 0L;
 	
@@ -30,7 +35,7 @@ public final class EventManager extends IEventMediator {
 	private Boolean mIsExtended = false;
 	private Boolean mIsCallButton = false;
 	private Integer mTapTimeout = 0;
-	private Integer mPressTimeout = 0;
+	private Integer mPressTimeout = 500; //Hardcode default value, used in determing vality of event
 	
 	protected static final int maxActions = 3 * IEventMediator.ActionType.values().length;
 	//actions in the order they appear: press 1, tap 1, press 2, tap 2 etc
@@ -42,41 +47,44 @@ public final class EventManager extends IEventMediator {
 		super(pwm, xServiceManager);
 	}
 	
-	private EventKey initiateEventKey(Integer keyCode, Boolean isKeyDown, Integer policyFlags, Integer metaState, Long downTime) {
+	public EventKey initiateKey(Integer keyCode, Boolean isKeyDown, Integer policyFlags, Integer metaState, Long downTime, EventKeyType keyType) {
+		final MapList<Integer, EventKey> keys = getKeyMapList(keyType);
 		synchronized(mEventLock) {
-			EventKey eventKey = mEventKeys.get(keyCode);
+			EventKey eventKey = keys.get(keyCode);
 			
 			if (eventKey == null) {
 				eventKey = mKeyCache.size() > 0 ? mKeyCache.remove(0) : new EventKey(this);
 
-				mEventKeys.put(keyCode, eventKey);
+				keys.put(keyCode, eventKey);
 			}
 			
 			if (isKeyDown) {
 				eventKey.initiateInstance(keyCode, fixPolicyFlags(keyCode, policyFlags), metaState, downTime);
 			}
 			
-			eventKey.updateInstance(isKeyDown);
+			eventKey.updateInstance(isKeyDown, keyType);
 			
 			return eventKey;
 		}
 	}
-	
-	private void recycleEventKeys() {
+
+	public void recycleKeys(EventKeyType keyType) {
+		final MapList<Integer, EventKey> keys = getKeyMapList(keyType);
 		synchronized(mEventLock) {
-			for (Integer key : mEventKeys.keySet()) {
-				mKeyCache.add(mEventKeys.get(key));
+			for (Integer key : keys.keySet()) {
+				mKeyCache.add(keys.get(key));
 			}
 			
-			mEventKeys.clear();
+			keys.clear();
 		}
 	}
-	
+
 	public Boolean registerKey(Integer keyCode, Boolean isKeyDown, Boolean isScreenOn, Integer policyFlags, Integer metaState, Long downTime, Long eventTime) {
 		synchronized(mEventLock) {
-			if (isKeyDown && (eventTime - mEventTime) > 1500) { // 1000 + Default Android Long Press timeout
+			if (isKeyDown && (eventTime - mEventTime) > 1000 + getLongLongPressDelay()) { // 1000 + longest handled timeout
 				releaseAllKeys();
-				recycleEventKeys();
+				recycleKeys(EventKeyType.DEVICE);
+				recycleKeys(EventKeyType.INVOKED);
 			}
 			
 			mLastQueued = keyCode;
@@ -84,7 +92,7 @@ public final class EventManager extends IEventMediator {
 			Boolean newEvent = false;
 			Boolean newKey = !mEventKeys.containsKey(keyCode);
 			
-			initiateEventKey(keyCode, isKeyDown, policyFlags, metaState, downTime);
+			initiateKey(keyCode, isKeyDown, policyFlags, metaState, downTime, EventKeyType.DEVICE);
 			
 			if (isKeyDown) {
 				if (mState == State.ONGOING && !newKey) {
@@ -97,7 +105,8 @@ public final class EventManager extends IEventMediator {
 						mTapCount += 1;
 					}
 					
-				} else if (hasState(State.ONGOING, State.INVOKED) && getKeyCount() > 1 && isDownEvent()) {
+				//TODO: Original code checked hasState(State.ONGOING, State.INVOKED), reason?
+				} else if (mState == State.ONGOING && getKeyCount(EventKeyType.DEVICE) > 1 && isDownEvent()) {
 					if(Common.debug()) Log.d(TAG, "Registering new combo event");
 					
 					mTapCount = 0;
@@ -106,9 +115,9 @@ public final class EventManager extends IEventMediator {
 				} else {
 					if(Common.debug()) Log.d(TAG, "Registering new single event");
 					
-					if (getKeyCount() > 1) {
-						recycleEventKeys();
-						initiateEventKey(keyCode, isKeyDown, policyFlags, metaState, downTime);
+					if (getKeyCount(EventKeyType.DEVICE) > 1) {
+						recycleKeys(EventKeyType.DEVICE);
+						initiateKey(keyCode, isKeyDown, policyFlags, metaState, downTime, EventKeyType.DEVICE);
 					}
 					
 					mTapCount = 0;
@@ -124,6 +133,7 @@ public final class EventManager extends IEventMediator {
 					
 					if(Common.debug()) Log.d(TAG, "Getting actions for the key combo '" + configName + "'");
 					
+					mState = State.ONGOING;
 					mIsScreenOn = isScreenOn;
 					mIsExtended = mXServiceManager.isPackageUnlocked();
 					mIsCallButton = mXServiceManager.getBooleanGroup(Settings.REMAP_KEY_ENABLE_CALLBTN, configName);
@@ -152,7 +162,7 @@ public final class EventManager extends IEventMediator {
 							/*
 							 * Only include Click and Long Press along with excluding Application Launch on non-pro versions
 							 */
-							if (getKeyCount() != 1 || i >= 2 || (mKeyActions[i] != null && !mKeyActions[i].matches("^[a-z0-9_]+$"))) {
+							if (getKeyCount(EventKeyType.DEVICE) != 1 || i >= 2 || (mKeyActions[i] != null && !mKeyActions[i].matches("^[a-z0-9_]+$"))) {
 								mKeyActions[i] = null;
 							}
 						}
@@ -209,6 +219,10 @@ public final class EventManager extends IEventMediator {
 		return count > 0;
 	}
 	
+	public Integer getLongLongPressDelay() {
+		return 2 * mPressTimeout;
+	}
+
 	public Integer getTapCount() {
 		return mTapCount;
 	}
@@ -217,16 +231,29 @@ public final class EventManager extends IEventMediator {
 		return mEventTime;
 	}
 	
-	public Integer getKeyCount() {
-		return mEventKeys.size();
+	private MapList<Integer, EventKey> getKeyMapList(EventKeyType keyType) {
+		final MapList<Integer, EventKey> keys;
+		if (keyType == EventKeyType.INVOKED) {
+			keys = mInvokedKeys;
+		} else {
+			keys = mEventKeys;			
+		}
+		return keys;
+	}
+
+	public Integer getKeyCount(EventKeyType keyType) {
+		final MapList<Integer, EventKey> keys = getKeyMapList(keyType);
+		return keys.size();
 	}
 	
-	public EventKey getKey(Integer keyCode) {
-		return mEventKeys.get(keyCode);
+	public EventKey getKey(Integer keyCode, EventKeyType keyType) {
+		final MapList<Integer, EventKey> keys = getKeyMapList(keyType);
+		return keys.get(keyCode);
 	}
 	
-	public EventKey getKeyAt(Integer keyIndex) {
-		return mEventKeys.getAt(keyIndex);
+	public Collection<EventKey> getKeys(EventKeyType keyType) {
+		final MapList<Integer, EventKey> keys = getKeyMapList(keyType);
+		return keys.values();
 	}
 	
 	public Boolean isCallButton() {
@@ -288,18 +315,25 @@ public final class EventManager extends IEventMediator {
 		
 		return false;
 	}
-	
-	public Integer getKeyCodePosition(Integer keyCode) {
-		return mEventKeys.indexOf(keyCode);
+
+	public LongPressType getLongPress() {
+		return mLongPress;
 	}
-	
+
+	public void setLongPress(LongPressType longPress) {
+		mLongPress = longPress;
+	}
+
 	public Integer getLastQueuedKeyCode() {
 		return mLastQueued;
 	}
 	
 	public void releaseAllKeys() {
-		for (int i=0; i < mEventKeys.size(); i++) {
-			mEventKeys.getAt(i).release();
+		for (EventKey key: mEventKeys.values()) {
+			key.release();
+		}
+		for (EventKey key: mInvokedKeys.values()) {
+			key.release();
 		}
 	}
 	

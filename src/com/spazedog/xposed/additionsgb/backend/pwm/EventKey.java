@@ -3,6 +3,7 @@ package com.spazedog.xposed.additionsgb.backend.pwm;
 import android.view.KeyEvent;
 
 public class EventKey {
+	public static enum EventKeyType { DEVICE, INVOKED }
 	
 	private Long mDownTime;
 	private Integer mKeyCode;
@@ -11,6 +12,7 @@ public class EventKey {
 	private Integer mRepeatCount;
 	private Boolean mIsPressed;
 	private Boolean mIsOnGoing;
+	private EventKeyType mKeyType;
 	
 	private EventManager mManager;
 	
@@ -25,19 +27,21 @@ public class EventKey {
 		mFlags = flags;
 		mMetaState = metaState;
 		mDownTime = downTime;
+		mKeyType = EventKeyType.DEVICE;
 	}
 	
-	protected void updateInstance(Boolean pressed) {
+	protected void updateInstance(Boolean pressed, EventKeyType keyType) {
 		mIsPressed = pressed;
+		mKeyType = keyType;
 	}
 	
-	public Long getDownTime() {
-		return mDownTime;
-	}
+	//public Long getDownTime() {
+	//	return mDownTime;
+	//}
 
-	public Integer getPosition() {
-		return mManager.getKeyCodePosition(mKeyCode);
-	}
+	//public Integer getPosition() {
+	//	return mManager.getKeyCodePosition(mKeyCode);
+	//}
 
 	public Integer getCode() {
 		return mKeyCode;
@@ -47,32 +51,31 @@ public class EventKey {
 		return mFlags;
 	}
 	
-	public Integer getMetaState() {
-		return mMetaState;
-	}
+	//public Integer getMetaState() {
+	//	return mMetaState;
+	//}
 
-	public Integer getRepeatCount() {
-		return mRepeatCount;
-	}
+	//public Integer getRepeatCount() {
+	//	return mRepeatCount;
+	//}
 
 	public Boolean isPressed() {
 		return mIsPressed;
 	}
 
 	public Boolean isLastQueued() {
-		return mManager.getLastQueuedKeyCode().equals(mKeyCode);
+		return (mKeyType == EventKeyType.DEVICE) && mManager.getLastQueuedKeyCode().equals(mKeyCode);
 	}
 
 	//public Boolean isOnGoing() {
 	//	return mIsOnGoing;
 	//}
-	
+
 	public void invokeAndRelease() {
 		if (!mIsOnGoing) {
-			for (int i=0; i < mManager.getKeyCount(); i++) {
-				EventKey combo = mManager.getKeyAt(i);
-				
-				if (combo != null && !combo.mKeyCode.equals(mKeyCode) && !combo.mIsOnGoing) {
+			for (EventKey combo: mManager.getKeys(mKeyType)) {
+
+				if (!combo.mKeyCode.equals(mKeyCode) && !combo.mIsOnGoing) {
 					combo.mIsOnGoing = true;
 					combo.injectInputEvent(KeyEvent.ACTION_DOWN);
 				}
@@ -88,10 +91,9 @@ public class EventKey {
 	public void invoke() {
 		if (mIsPressed) {
 			if (!mIsOnGoing) {
-				for (int i=0; i < mManager.getKeyCount(); i++) {
-					EventKey combo = mManager.getKeyAt(i);
-					
-					if (combo != null && !combo.mKeyCode.equals(mKeyCode) && !combo.mIsOnGoing) {
+				for (EventKey combo: mManager.getKeys(mKeyType)) {
+
+					if (!combo.mKeyCode.equals(mKeyCode) && !combo.mIsOnGoing) {
 						combo.mIsOnGoing = true;
 						combo.injectInputEvent(KeyEvent.ACTION_DOWN);
 					}

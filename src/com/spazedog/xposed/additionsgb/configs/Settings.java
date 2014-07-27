@@ -20,7 +20,9 @@ public class Settings {
 	public static final String DEBUG_ENABLE_LOGGING = "enable_debug";
 	public static final String REMAP_ALLOW_EXTERNALS = "remap_allow_externals";
 	public static final String REMAP_EXTERNALS_LIST = "remap_externals_list";
-	
+	//Hidden setting to get feedback for longpress
+	public static final String ENABLE_LONGPRESS_FEEDBACK = "enable_longpress_feedback";	
+
 	public static final String LAYOUT_GLOBAL_ROTATION_BLACKLIST = "layout_rotation_blacklist";
 	public static final String REMAP_LIST_KEYS = "remap_keys";
 	public static final String REMAP_LIST_FORCED_HAPTIC = "forced_haptic_keys";

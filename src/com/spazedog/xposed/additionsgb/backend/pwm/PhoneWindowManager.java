@@ -16,6 +16,8 @@ import android.view.ViewConfiguration;
 import com.spazedog.lib.reflecttools.ReflectClass;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.xposed.additionsgb.Common;
+import com.spazedog.xposed.additionsgb.backend.pwm.EventKey.EventKeyType;
+import com.spazedog.xposed.additionsgb.backend.pwm.EventManager.LongPressType;
 import com.spazedog.xposed.additionsgb.backend.pwm.EventManager.State;
 import com.spazedog.xposed.additionsgb.backend.pwm.iface.IEventMediator.ActionType;
 import com.spazedog.xposed.additionsgb.backend.pwm.iface.IMediatorSetup.ORIGINAL;
@@ -200,8 +202,15 @@ public final class PhoneWindowManager {
 	private final XC_MethodHook hook_viewConfigTimeouts = new XC_MethodHook() {
 		@Override
 		protected final void afterHookedMethod(final MethodHookParam param) {
-			if (mEventManager.hasState(State.REPEATING) && mEventManager.isDownEvent()) {
-				param.setResult(10);
+			if (mEventManager.hasState(State.INVOKED) && mEventManager.isDownEvent()) {
+				if (mEventManager.getLongPress() == LongPressType.DEFAULT_ACTION) {
+					//The timeout has already occurred when default is dispatched
+					param.setResult(10);
+				}
+				else if (mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
+					//The timeout is longer than usual, handled after the first injected key
+					param.setResult(10 + 2*mEventManager.getLongLongPressDelay());
+				}
 			}
 		}
 	};
@@ -232,7 +241,7 @@ public final class PhoneWindowManager {
 			Long downTime = methodVersion == 1 ? (((Long) param.args[0]) / 1000) / 1000 : keyEvent.getDownTime();
 			Long eventTime = android.os.SystemClock.uptimeMillis();
 			
-			if (down && mEventManager.getKeyCount() > 0) {
+			if (down && mEventManager.getKeyCount(EventKeyType.DEVICE) > 0) {
 				try {
 					Thread.sleep(1);
 					
@@ -305,11 +314,6 @@ public final class PhoneWindowManager {
 						if(Common.debug()) Log.d(tag, "Starting a new event");
 						
 						/*
-						 * Check to see if this is a new event (Which means not a continued tap event or a general key up event).
-						 */
-						mEventManager.setState(State.ONGOING);
-						
-						/*
 						 * If the screen is off, it's a good idea to poke the device out of deep sleep. 
 						 */
 						if (!isScreenOn) {								
@@ -319,9 +323,10 @@ public final class PhoneWindowManager {
 					} else {
 						if(Common.debug()) Log.d(tag, "Continuing ongoing event");
 						
-						if (down && !mEventManager.hasState(State.REPEATING)) {
-							mEventManager.setState(State.ONGOING);
-						}
+						//TODO: Is this necessary?
+						//if (down && !mEventManager.hasState(State.INVOKED)) {
+						//	mEventManager.setState(State.ONGOING);
+						//}
 					}
 					
 					if (down) {
@@ -362,7 +367,7 @@ public final class PhoneWindowManager {
 			Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
 			Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
 			Boolean down = action == KeyEvent.ACTION_DOWN;
-			EventKey key = mEventManager.getKey(keyCode);
+			EventKey key = mEventManager.getKey(keyCode, EventKeyType.DEVICE);
 			String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
 			
 			/*
@@ -370,6 +375,15 @@ public final class PhoneWindowManager {
 			 */
 			Boolean isInjected = SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ? 
 					(((KeyEvent) param.args[1]).getFlags() & ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & ORIGINAL.FLAG_INJECTED) != 0;
+
+			if (!down) {
+				//Release invoked long press keys on any up key
+				for (EventKey ikey: mEventManager.getKeys(EventKeyType.INVOKED)) {
+					ikey.release();
+				}
+				mEventManager.setLongPress(LongPressType.NONE);
+				mEventManager.recycleKeys(EventKeyType.INVOKED);
+			}
 
 			if (isInjected) {
 				/*
@@ -379,17 +393,26 @@ public final class PhoneWindowManager {
 				 * If we did not have to support GB, then we could have just returned the timeout to force repeat without global dispatching. 
 				 * But since we have GB to think about, this is the best solution. 
 				 */
-				if (down && key != null && mEventManager.hasState(State.REPEATING) && mEventManager.isDownEvent()) {
-					if(Common.debug()) Log.d(tag, "Injecting a new repeat " + key.getRepeatCount());
+				if (down && mEventManager.hasState(State.INVOKED) && mEventManager.getLongPress() != LongPressType.NONE && mEventManager.isDownEvent()) {
+					if(Common.debug()) Log.d(tag, "Injecting a new repeat " + repeatCount);
 					
-					Integer curTimeout = repeatCount==0 ? 0 : 
+					final EventKey ikey;
+					if(mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
+						ikey = mEventManager.getKey(keyCode, EventKeyType.INVOKED);
+					} else {
+						ikey = key;
+					}
+					Integer curTimeout = (repeatCount == 0) ? (mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION ? mEventManager.getLongLongPressDelay() : 0) :
 						SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
 					Boolean continueEvent = mEventManager.waitForChange(curTimeout);
 					
 					synchronized(mQueueLock) {
-						if (continueEvent && key.isPressed()) {
-							key.invoke();
+						if (continueEvent && ikey != null && ikey.isPressed()) {
+							ikey.invoke();
 						}
+					}
+					if (continueEvent && repeatCount == 0 && mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
+						mEventManager.performLongPressFeedback();
 					}
 				}
 				
@@ -413,9 +436,9 @@ public final class PhoneWindowManager {
 								String eventAction = mEventManager.getAction(ActionType.PRESS);
 								if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press action: '" + (eventAction != null ? eventAction : "") + "'");
 								
-								if (eventAction == null || !mEventManager.handleKeyAction(eventAction, ActionType.PRESS, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.isCallButton(), mEventManager.getEventTime(), 0)) {
+								if (eventAction == null || !mEventManager.handleKeyAction(eventAction, ActionType.PRESS, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.isCallButton(), mEventManager.getEventTime(), 0, mEventManager) ) {
 									
-									mEventManager.setState(State.REPEATING);
+									mEventManager.setLongPress(LongPressType.DEFAULT_ACTION);
 									key.invoke();
 									
 									/*
@@ -428,6 +451,7 @@ public final class PhoneWindowManager {
 									
 									return;
 								}
+								mEventManager.setLongPress(LongPressType.CUSTOM_ACTION);
 							}
 						}
 						
@@ -449,7 +473,7 @@ public final class PhoneWindowManager {
 								String eventAction = mEventManager.getAction(ActionType.CLICK);
 								if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: '" + (eventAction != null ? eventAction : "") + "'");
 								
-								if (!mEventManager.handleKeyAction(eventAction, ActionType.CLICK, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.isCallButton(), mEventManager.getEventTime(), mEventManager.getTapCount() == 0 ? key.getFlags() : 0)) {
+								if (!mEventManager.handleKeyAction(eventAction, ActionType.CLICK, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.isCallButton(), mEventManager.getEventTime(), mEventManager.getTapCount() == 0 ? key.getFlags() : 0, mEventManager)) {
 									key.invokeAndRelease();
 								}
 							}

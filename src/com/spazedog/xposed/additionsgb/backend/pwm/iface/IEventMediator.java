@@ -30,7 +30,11 @@ import android.widget.Toast;
 import com.spazedog.lib.reflecttools.ReflectClass;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.xposed.additionsgb.Common;
+import com.spazedog.xposed.additionsgb.backend.pwm.EventKey;
+import com.spazedog.xposed.additionsgb.backend.pwm.EventKey.EventKeyType;
+import com.spazedog.xposed.additionsgb.backend.pwm.EventManager;
 import com.spazedog.xposed.additionsgb.backend.pwm.PhoneWindowManager;
+import com.spazedog.xposed.additionsgb.backend.pwm.EventManager.LongPressType;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
 import com.spazedog.xposed.additionsgb.configs.Settings;
 
@@ -227,7 +231,18 @@ public abstract class IEventMediator extends IMediatorSetup {
 			Log.e(TAG, e.getMessage(), e);
 		}
 	}
-	
+
+	public void performLongPressFeedback() {
+		//Feedback to the user that key long-press occurs, 
+		//to give control of long-long press. May duplicate normal feedback.
+		final boolean val = mXServiceManager.getBoolean(Settings.ENABLE_LONGPRESS_FEEDBACK, false);
+		if (val) {
+			final Vibrator v = (Vibrator)(((Context) mContext.getReceiver()).getSystemService(Context.VIBRATOR_SERVICE));
+			final long[] pattern = {0, 100};
+			v.vibrate(pattern, -1);
+		}
+	}
+
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	public void pokeUserActivity(Long time, Boolean forced) {
 		if (forced) {
@@ -628,7 +643,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 		return policyFlags;
 	}
 	
-	public Boolean handleKeyAction(final String action, final ActionType actionType, final Integer tapCount, final Boolean isScreenOn, final Boolean invokeCallbutton, final Long eventDownTime, final Integer policyFlags) {		
+	public Boolean handleKeyAction(final String action, final ActionType actionType, final Integer tapCount, final Boolean isScreenOn, final Boolean invokeCallbutton, final Long eventDownTime, final Integer policyFlags, final EventManager eventManager) {
 		Boolean isSingleClick = actionType != ActionType.PRESS && tapCount == 0;
 		
 		if (!isSingleClick) {
@@ -641,7 +656,8 @@ public abstract class IEventMediator extends IMediatorSetup {
 		 * Some times they will need a few key presses before reacting.
 		 */
 		if (!isScreenOn && isSingleClick && ((action != null && action.equals("" + KeyEvent.KEYCODE_POWER)) || (action == null && (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0))) {
-			changeDisplayState(eventDownTime, true); return true;
+			changeDisplayState(eventDownTime, true);
+			return true;
 			
 		} else if (invokeCallbutton && invokeCallButton()) {
 			return true;
@@ -707,7 +723,15 @@ public abstract class IEventMediator extends IMediatorSetup {
 					sendBroadcast(new TaskerIntent(action.replace("tasker:", "")));
 				
 				} else {
-					injectInputEvent(Integer.parseInt(action), KeyEvent.ACTION_MULTIPLE, eventDownTime, 0L, 0, policyFlags, 0);
+					//"dispatch"
+					Integer keyAction = Integer.parseInt(action);
+					EventKey ikey = eventManager.initiateKey(keyAction, true, policyFlags, 0, eventDownTime, EventKeyType.INVOKED);
+					if (actionType == ActionType.PRESS) {
+						ikey.invoke();
+						performLongPressFeedback();
+					} else {
+						ikey.invokeAndRelease();
+					}
 				}
 			}
 		});
