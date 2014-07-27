@@ -88,20 +88,31 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
     	mPreferences = null;
     }
     
+    private void setMaxRemapTimeout(SeekBarPreference pref, int val) {
+    	int max = pref.getMax();
+    	int max2 = val + 50; //increase: 200->250, 500->550
+    	if (max2 > max) {
+    		pref.setMax(max2);
+    	}
+    }
+
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	private void setup() {
     	if (mSetup != (mSetup = true)) {
 			if (mPreferences.isPackageUnlocked()) {
 				SeekBarPreference tapDelayPreference = (SeekBarPreference) findPreference("delay_key_tap_preference");
-    			tapDelayPreference.setValue(mPreferences.getInt(Settings.REMAP_TIMEOUT_DOUBLECLICK, ViewConfiguration.getDoubleTapTimeout()) );
+				int val = mPreferences.getInt(Settings.REMAP_TIMEOUT_DOUBLECLICK, ViewConfiguration.getDoubleTapTimeout());
+    			setMaxRemapTimeout(tapDelayPreference, val);
+    			tapDelayPreference.setValue(val);
     			tapDelayPreference.setOnPreferenceChangeListener(this);
-    			
 			} else {
 				((PreferenceCategory) findPreference("settings_group")).removePreference(findPreference("delay_key_tap_preference"));
 			}
 			
 			SeekBarPreference pressDelayPreference = (SeekBarPreference) findPreference("delay_key_press_preference");
-			pressDelayPreference.setValue(mPreferences.getInt(Settings.REMAP_TIMEOUT_LONGPRESS, ViewConfiguration.getLongPressTimeout()) );
+			int val = mPreferences.getInt(Settings.REMAP_TIMEOUT_LONGPRESS, ViewConfiguration.getLongPressTimeout());
+			setMaxRemapTimeout(pressDelayPreference, val);
+			pressDelayPreference.setValue(val);
 			pressDelayPreference.setOnPreferenceChangeListener(this);
 			
 			WidgetPreference addKeyPreference = (WidgetPreference) findPreference("add_key_preference");

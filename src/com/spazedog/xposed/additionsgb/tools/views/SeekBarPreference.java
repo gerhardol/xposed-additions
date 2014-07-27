@@ -1,6 +1,7 @@
 package com.spazedog.xposed.additionsgb.tools.views;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.preference.Preference;
 import android.util.AttributeSet;
@@ -71,11 +72,19 @@ public class SeekBarPreference extends Preference implements OnSeekBarChangeList
 		
 	}
 	
-	private String getAttributeStringValue(AttributeSet attrs, String namespace, String name, String defaultValue) {
+	private String getAttributeStringValue(AttributeSet attrs, String namespace, String name, String defaultValue)
+	{
+		final String STR = "@string/";
 		String value = attrs.getAttributeValue(namespace, name);
 		if(value == null)
 			value = defaultValue;
-		
+		if(value.length() > 1 && value.charAt(0) == '@' && value.contains(STR))
+		{
+			Context context=getContext();
+			Resources res = context.getResources();
+			final int id = res.getIdentifier(context.getPackageName() + ":" + value.substring(1), null, null);
+			value = context.getString(id);
+		}
 		return value;
 	}
 	
@@ -90,41 +99,22 @@ public class SeekBarPreference extends Preference implements OnSeekBarChangeList
 		
 		return view;
 	}
-	
-	@Override
-	public void onBindView(View view) {
-		super.onBindView(view);
 
-		try {
-			// move our seekbar to the new view we've been given
-			ViewParent oldContainer = mSeekBar.getParent();
-			ViewGroup newContainer = (ViewGroup) view.findViewById(R.id.seekBarPrefBarContainer);
-			
-			if (oldContainer != newContainer) {
-				// remove the seekbar from the old view
-				if (oldContainer != null) {
-					((ViewGroup) oldContainer).removeView(mSeekBar);
-				}
-				// remove the existing seekbar (there may not be one) and add ours
-				newContainer.removeAllViews();
-				newContainer.addView(mSeekBar, ViewGroup.LayoutParams.FILL_PARENT,
-				ViewGroup.LayoutParams.WRAP_CONTENT);
-			}
-		}
-		catch(Exception ex) {
-			Log.e(TAG, "Error binding view: " + ex.toString());
-		}
-		
-		//if dependency is false from the beginning, disable the seek bar
-		if (view != null && !view.isEnabled())
+	@Override
+	public void onBindView(View view)
+	{
+		super.onBindView(view);
+		if(view != null)
 		{
-			mSeekBar.setEnabled(false);
+			mSeekBar = (SeekBar)view.findViewById(R.id.seekBarPrefSeekBar);
+			mSeekBar.setMax(mMaxValue - mMinValue);
+			mSeekBar.setOnSeekBarChangeListener(this);
 		}
-		
+
 		updateView(view);
 	}
     
-    	/**
+   	/**
 	 * Update a SeekBarPreference view with our current state
 	 * @param view
 	 */
@@ -182,6 +172,15 @@ public class SeekBarPreference extends Preference implements OnSeekBarChangeList
 	@Override
 	public void onStopTrackingTouch(SeekBar seekBar) {
 		notifyChanged();
+	}
+
+	public int getMax() {
+		return mMaxValue;
+	}
+
+	public void setMax(int max) {
+		mMaxValue = max;
+		mSeekBar.setMax(mMaxValue - mMinValue);
 	}
 
 	public void setValue(int progress) {
