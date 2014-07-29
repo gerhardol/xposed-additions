@@ -8,7 +8,6 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
@@ -72,14 +71,12 @@ public class SeekBarPreference extends Preference implements OnSeekBarChangeList
 		
 	}
 	
-	private String getAttributeStringValue(AttributeSet attrs, String namespace, String name, String defaultValue)
-	{
+	private String getAttributeStringValue(AttributeSet attrs, String namespace, String name, String defaultValue) {
 		final String STR = "@string/";
 		String value = attrs.getAttributeValue(namespace, name);
 		if(value == null)
 			value = defaultValue;
-		if(value.length() > 1 && value.charAt(0) == '@' && value.contains(STR))
-		{
+		if(value.length() > 1 && value.charAt(0) == '@' && value.contains(STR)) {
 			Context context=getContext();
 			Resources res = context.getResources();
 			final int id = res.getIdentifier(context.getPackageName() + ":" + value.substring(1), null, null);
@@ -101,11 +98,9 @@ public class SeekBarPreference extends Preference implements OnSeekBarChangeList
 	}
 
 	@Override
-	public void onBindView(View view)
-	{
+	public void onBindView(View view) {
 		super.onBindView(view);
-		if(view != null)
-		{
+		if(view != null) {
 			mSeekBar = (SeekBar)view.findViewById(R.id.seekBarPrefSeekBar);
 			mSeekBar.setMax(mMaxValue - mMinValue);
 			mSeekBar.setOnSeekBarChangeListener(this);
@@ -113,13 +108,12 @@ public class SeekBarPreference extends Preference implements OnSeekBarChangeList
 
 		updateView(view);
 	}
-    
-   	/**
+
+	/**
 	 * Update a SeekBarPreference view with our current state
 	 * @param view
 	 */
 	protected void updateView(View view) {
-
 		try {
 			mStatusText = (TextView) view.findViewById(R.id.seekBarPrefValue);
 
