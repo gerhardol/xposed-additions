@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <!-- ================================================
+         Arrays for ActivityScreenUSB
+    ================================================ -->
+	<string-array name="wakeplug_names">
+		<item>@string/array_wakeplug_on</item>
+		<item>@string/array_wakeplug_ac</item>
+		<item>@string/array_wakeplug_usb</item>
+		<item>@string/array_wakeplug_off</item>
+	</string-array>
+	
+	<string-array name="wakeplug_values">
+		<item>on</item>
+		<item>ac</item>
+		<item>usb</item>
+		<item>off</item>
+	</string-array>
+	
+	<string-array name="externals_names">
+		<item>@string/array_externals_keyboard</item>
+		<item>@string/array_externals_controller</item>
+		<item>@string/array_externals_misc</item>
+	</string-array>
+	
+	<string-array name="externals_values">
+		<item>keyboard</item>
+		<item>controller</item>
+		<item>misc</item>
+	</string-array>
+    
+</resources>
