@@ -2,17 +2,16 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 19
-    buildToolsVersion "21.0.1"
-
+    buildToolsVersion "21.1.1"
     defaultConfig {
         applicationId "com.spazedog.xposed.additionsgb"
         minSdkVersion 9
         targetSdkVersion 19
     }
-
     buildTypes {
         release {
-            runProguard false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
         }
     }
@@ -25,14 +24,18 @@ android {
             aidl.srcDirs = ['../aidl']
             renderscript.srcDirs = ['../src']
             res.srcDirs = ['../res']
-            assets.srcDirs = ['assets']
+            assets.srcDirs = ['../assets']
         }
 
+    }
+    aaptOptions {
+    }
+    productFlavors {
     }
 }
 
 dependencies {
-    compile 'com.android.support:support-v4:21.0.0'
+    compile 'com.android.support:support-v4:21.0.2'
     compile files('../libs/reflecttools.jar')
-    compile files('../XposedBridgeApi-36.jar')
+    provided files('../XposedBridgeApi-36.jar')
 }
