@@ -321,6 +321,10 @@ public final class PhoneWindowManager {
 						}
 						
 					} else {
+						if (! mEventManager.isHandledKey()) {
+							if(Common.debug()) Log.d(tag, "Unconfigured key, ignoring");
+							return;
+						}
 						if(Common.debug()) Log.d(tag, "Continuing ongoing event");
 						
 						//TODO: Is this necessary?
@@ -369,7 +373,11 @@ public final class PhoneWindowManager {
 			Boolean down = action == KeyEvent.ACTION_DOWN;
 			EventKey key = mEventManager.getKey(keyCode, EventKeyType.DEVICE);
 			String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
-			
+
+			if (!mEventManager.isHandledKey()) {
+				if(Common.debug()) Log.d(tag, "Unconfigured key, ignoring");
+				return;
+			}
 			/*
 			 * Using KitKat work-around from the InputManager Hook
 			 */

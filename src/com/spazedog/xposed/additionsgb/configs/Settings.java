@@ -20,6 +20,8 @@ public class Settings {
 	public static final String DEBUG_ENABLE_LOGGING = "enable_debug";
 	public static final String REMAP_ALLOW_EXTERNALS = "remap_allow_externals";
 	public static final String REMAP_EXTERNALS_LIST = "remap_externals_list";
+    public static final String SKIP_UNCONFIGURED_PRIMARY_KEY = "skip_unconfigured_primary_key";
+
 	//Hidden setting to get feedback for longpress
 	public static final String ENABLE_LONGPRESS_FEEDBACK = "enable_longpress_feedback";	
 

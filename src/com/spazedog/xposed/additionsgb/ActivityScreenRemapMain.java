@@ -103,7 +103,15 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
 			SeekBarPreference pressDelayPreference = (SeekBarPreference) findPreference("delay_key_press_preference");
 			pressDelayPreference.setValue(mPreferences.getInt(Settings.REMAP_TIMEOUT_LONGPRESS, ViewConfiguration.getLongPressTimeout()) );
 			pressDelayPreference.setOnPreferenceChangeListener(this);
-			
+
+			if (mPreferences.isPackageUnlocked()) {
+				CheckBoxPreference debugPreference = (CheckBoxPreference) findPreference("skip_unconfigured_primary_key_preference");
+				debugPreference.setOnPreferenceClickListener(this);
+				debugPreference.setChecked(mPreferences.getBoolean(Settings.SKIP_UNCONFIGURED_PRIMARY_KEY));
+			} else {
+				((PreferenceCategory) findPreference("settings_group")).removePreference(findPreference("skip_unconfigured_primary_key_preference"));
+			}
+
 			WidgetPreference addKeyPreference = (WidgetPreference) findPreference("add_key_preference");
 			addKeyPreference.setOnPreferenceClickListener(this);
 			
@@ -174,7 +182,8 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
 	@Override
 	public boolean onPreferenceClick(Preference preference) {
 		if (preference.getKey().equals("add_key_preference")) {
-			mDialog.open(this, R.layout.dialog_intercept_key); return true;
+			mDialog.open(this, R.layout.dialog_intercept_key);
+			return true;
 			
 		} else if (preference.getKey().equals("allow_externals_preference")) {
 			Boolean value = ((CheckBoxPreference) preference).isChecked();
@@ -182,8 +191,14 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
 			mPreferences.putBoolean(Settings.REMAP_ALLOW_EXTERNALS, value);
 			
 			return true;
+		} else if (preference.getKey().equals("skip_unconfigured_primary_key_preference")) {
+			Boolean isChecked = ((CheckBoxPreference) preference).isChecked();
+
+			mPreferences.putBoolean(Settings.SKIP_UNCONFIGURED_PRIMARY_KEY, isChecked, false);
+
+			return true;
 		}
-		
+
 		return false;
 	}
 	

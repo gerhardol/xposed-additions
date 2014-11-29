@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.CheckBox;
 
@@ -175,6 +176,14 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
     
 	@Override
 	public boolean onPreferenceClick(Preference preference) {
+		if (!preference.isEnabled()) {
+			((IWidgetPreference) preference).setPreferenceEnabled(true);
+			Integer index = preference.getIntent().getExtras().getInt("index");
+			mKeyActions.set(index, "disabled");
+			mPreferences.putStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(mCondition), mKey, mKeyActions, true);
+
+			preference.setSummary( mKeyActions.get(index) != null ? Common.actionToString(this, mKeyActions.get(index)) : "" );
+		}
 		if (preference.getIntent() != null) {
 			startActivityForResult(preference.getIntent(), 2); return true;
 		}

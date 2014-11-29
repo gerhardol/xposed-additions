@@ -34,6 +34,7 @@ public final class EventManager extends IEventMediator {
 	private Boolean mIsScreenOn = true;
 	private Boolean mIsExtended = false;
 	private Boolean mIsCallButton = false;
+    private Boolean mHandledKey = false;
 	private Integer mTapTimeout = 0;
 	private Integer mPressTimeout = 500; //Hardcode default value, used in determing vality of event
 	
@@ -91,7 +92,7 @@ public final class EventManager extends IEventMediator {
 			mEventTime = eventTime;
 			Boolean newEvent = false;
 			Boolean newKey = !mEventKeys.containsKey(keyCode);
-			
+
 			initiateKey(keyCode, isKeyDown, policyFlags, metaState, downTime, EventKeyType.DEVICE);
 			
 			if (isKeyDown) {
@@ -168,11 +169,27 @@ public final class EventManager extends IEventMediator {
 						}
 					}
 					
+					if ((mEventKeys.size() == 1) && !mXServiceManager.getBoolean(Settings.SKIP_UNCONFIGURED_PRIMARY_KEY, false) ) {
+						mHandledKey = true;
+					} else {
+						mHandledKey = false;
+						for (int i=0; i < maxActions; i++) {
+							if(mKeyActions[i] != null) {
+								mHandledKey = true;
+								break;
+							}
+						}
+					}
+					//If nothing to do, this is not a new event
+					if(!mHandledKey) {
+						mState = State.PENDING;
+						newEvent = false;
+					}
 				} else {
 					mIsCallButton = false;
 				}
 			}
-			
+
 			return newEvent;
 		}
 	}
@@ -206,7 +223,11 @@ public final class EventManager extends IEventMediator {
 		
 		return newConfig;
 	}
-	
+
+	public Boolean isHandledKey() {
+		return mHandledKey;
+	}
+
 	public Boolean isDownEvent() {
 		Integer count = mEventKeys.size();
 		
