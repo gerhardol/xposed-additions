@@ -105,11 +105,11 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
 			pressDelayPreference.setOnPreferenceChangeListener(this);
 
 			if (mPreferences.isPackageUnlocked()) {
-				CheckBoxPreference debugPreference = (CheckBoxPreference) findPreference("skip_unconfigured_primary_key_preference");
+				CheckBoxPreference debugPreference = (CheckBoxPreference) findPreference("check_unconfigured_primary_key_preference");
 				debugPreference.setOnPreferenceClickListener(this);
-				debugPreference.setChecked(mPreferences.getBoolean(Settings.SKIP_UNCONFIGURED_PRIMARY_KEY));
+				debugPreference.setChecked(mPreferences.getBoolean(Settings.CHECK_UNCONFIGURED_PRIMARY_KEY));
 			} else {
-				((PreferenceCategory) findPreference("settings_group")).removePreference(findPreference("skip_unconfigured_primary_key_preference"));
+				((PreferenceCategory) findPreference("settings_group")).removePreference(findPreference("check_unconfigured_primary_key_preference"));
 			}
 
 			WidgetPreference addKeyPreference = (WidgetPreference) findPreference("add_key_preference");
@@ -191,10 +191,10 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
 			mPreferences.putBoolean(Settings.REMAP_ALLOW_EXTERNALS, value);
 			
 			return true;
-		} else if (preference.getKey().equals("skip_unconfigured_primary_key_preference")) {
+		} else if (preference.getKey().equals("check_unconfigured_primary_key_preference")) {
 			Boolean isChecked = ((CheckBoxPreference) preference).isChecked();
 
-			mPreferences.putBoolean(Settings.SKIP_UNCONFIGURED_PRIMARY_KEY, isChecked, false);
+			mPreferences.putBoolean(Settings.CHECK_UNCONFIGURED_PRIMARY_KEY, isChecked, false);
 
 			return true;
 		}

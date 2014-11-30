@@ -169,7 +169,7 @@ public final class EventManager extends IEventMediator {
 						}
 					}
 					
-					if ((mEventKeys.size() == 1) && !mXServiceManager.getBoolean(Settings.SKIP_UNCONFIGURED_PRIMARY_KEY, false) ) {
+					if ((mEventKeys.size() == 1) && !mXServiceManager.getBoolean(Settings.CHECK_UNCONFIGURED_PRIMARY_KEY) ) {
 						mHandledKey = true;
 					} else {
 						mHandledKey = false;
