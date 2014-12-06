@@ -30,17 +30,18 @@ public final class EventManager extends IEventMediator {
 	private LongPressType mLongPress = LongPressType.NONE;
 	private Integer mTapCount = 0;
 	private Long mEventTime = 0L;
-	
+
 	private Boolean mIsScreenOn = true;
 	private Boolean mIsExtended = false;
 	private Boolean mIsCallButton = false;
-    private Boolean mHandledKey = false;
 	private Integer mTapTimeout = 0;
 	private Integer mPressTimeout = 500; //Hardcode default value, used in determing vality of event
 	
 	protected static final int maxActions = 3 * IEventMediator.ActionType.values().length;
 	//actions in the order they appear: press 1, tap 1, press 2, tap 2 etc
 	private String[] mKeyActions = new String[maxActions];
+    //The index for the "last" action
+    private int mMaxActionIndex;
 
 	private final Object mEventLock = new Object();
 
@@ -133,7 +134,7 @@ public final class EventManager extends IEventMediator {
 					}
 					
 					if(Common.debug()) Log.d(TAG, "Getting actions for the key combo '" + configName + "'");
-					
+
 					mState = State.ONGOING;
 					mIsScreenOn = isScreenOn;
 					mIsExtended = mXServiceManager.isPackageUnlocked();
@@ -158,30 +159,37 @@ public final class EventManager extends IEventMediator {
 					 */
 					mKeyActions = convertOldConfig(actions);
 
-					if (!mIsExtended) {
-						for (int i=0; i < maxActions; i++) {
-							/*
-							 * Only include Click and Long Press along with excluding Application Launch on non-pro versions
+                    mMaxActionIndex = -1;
+                    for (int i=0; i < maxActions; i++) {
+                        if (!mIsExtended) {
+ 							/*
+							 * Only include Click and Long Press, also excluding Application Launch on non-pro versions
 							 */
-							if (getKeyCount(EventKeyType.DEVICE) != 1 || i >= 2 || (mKeyActions[i] != null && !mKeyActions[i].matches("^[a-z0-9_]+$"))) {
-								mKeyActions[i] = null;
-							}
-						}
-					}
-					
-					if ((mEventKeys.size() == 1) && !mXServiceManager.getBoolean(Settings.CHECK_UNCONFIGURED_PRIMARY_KEY) ) {
-						mHandledKey = true;
-					} else {
-						mHandledKey = false;
-						for (int i=0; i < maxActions; i++) {
-							if(mKeyActions[i] != null) {
-								mHandledKey = true;
-								break;
-							}
-						}
-					}
+                            if (mKeyActions[i] != null) {
+                                if (getKeyCount(EventKeyType.DEVICE) != 1 || i >= 2 ||
+                                        mKeyActions[i].startsWith("launcher") || mKeyActions[i].startsWith("tasker")) {
+                                    mKeyActions[i] = null;
+                                }
+                            }
+                        }
+                        if (mKeyActions[i] != null) {
+                            //The longest to wait for more events
+                            mMaxActionIndex = i;
+                        }
+                    }
+
+                    if (mMaxActionIndex < 1 && (mEventKeys.size() == 1) && mIsExtended) {
+                        //Find if there are multi keys that this key need to wait for
+                        //This event need to wait at most for keyUp,
+                        //but all possible combinations must be checked for each condition
+                        if (!mXServiceManager.getBoolean(Settings.CHECK_UNCONFIGURED_PRIMARY_KEY)) {
+                            mMaxActionIndex = 1;
+                        } else {
+                            /*TBD*/
+                        }
+                    }
 					//If nothing to do, this is not a new event
-					if(!mHandledKey) {
+					if(mMaxActionIndex < 0) {
 						mState = State.PENDING;
 						newEvent = false;
 					}
@@ -204,14 +212,8 @@ public final class EventManager extends IEventMediator {
 		 * TODO: Remove this method
 		 */
 		
-		/*
-		 *  - 0 = Click
-		 *  - 1 = Double Click
-		 *  - 2 = Long Press
-		 *  - 3 = Double Long Press
-		 *  - 4 = Triple Click
-		 *  - 5 = Triple Long Press
-		 */
+        //Order the actions to the order they occur (by click/repeat):
+        //long press before click, single before double
 		Integer[] newLocations = new Integer[]{2,0,3,1,5,4};
 		assert maxActions == newLocations.length;
 		String[] newConfig = new String[newLocations.length];
@@ -225,7 +227,7 @@ public final class EventManager extends IEventMediator {
 	}
 
 	public Boolean isHandledKey() {
-		return mHandledKey;
+		return (mMaxActionIndex >= 0);
 	}
 
 	public Boolean isDownEvent() {
@@ -281,9 +283,9 @@ public final class EventManager extends IEventMediator {
 		return mIsCallButton;
 	}
 	
-	public Boolean isExtended() {
-		return mIsExtended;
-	}
+	//public Boolean isExtended() {
+	//	return mIsExtended;
+	//}
 	
 	public Boolean isScreenOn() {
 		return mIsScreenOn;
@@ -311,13 +313,7 @@ public final class EventManager extends IEventMediator {
 	
 	public Boolean hasMoreActions() {
 		int index = 1 + getActionIndex(ActionType.CLICK);
-		while (index < maxActions) {
-			if (mKeyActions[index] != null) {
-				return true;
-			}
-			index++;
-		}
-		return false;
+        return (index <= this.mMaxActionIndex);
 	}
 	
 	public State setState(State state) {
