@@ -22,12 +22,6 @@
             robobunny:unitsRight="ms" />
 
         <CheckBoxPreference
-            android:key="check_unconfigured_primary_key_preference"
-            android:title="@string/preference_title_check_unconfigured_primary_key"
-            android:summary="@string/preference_summary_check_unconfigured_primary_key"
-            android:persistent="false" />
-
-        <CheckBoxPreference
             android:key="allow_externals_preference"
             android:title="@string/preference_title_allow_externals"
             android:summary="@string/preference_summary_allow_externals"

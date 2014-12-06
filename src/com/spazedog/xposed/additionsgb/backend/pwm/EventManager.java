@@ -181,16 +181,12 @@ public final class EventManager extends IEventMediator {
                     if (mMaxActionIndex < 1 && (mEventKeys.size() == 1) && mIsExtended) {
                         //Find if there are multi keys that this key need to wait for
                         //This event need to wait at most for keyUp
-                        if (mXServiceManager.getBoolean(Settings.CHECK_UNCONFIGURED_PRIMARY_KEY)) {
-                            mMaxActionIndex = 1;
-                        } else {
-                            configName = this.mEventKeys.keyList().get(0) + ":";
-                            ArrayList<String> mKeyList = (ArrayList<String>) mXServiceManager.getStringArray(Settings.REMAP_LIST_KEYS, new ArrayList<String>());
-                            for (String key: mKeyList) {
-                                if(key.startsWith(configName)){
-                                    mMaxActionIndex = 1;
-                                    break;
-                                }
+                        configName = this.mEventKeys.keyList().get(0) + ":";
+                        ArrayList<String> mKeyList = (ArrayList<String>) mXServiceManager.getStringArray(Settings.REMAP_LIST_KEYS, new ArrayList<String>());
+                        for (String key : mKeyList) {
+                            if (key.startsWith(configName)) {
+                                mMaxActionIndex = 1;
+                                break;
                             }
                         }
                     }
