@@ -127,18 +127,20 @@ public abstract class IEventMediator extends IMediatorSetup {
 							|| (SDK.METHOD_INTERCEPT_VERSION > 1 && mDeviceTypes.isEmpty()))) {
 				
 				if (SDK.INPUT_DEVICESTORAGE_VERSION > 1) {
-					InputDevice device = keyEvent.getDevice();
-					
+
 					try {
+                        InputDevice device = keyEvent.getDevice();
 						/*
 						 * @Google get a grip, this method should be publicly accessible. Makes no sense to hide it.
 						 */
 						validated = device == null || (Boolean) mMethods.get("isDeviceExternal").invokeReceiver(device);
-						
-					} catch (ReflectException e) { 
-						Log.e(TAG, e.getMessage(), e);
-					}
-					
+
+                    } catch (NullPointerException e) {
+                        Log.e(TAG, e.getMessage(), e);
+                    } catch (ReflectException e) {
+                        Log.e(TAG, e.getMessage(), e);
+                    }
+
 				} else {
 					validated = KeyCharacterMap.deviceHasKey(keyCode);
 				}
