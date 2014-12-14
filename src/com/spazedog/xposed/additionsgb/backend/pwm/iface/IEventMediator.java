@@ -34,7 +34,6 @@ import com.spazedog.xposed.additionsgb.backend.pwm.EventKey;
 import com.spazedog.xposed.additionsgb.backend.pwm.EventKey.EventKeyType;
 import com.spazedog.xposed.additionsgb.backend.pwm.EventManager;
 import com.spazedog.xposed.additionsgb.backend.pwm.PhoneWindowManager;
-import com.spazedog.xposed.additionsgb.backend.pwm.EventManager.LongPressType;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
 import com.spazedog.xposed.additionsgb.configs.Settings;
 
@@ -152,65 +151,54 @@ public abstract class IEventMediator extends IMediatorSetup {
 	}
 	
 	@SuppressLint("NewApi")
-	public void injectInputEvent(Object event, Integer action, Long downTime, Long eventTime, Integer repeatCount, Integer flags, Integer metaState) {
-		synchronized(PhoneWindowManager.class) {
-			KeyEvent keyEvent = null;
-			Integer[] actions = action == KeyEvent.ACTION_MULTIPLE ? new Integer[]{KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP} : new Integer[]{action};
-			Long time = SystemClock.uptimeMillis();
-			
-			if (downTime == 0L)
-				downTime = time;
-			
-			if (eventTime == 0L)
-				eventTime = time;
-			
-			if ((flags & KeyEvent.FLAG_FROM_SYSTEM) == 0) 
-				flags |= KeyEvent.FLAG_FROM_SYSTEM;
-			
-			if ((flags & ORIGINAL.FLAG_INJECTED) == 0) 
-				flags |= ORIGINAL.FLAG_INJECTED;
-			
-			if ((flags & KeyEvent.FLAG_LONG_PRESS) == 0 && repeatCount == 1) 
-				flags |= KeyEvent.FLAG_LONG_PRESS;
-			
-			if ((flags & KeyEvent.FLAG_LONG_PRESS) != 0 && repeatCount != 1) 
-				flags &= ~KeyEvent.FLAG_LONG_PRESS;
-			
-			if (event instanceof KeyEvent) {
-				keyEvent = KeyEvent.changeTimeRepeat((KeyEvent) event, time, repeatCount, flags);
-				
-			} else {
-				keyEvent = new KeyEvent(downTime, eventTime, actions[0], (Integer) event, repeatCount, metaState, (SDK.INPUT_CHARACTERMAP_VERSION > 1 ? KeyCharacterMap.VIRTUAL_KEYBOARD : 0), 0, flags, InputDevice.SOURCE_KEYBOARD);
-			}
-			
-			for (int i=0; i < actions.length; i++) {
-				/*
-				 * This is for when we have both an up and down event. 
-				 */
-				if (keyEvent.getAction() != actions[i]) {
-					keyEvent = KeyEvent.changeAction(keyEvent, actions[i]);
-				}
-				
-				try {
-					if (SDK.MANAGER_HARDWAREINPUT_VERSION > 1) {
-						mMethods.get("injectInputEvent").invoke(keyEvent, ORIGINAL.INPUT_MODE_ASYNC);
-						
-					} else {
-						mMethods.get("injectInputEvent").invoke(keyEvent);
-					}
-					
-				} catch (ReflectException e) {
-					Log.e(TAG, e.getMessage(), e);
-				}	
-			}
-		}
-	}
+    public void injectInputEvent(KeyEvent keyEvent, Integer action, Integer repeatCount, Integer flags) {
+        synchronized(PhoneWindowManager.class) {
+            //ACTION_MULTIPLE is not implemented in injectInputEvent, use two actions
+            Integer[] actions = action == KeyEvent.ACTION_MULTIPLE ? new Integer[]{KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP} : new Integer[]{action};
+            Long time = SystemClock.uptimeMillis();
 
-	public void performHapticFeedback(Object keyEvent, Integer type, Integer policyFlags) {
+            if ((flags & KeyEvent.FLAG_FROM_SYSTEM) == 0)
+                flags |= KeyEvent.FLAG_FROM_SYSTEM;
+
+            if ((flags & ORIGINAL.FLAG_INJECTED) == 0)
+                flags |= ORIGINAL.FLAG_INJECTED;
+
+            if ((flags & KeyEvent.FLAG_LONG_PRESS) == 0 && repeatCount == 1)
+                flags |= KeyEvent.FLAG_LONG_PRESS;
+
+            if ((flags & KeyEvent.FLAG_LONG_PRESS) != 0 && repeatCount != 1)
+                flags &= ~KeyEvent.FLAG_LONG_PRESS;
+
+            keyEvent = KeyEvent.changeTimeRepeat(keyEvent, time, repeatCount, flags);
+
+            for(Integer keyAction: actions) {
+                if (keyEvent.getAction() != keyAction) {
+                    keyEvent = KeyEvent.changeAction(keyEvent, keyAction);
+                }
+
+                try {
+                    if (SDK.MANAGER_HARDWAREINPUT_VERSION > 1) {
+                        mMethods.get("injectInputEvent").invoke(keyEvent, ORIGINAL.INPUT_MODE_ASYNC);
+
+                    } else {
+                        mMethods.get("injectInputEvent").invoke(keyEvent);
+                    }
+
+                } catch (ReflectException e) {
+                    Log.e(TAG, e.getMessage(), e);
+                }
+            }
+        }
+    }
+
+	public void performHapticFeedback(KeyEvent keyEvent, Integer type, Integer policyFlags) {
 		try {
 			if (type == HapticFeedbackConstants.VIRTUAL_KEY) {
-				List<String> forcedKeys = (List<String>) mXServiceManager.getStringArray(Settings.REMAP_LIST_FORCED_HAPTIC, null);
-				Integer keyCode = keyEvent instanceof KeyEvent ? ((KeyEvent) keyEvent).getKeyCode() : (Integer) keyEvent;
+				List<String> forcedKeys = mXServiceManager.getStringArray(Settings.REMAP_LIST_FORCED_HAPTIC, null);
+				Integer keyCode = 0;
+                if (keyEvent != null) {
+                    keyCode = keyEvent.getKeyCode();
+                }
 				
 				if (forcedKeys == null || !forcedKeys.contains(""+keyCode)) {
 					if (SDK.SAMSUNG_FEEDBACK_VERSION == 1) {
@@ -394,7 +382,9 @@ public abstract class IEventMediator extends IMediatorSetup {
 		}
 		
 		if (callCode > 0) {
-			injectInputEvent(callCode, KeyEvent.ACTION_MULTIPLE, 0L, 0L, 0, 0, 0); return true;
+            KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_MULTIPLE, callCode);
+            injectInputEvent(keyEvent, KeyEvent.ACTION_MULTIPLE, 0, 0);
+            return true;
 		}
 		
 		return false;
@@ -405,7 +395,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 				mFields.get("UserHandle.current").getValue()
 		);
 	}
-	
+
 	public void launchIntent(Intent intent) {
 		if (SDK.MANAGER_MULTIUSER_VERSION > 0) {
 			try {
@@ -643,38 +633,37 @@ public abstract class IEventMediator extends IMediatorSetup {
 		return policyFlags;
 	}
 	
-	public Boolean handleKeyAction(final String action, final ActionType actionType, final Integer tapCount, final Boolean isScreenOn, final Boolean invokeCallbutton, final Long eventDownTime, final Integer policyFlags, final EventManager eventManager) {
-		Boolean isSingleClick = actionType != ActionType.PRESS && tapCount == 0;
-		
-		if (!isSingleClick) {
-			performHapticFeedback(null, HapticFeedbackConstants.LONG_PRESS, policyFlags);
-		}
+	public void handleFeedbackAndScreen(String action, ActionType actionType, Integer tapCount, Boolean isScreenOn, Long eventDownTime, Integer policyFlags) {
+        Boolean isSingleClick = actionType != ActionType.PRESS && tapCount == 0;
+
+        if (!isSingleClick) {
+            performHapticFeedback(null, HapticFeedbackConstants.LONG_PRESS, policyFlags);
+        }
 		
 		/*
 		 * We handle display on here, because some devices has issues
 		 * when executing handlers while in deep sleep.
 		 * Some times they will need a few key presses before reacting.
 		 */
-		if (!isScreenOn && isSingleClick && ((action != null && action.equals("" + KeyEvent.KEYCODE_POWER)) || (action == null && (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0))) {
-			changeDisplayState(eventDownTime, true);
-			return true;
-			
-		} else if (invokeCallbutton && invokeCallButton()) {
-			return true;
-			
-		} else if (action == null) {
-			return false;
-		}
-		
+        if (!isScreenOn && isSingleClick && action != null && (action.equals("" + KeyEvent.KEYCODE_POWER) || (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0)) {
+            changeDisplayState(eventDownTime, true);
+        }
+    }
+
+    public Boolean handleKeyAction(final String action, final ActionType actionType, final Boolean invokeCallbutton, final Integer policyFlags, final EventManager eventManager) {
+        if (invokeCallbutton && invokeCallButton()) {
+            return false;
+        }
+
 		/*
 		 * This should always be wrapped and sent to a handler. 
 		 * If this is executed directly, some of the actions will crash with the error 
 		 * -> 'Can't create handler inside thread that has not called Looper.prepare()'
 		 */
-		mHandler.post(new Runnable() {
+        final String type = Common.actionType(action);
+
+        mHandler.post(new Runnable() {
 			public void run() {
-				String type = Common.actionType(action);
-				
 				if ("launcher".equals(type)) {
 					launchPackage(action);
 					
@@ -724,18 +713,22 @@ public abstract class IEventMediator extends IMediatorSetup {
 				
 				} else {
 					//"dispatch"
-					Integer keyAction = Integer.parseInt(action);
-					EventKey ikey = eventManager.initiateKey(keyAction, true, policyFlags, 0, eventDownTime, EventKeyType.INVOKED);
+					Integer keyCode = Integer.parseInt(action);
+                    Integer keyAction = (actionType == ActionType.PRESS) ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_MULTIPLE;
+                    //Add the key to tracked keys
+                    KeyEvent keyEvent = new KeyEvent(keyAction, keyCode);
+                    Integer flags = fixPolicyFlags(keyCode, policyFlags);
 					if (actionType == ActionType.PRESS) {
-						ikey.invoke();
+                        EventKey ikey = eventManager.initiateKey(keyEvent, flags, EventKeyType.INVOKED);
+                        ikey.invoke(keyEvent);
 						performLongPressFeedback();
 					} else {
-						ikey.invokeAndRelease();
+                        injectInputEvent(keyEvent, keyAction, 0, flags);
 					}
 				}
 			}
 		});
-		
-		return true;
-	}
+        //Is Key?
+        return "dispatch".equals(type);
+ 	}
 }

@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.util.Log;
 import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
@@ -17,7 +16,6 @@ import com.spazedog.lib.reflecttools.ReflectClass;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.xposed.additionsgb.Common;
 import com.spazedog.xposed.additionsgb.backend.pwm.EventKey.EventKeyType;
-import com.spazedog.xposed.additionsgb.backend.pwm.EventManager.LongPressType;
 import com.spazedog.xposed.additionsgb.backend.pwm.EventManager.State;
 import com.spazedog.xposed.additionsgb.backend.pwm.iface.IEventMediator.ActionType;
 import com.spazedog.xposed.additionsgb.backend.pwm.iface.IMediatorSetup.ORIGINAL;
@@ -39,13 +37,6 @@ public final class PhoneWindowManager {
 	private Boolean mActiveDispatching = false;
 	
 	private final Object mQueueLock = new Object();
-
-	/**
-	 * Get a short timestamp to debug events
-	 */
-	private static int shortTime() {
-		return (int)(SystemClock.uptimeMillis() % 10000);
-	}
 
 	/**
 	 * This is a static initialization method.
@@ -202,12 +193,12 @@ public final class PhoneWindowManager {
 	private final XC_MethodHook hook_viewConfigTimeouts = new XC_MethodHook() {
 		@Override
 		protected final void afterHookedMethod(final MethodHookParam param) {
-			if (mEventManager.hasState(State.INVOKED) && mEventManager.isDownEvent()) {
-				if (mEventManager.getLongPress() == LongPressType.DEFAULT_ACTION) {
+			if (mEventManager.hasState(State.REPEATING) && mEventManager.isDownEvent()) {
+				if (mEventManager.getInvokedDefault()) {
 					//The timeout has already occurred when default is dispatched
 					param.setResult(10);
 				}
-				else if (mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
+				else {
 					//The timeout is longer than usual, handled after the first injected key
 					param.setResult(10 + 2*mEventManager.getLongLongPressDelay());
 				}
@@ -226,22 +217,32 @@ public final class PhoneWindowManager {
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
-			KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[0];
-			Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
-			Object keyObject = keyEvent == null ? keyCode : keyEvent;
-			Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
-			Integer policyFlagsPos = methodVersion == 1 ? 5 : 1;
-			Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
-			Integer repeatCount = (Integer) (methodVersion == 1 ? 0 : keyEvent.getRepeatCount());
-			Integer metaState = (Integer) (methodVersion == 1 ? 0 : keyEvent.getMetaState());
-			Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
+            KeyEvent keyEvent;
+            Object keyObject;
+            if (methodVersion > 1) {
+                keyEvent = (KeyEvent) param.args[0];
+                keyObject = keyEvent;
+            } else {
+                Integer keyCode = (Integer)param.args[3];
+                Integer action = (Integer)param.args[1];
+                Long eventTime = android.os.SystemClock.uptimeMillis();
+                Long downTime = ((Long) param.args[0]) / 1000 / 1000;
+                Integer repeatCount = 0;
+                Integer metaState = 0;
+                keyEvent = new KeyEvent(downTime,eventTime,action,keyCode,repeatCount,metaState);
+                keyObject = keyCode;
+            }
+            Integer policyFlagsPos = methodVersion == 1 ? 5 : 1;
+            Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
+            Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
+
+			Integer keyCode = keyEvent.getKeyCode();
+			Integer action = keyEvent.getAction();
+			Integer repeatCount = keyEvent.getRepeatCount();
 			Boolean down = action == KeyEvent.ACTION_DOWN;
-			String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
-			
-			Long downTime = methodVersion == 1 ? (((Long) param.args[0]) / 1000) / 1000 : keyEvent.getDownTime();
-			Long eventTime = android.os.SystemClock.uptimeMillis();
-			
-			if (down && mEventManager.getKeyCount(EventKeyType.DEVICE) > 0) {
+			String tag = TAG + "#Queueing/" + (down ? "Down " : "Up ") + keyCode + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
+
+			if (down && !mEventManager.hasState(State.PENDING)) {
 				try {
 					Thread.sleep(1);
 					
@@ -250,8 +251,6 @@ public final class PhoneWindowManager {
 			
 			synchronized(mQueueLock) {
 				mActiveQueueing = true;
-				
-				// android.os.SystemClock.uptimeMillis
 				
 				/*
 				 * Using KitKat work-around from the InputManager Hook
@@ -289,7 +288,7 @@ public final class PhoneWindowManager {
 				 */
 				} else if (mInterceptKeyCode && isScreenOn) {
 					if (down) {
-						mEventManager.performHapticFeedback(keyObject, HapticFeedbackConstants.VIRTUAL_KEY, policyFlags);
+						mEventManager.performHapticFeedback(keyEvent, HapticFeedbackConstants.VIRTUAL_KEY, policyFlags);
 						
 					} else if (mEventManager.validateDeviceType(keyObject)) {
 						Bundle bundle = new Bundle();
@@ -309,32 +308,27 @@ public final class PhoneWindowManager {
 					 * For those missing (like Omate TrueSmart) this is kind of a replacement.
 					 */
 					mEventManager.powerHardResetTimer(keyCode, down, mEventManager.getPressTimeout());
-					
-					if (mEventManager.registerKey(keyCode, down, isScreenOn, policyFlags, metaState, downTime, eventTime)) {
+
+					if (mEventManager.registerKey(keyEvent, isScreenOn, policyFlags)) {
 						if(Common.debug()) Log.d(tag, "Starting a new event");
 						
 						/*
 						 * If the screen is off, it's a good idea to poke the device out of deep sleep. 
 						 */
-						if (!isScreenOn) {								
+						if (!isScreenOn) {
 							mEventManager.pokeUserActivity(mEventManager.getEventTime(), false);
 						}
 						
 					} else {
-						if (! mEventManager.isHandledKey()) {
-							if(Common.debug()) Log.d(tag, "Unconfigured key, ignoring");
+						if (!mEventManager.isHandledKey(keyCode)) {
+							if(Common.debug()) Log.d(tag, "Unconfigured key, no action");
 							return;
 						}
 						if(Common.debug()) Log.d(tag, "Continuing ongoing event");
-						
-						//TODO: Is this necessary?
-						//if (down && !mEventManager.hasState(State.INVOKED)) {
-						//	mEventManager.setState(State.ONGOING);
-						//}
 					}
 					
 					if (down) {
-						mEventManager.performHapticFeedback(keyObject, HapticFeedbackConstants.VIRTUAL_KEY, policyFlags);
+						mEventManager.performHapticFeedback(keyEvent, HapticFeedbackConstants.VIRTUAL_KEY, policyFlags);
 					}
 					
 					if(Common.debug()) Log.d(tag, "Passing the event to the queue (" + mEventManager.mState.name() + ")");
@@ -361,39 +355,50 @@ public final class PhoneWindowManager {
 		@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
-			mActiveDispatching = true;
-			
-			Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
-			KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[1];
-			Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
-			Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
-			Integer policyFlagsPos = methodVersion == 1 ? 7 : 2;
-			Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
-			Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
-			Boolean down = action == KeyEvent.ACTION_DOWN;
-			EventKey key = mEventManager.getKey(keyCode, EventKeyType.DEVICE);
-			String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + ":" + shortTime() + "(" + mEventManager.getTapCount() + "," + repeatCount+ "):";
+            mActiveDispatching = true;
 
-			if (!mEventManager.isHandledKey()) {
-				if(Common.debug()) Log.d(tag, "Unconfigured key, ignoring");
-				return;
-			}
-			/*
+            Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
+            KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[1];
+            Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
+            Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
+            Integer policyFlagsPos = methodVersion == 1 ? 7 : 2;
+            Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
+            Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
+            Boolean down = action == KeyEvent.ACTION_DOWN;
+
+            EventKey key = mEventManager.getKey(keyCode);
+            String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + "(" + mEventManager.getTapCount() + "," + repeatCount + "):";
+
+            if (!down && mEventManager.hasState(State.REPEATING) && mEventManager.isHandledKey(keyCode, EventKeyType.INVOKED)) {
+                //key up stop repeats
+                //Do this before Unconfigured key check, as a safety check
+                synchronized (mQueueLock) {
+                    if (mEventManager.hasState(State.REPEATING)) {
+                        //Release invoked long press keys on any up key
+                        for (EventKey ikey : mEventManager.getKeyList(EventKeyType.INVOKED)) {
+                            if (ikey.isUsed()) {
+                                ikey.release(null);
+                            }
+                        }
+                        mEventManager.setState(State.INVOKED);
+                    }
+                }
+            }
+
+            if (key == null) {
+                if (Common.debug()) Log.d(tag, "Unconfigured key, not handling");
+                return;
+            }
+
+        	/*
 			 * Using KitKat work-around from the InputManager Hook
 			 */
-			Boolean isInjected = SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ? 
-					(((KeyEvent) param.args[1]).getFlags() & ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & ORIGINAL.FLAG_INJECTED) != 0;
+            Boolean isInjected = SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ?
+                    (((KeyEvent) param.args[1]).getFlags() & ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & ORIGINAL.FLAG_INJECTED) != 0;
 
-			if (!down) {
-				//Release invoked long press keys on any up key
-				for (EventKey ikey: mEventManager.getKeys(EventKeyType.INVOKED)) {
-					ikey.release();
-				}
-				mEventManager.setLongPress(LongPressType.NONE);
-				mEventManager.recycleKeys(EventKeyType.INVOKED);
-			}
-
-			if (isInjected) {
+            //Default action longpress has no injected flag
+            //Boolean isLongPress = down && mEventManager.hasState(State.REPEATING) && mEventManager.getInvokedDefault();
+            if (isInjected || mEventManager.hasState(State.REPEATING)) {
 				/*
 				 * When we disallow applications from getting the event, we also disable repeats. 
 				 * This is a hack where we create a controlled injection loop to simulate repeats. 
@@ -401,98 +406,152 @@ public final class PhoneWindowManager {
 				 * If we did not have to support GB, then we could have just returned the timeout to force repeat without global dispatching. 
 				 * But since we have GB to think about, this is the best solution. 
 				 */
-				if (down && mEventManager.hasState(State.INVOKED) && mEventManager.getLongPress() != LongPressType.NONE && mEventManager.isDownEvent()) {
-					if(Common.debug()) Log.d(tag, "Injecting a new repeat " + repeatCount);
-					
-					final EventKey ikey;
-					if(mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
-						ikey = mEventManager.getKey(keyCode, EventKeyType.INVOKED);
-					} else {
-						ikey = key;
-					}
-					Integer curTimeout = (repeatCount == 0) ? (mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION ? mEventManager.getLongLongPressDelay() : 0) :
-						SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
-					Boolean continueEvent = mEventManager.waitForChange(curTimeout);
-					
-					synchronized(mQueueLock) {
-						if (continueEvent && ikey != null && ikey.isPressed()) {
-							ikey.invoke();
-						}
-					}
-					if (continueEvent && repeatCount == 0 && mEventManager.getLongPress() == LongPressType.CUSTOM_ACTION) {
-						mEventManager.performLongPressFeedback();
-					}
-				}
-				
-				if ((policyFlags & ORIGINAL.FLAG_INJECTED) != 0) {
-					param.args[policyFlagsPos] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
-				}
-				
-			} else if (key != null) {
-				if (mEventManager.hasState(State.ONGOING)) {
-					if (down) {
-						if(Common.debug()) Log.d(tag, "Waiting on long press timeout");
-						
-						/*
-						 * Long Press timeout
-						 */
-						Boolean continueEvent = mEventManager.waitForChange(mEventManager.getPressTimeout());
-						
-						synchronized(mQueueLock) {
-							if (continueEvent && key.isLastQueued() && key.isPressed()) {
-								mEventManager.setState(State.INVOKED);
-								String eventAction = mEventManager.getAction(ActionType.PRESS);
-								if(Common.debug()) Log.d(tag, shortTime() + " Invoking long press action: '" + (eventAction != null ? eventAction : "") + "'");
-								
-								if (eventAction == null || !mEventManager.handleKeyAction(eventAction, ActionType.PRESS, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.isCallButton(), mEventManager.getEventTime(), 0, mEventManager) ) {
-									
-									mEventManager.setLongPress(LongPressType.DEFAULT_ACTION);
-									key.invoke();
-									
+                if (down && mEventManager.hasState(State.REPEATING) &&
+                        (mEventManager.getInvokedDefault() && mEventManager.isHandledKey(keyCode, EventKeyType.DEVICE) ||
+                        !mEventManager.getInvokedDefault() && mEventManager.isHandledKey(keyCode, EventKeyType.INVOKED))) {
+                    if (Common.debug()) Log.d(tag, "Injecting a new repeat " + repeatCount);
+
+                    Integer curTimeout = (repeatCount == 0) ? (mEventManager.getInvokedDefault() ? 0 : mEventManager.getLongLongPressDelay()) :
+                            SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
+
+                    mEventManager.waitForLongpressChange(curTimeout);
+                    Boolean continueEvent = false;
+                    synchronized (mQueueLock) {
+                        //Check state, ignore timeout
+                        if (mEventManager.hasState(State.REPEATING)) {
+                            continueEvent = true;
+                            key.invoke(keyEvent);
+                        }
+                    }
+                    if (continueEvent && repeatCount == 0 && !mEventManager.getInvokedDefault()) {
+                        mEventManager.performLongPressFeedback();
+                    }
+                }
+
+                if ((policyFlags & ORIGINAL.FLAG_INJECTED) != 0) {
+                    param.args[policyFlagsPos] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
+                }
+
+            } else if (mEventManager.isHandledKey(keyCode, EventKeyType.DEVICE)) {
+                if (mEventManager.hasState(State.ONGOING)) {
+                    if (down) {
+                        if (Common.debug()) Log.d(tag, "Waiting on long press timeout");
+                        KeyEvent origKeyKeyEvent = key.getKeyEvent();
+                        Boolean timeoutExpired = mEventManager.waitForPressChange(key, origKeyKeyEvent);
+
+                        synchronized (mQueueLock) {
+                            //Continue if state is still OnGoing and timer released
+                            //or if this is default action (other combo key released)
+                            Boolean isDefault = mEventManager.getInvokedDefault() || !origKeyKeyEvent.equals(key.getKeyEvent());
+                            if (timeoutExpired && mEventManager.hasState(State.ONGOING) || isDefault) {
+                                String eventAction = mEventManager.getAction(ActionType.PRESS);
+                                isDefault = isDefault || eventAction == null;
+                                if (Common.debug())
+                                    Log.d(tag, "Invoking press action: " + (isDefault ? "<default>" : eventAction));
+
+                                //_If_ this is a key, do long press handling
+                                mEventManager.handleFeedbackAndScreen(eventAction, ActionType.PRESS, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.getEventTime(), 0);
+
+                                if (isDefault) {
 									/*
 									 * The first one MUST be dispatched throughout the system.
 									 * Applications can ONLY start tracking from the original event object.
 									 */
-									if(Common.debug()) Log.d(tag, "Passing event to the dispatcher");
-									
-									param.setResult(ORIGINAL.DISPATCHING_ALLOW); 
-									
-									return;
-								}
-								mEventManager.setLongPress(LongPressType.CUSTOM_ACTION);
-							}
-						}
-						
-					} else {
-						Boolean continueEvent = true;
-						
-						if (mEventManager.hasMoreActions()) {
-							if(Common.debug()) Log.d(tag, "Waiting on tap timeout");
-							
-							/*
-							 * Tap timeout
-							 */
-							continueEvent = mEventManager.waitForChange(mEventManager.getTapTimeout());
-						}
+                                    if (Common.debug())
+                                        Log.d(tag, "Passing event to the dispatcher");
 
-						synchronized(mQueueLock) {
-							if (continueEvent && key.isLastQueued() && !key.isPressed()) {
-								mEventManager.setState(State.INVOKED);
-								String eventAction = mEventManager.getAction(ActionType.CLICK);
-								if (Common.debug()) Log.d(tag, shortTime() + " Invoking click action: '" + (eventAction != null ? eventAction : "") + "'");
-								
-								if (!mEventManager.handleKeyAction(eventAction, ActionType.CLICK, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.isCallButton(), mEventManager.getEventTime(), mEventManager.getTapCount() == 0 ? key.getFlags() : 0, mEventManager)) {
-									key.invokeAndRelease();
-								}
-							}
-						}
-					}
-					
-				} else if (!down) {
-					key.release();
-				}
-				
-				if(Common.debug()) Log.d(tag, "Disabling default dispatching (" + mEventManager.mState.name() + ")"+ ":" + shortTime());
+                                    key.setKeyPressSent(true);
+                                    param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+
+                                    if (origKeyKeyEvent.equals(key.getKeyEvent())) {
+                                        if (mEventManager.getInvokedDefault()) {
+                                            //This was the second in a combo, already released
+                                            if (mEventManager.hasState(State.INVOKED)) {
+                                                key.release(keyEvent);
+                                            }
+                                        } else {
+                                            mEventManager.setInvokedDefault();
+                                            mEventManager.setState(State.REPEATING);
+                                        }
+                                    } else {
+                                        //Already moved on
+                                        if(timeoutExpired) {
+                                            mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, 1, policyFlags);
+                                        }
+                                        mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_UP, 0, policyFlags);
+                                    }
+                                    return;
+
+                                } else {
+                                    Boolean isKey = mEventManager.handleKeyAction(eventAction, ActionType.PRESS, mEventManager.isCallButton(), 0, mEventManager);
+                                    //mEventManager.setAllKeysReleased(EventKeyType.DEVICE);
+                                    if (isKey) {
+                                        mEventManager.setState(State.REPEATING);
+                                    } else {
+                                        mEventManager.setState(State.INVOKED);
+                                    }
+                                }
+                            } else {
+                                if (Common.debug())
+                                    Log.d(tag, "No action" + " " + timeoutExpired + " " + mEventManager.mState + " " + origKeyKeyEvent.equals(key.getKeyEvent()));
+                            }
+                        }
+
+                    } else {
+                        Boolean timeoutExpired;
+                        KeyEvent origKeyKeyEvent = key.getKeyEvent();
+                        if (mEventManager.hasMoreActions()) {
+                            if (Common.debug()) Log.d(tag, "Waiting on tap timeout");
+
+                            timeoutExpired = mEventManager.waitForClickChange(key, origKeyKeyEvent);
+                        } else {
+                            timeoutExpired = true;
+                        }
+
+                        synchronized (mQueueLock) {
+
+                            //Timer released or other combo key
+                            Boolean isDefault = mEventManager.getInvokedDefault() || !origKeyKeyEvent.equals(key.getKeyEvent());
+                            if (timeoutExpired && mEventManager.hasState(State.ONGOING) || isDefault) {
+                                String eventAction = mEventManager.getAction(ActionType.CLICK);
+                                isDefault = isDefault || eventAction == null;
+                                if (Common.debug())
+                                    Log.d(tag, "Invoking click action: " + (isDefault ? "<default>" : eventAction));
+
+                                mEventManager.handleFeedbackAndScreen(eventAction, ActionType.CLICK, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.getEventTime(), 0);
+
+                                if (isDefault) {
+                                    //Dispatch the original key. We cannot dispatch the original event,
+                                    // as we cannot insert the down key prior to the current up.
+                                    //(it is an option to change this to ACTION_DOWN, set as released, then release)
+                                    key.invokeAndRelease(keyEvent);
+                                    if (origKeyKeyEvent.equals(key.getKeyEvent())) {
+                                        mEventManager.setInvokedDefault();
+                                        mEventManager.setState(State.INVOKED);
+                                    }
+                                } else {
+                                    mEventManager.handleKeyAction(eventAction, ActionType.CLICK, mEventManager.isCallButton(), 0, mEventManager);
+                                    //mEventManager.setAllKeysReleased(EventKeyType.DEVICE);
+                                    mEventManager.setState(State.INVOKED);
+                                }
+                            } else {
+                                if (Common.debug())
+                                    Log.d(tag, "No action" + " " + timeoutExpired + " " + mEventManager.mState + " " + mEventManager.getInvokedDefault() + " " + origKeyKeyEvent.equals(key.getKeyEvent()));
+                            }
+                        }
+                    }
+
+                } else if (!down) {
+                    if (key.isPressed()) {
+                        if (Common.debug())
+                            Log.d(tag, "Non-ongoing key is pressed unexpectedly(" + mEventManager.mState.name() + ")");
+                    }
+                } else {
+                    if (Common.debug())
+                        Log.d(tag, "Strange: on-ongoing down event (" + mEventManager.mState.name() + ") " + mEventManager.isDownEvent());
+                }
+
+				if(Common.debug()) Log.d(tag, "Disabling default dispatching (" + mEventManager.mState.name() + ")");
 				
 				param.setResult(ORIGINAL.DISPATCHING_REJECT);
 				

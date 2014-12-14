@@ -4,118 +4,94 @@ import android.view.KeyEvent;
 
 public class EventKey {
 	public static enum EventKeyType { DEVICE, INVOKED }
-	
-	private Long mDownTime;
-	private Integer mKeyCode;
-	private Integer mFlags;
-	private Integer mMetaState;
+	public static enum PressStates { NONE, DOWN, UP }
+
+    private KeyEvent mKeyEvent = null; //Original KeyEvent, used as status
+    private Integer mFlags;
 	private Integer mRepeatCount;
-	private Boolean mIsPressed;
-	private Boolean mIsOnGoing;
-	private EventKeyType mKeyType;
-	
+    private PressStates mDevicePressState;
+    private PressStates mSentPressState;
+
 	private EventManager mManager;
 	
 	protected EventKey(EventManager manager) {
 		mManager = manager;
 	}
 	
-	protected void initiateInstance(Integer keyCode, Integer flags, Integer metaState, Long downTime) {
-		mIsOnGoing = false;
-		mRepeatCount = 0;
-		mKeyCode = keyCode;
+	protected void initiateInstance(KeyEvent keyEvent, Integer flags) {
+        mKeyEvent = keyEvent;
 		mFlags = flags;
-		mMetaState = metaState;
-		mDownTime = downTime;
-		mKeyType = EventKeyType.DEVICE;
+        mRepeatCount = 0;
+        mDevicePressState = PressStates.NONE;
+        mSentPressState = PressStates.NONE;
 	}
 	
-	protected void updateInstance(Boolean pressed, EventKeyType keyType) {
-		mIsPressed = pressed;
-		mKeyType = keyType;
+	protected void setKetPressDevice(Boolean pressed) {
+		if (pressed) {
+            mDevicePressState = PressStates.DOWN;
+        } else {
+            mDevicePressState = PressStates.UP;
+        }
 	}
-	
-	//public Long getDownTime() {
-	//	return mDownTime;
-	//}
 
-	//public Integer getPosition() {
-	//	return mManager.getKeyCodePosition(mKeyCode);
-	//}
+    protected void setKeyPressSent(Boolean pressed) {
+        if (pressed) {
+            mSentPressState = PressStates.DOWN;
+            mRepeatCount++;
+        } else {
+            mSentPressState = PressStates.UP;
+        }
+    }
+
+    public KeyEvent getKeyEvent() { return mKeyEvent; }
 
 	public Integer getCode() {
-		return mKeyCode;
+		return mKeyEvent == null ? 0 : mKeyEvent.getKeyCode();
 	}
 
-	public Integer getFlags() {
-		return mFlags;
-	}
-	
-	//public Integer getMetaState() {
-	//	return mMetaState;
-	//}
+    public Boolean isPressed() {
+        return (mDevicePressState == PressStates.DOWN);
+    }
 
-	//public Integer getRepeatCount() {
-	//	return mRepeatCount;
-	//}
+    public void setUnused(){
+        mKeyEvent = null;
+    }
 
-	public Boolean isPressed() {
-		return mIsPressed;
-	}
+    public Boolean isUsed() {
+        return mKeyEvent != null;
+    }
 
-	public Boolean isLastQueued() {
-		return (mKeyType == EventKeyType.DEVICE) && mManager.getLastQueuedKeyCode().equals(mKeyCode);
-	}
+    public void invokeAndRelease(KeyEvent keyEvent) {
+        if (mSentPressState == PressStates.NONE) {
+            this.injectInputEvent(KeyEvent.ACTION_MULTIPLE, keyEvent);
+            mSentPressState = PressStates.UP;
+        } else if (mSentPressState == PressStates.DOWN) {
+            release(keyEvent);
+        }
+    }
 
-	//public Boolean isOnGoing() {
-	//	return mIsOnGoing;
-	//}
+    //Also handle repeats
+    public void invoke(KeyEvent keyEvent) {
+        if (mSentPressState != PressStates.UP) {
+            this.injectInputEvent(KeyEvent.ACTION_DOWN, keyEvent);
+            mSentPressState = PressStates.DOWN;
+            mRepeatCount += 1;
+        }
+    }
 
-	public void invokeAndRelease() {
-		if (!mIsOnGoing) {
-			for (EventKey combo: mManager.getKeys(mKeyType)) {
+    public void release(KeyEvent keyEvent) {
+        if (mSentPressState == PressStates.DOWN) {
+            this.injectInputEvent(KeyEvent.ACTION_UP, keyEvent);
+        }
+        mSentPressState = PressStates.UP;
+    }
 
-				if (!combo.mKeyCode.equals(mKeyCode) && !combo.mIsOnGoing) {
-					combo.mIsOnGoing = true;
-					combo.injectInputEvent(KeyEvent.ACTION_DOWN);
-				}
-			}
-			
-			this.injectInputEvent(KeyEvent.ACTION_MULTIPLE);
-			
-		} else {
-			release();
-		}
-	}
-	
-	public void invoke() {
-		if (mIsPressed) {
-			if (!mIsOnGoing) {
-				for (EventKey combo: mManager.getKeys(mKeyType)) {
-
-					if (!combo.mKeyCode.equals(mKeyCode) && !combo.mIsOnGoing) {
-						combo.mIsOnGoing = true;
-						combo.injectInputEvent(KeyEvent.ACTION_DOWN);
-					}
-				}
-
-				mIsOnGoing = true;
-			}
-
-			this.injectInputEvent(KeyEvent.ACTION_DOWN);
-			mRepeatCount += 1;
-		}
-	}
-	
-	public void injectInputEvent(Integer action) {
-		int repeatCount = (action == KeyEvent.ACTION_DOWN) ? mRepeatCount : 0;
-		mManager.injectInputEvent(mKeyCode, action, 0L, 0L, repeatCount, mFlags, mMetaState);
-	}
-	
-	public void release() {
-		if (mIsOnGoing) {
-			mIsOnGoing = false;
-			this.injectInputEvent(KeyEvent.ACTION_UP);
-		}
-	}
+    private void injectInputEvent(Integer action, KeyEvent keyEvent) {
+        int repeatCount = (action == KeyEvent.ACTION_DOWN) ? mRepeatCount : 0;
+        if (keyEvent == null) {
+            keyEvent = mKeyEvent;
+        }
+        mManager.injectInputEvent(keyEvent, action, repeatCount, mFlags);
+        //mManager.injectInputEvent(keyEvent, action, 0L, 0L, repeatCount, mFlags, 0);
+    }
 }
