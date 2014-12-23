@@ -35,7 +35,6 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
-import android.util.Log;
 import android.widget.ListView;
 
 import com.spazedog.xposed.additionsgb.Common.AppBuilder;
@@ -267,6 +266,7 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 					@Override
 		            public void onClick(DialogInterface dialog, int id) {
 						dialog.cancel();
+						
 						if (dispatchEvent) {
 							ActivitySelectorRemap.this.onPreferenceClick(preference);
 						}

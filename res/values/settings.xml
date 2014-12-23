@@ -9,7 +9,6 @@
     <bool name="usb_unplug_switch">false</bool>
     <bool name="layout_rotation_switch">false</bool>
     <bool name="enable_debug">false</bool>
-    <bool name="check_unconfigured_primary_key">false</bool>
     <string-array name="remap_externals_list">
         <item>keyboard</item>
         <item>controller</item>
