@@ -3,7 +3,6 @@ package com.spazedog.xposed.additionsgb.backend.pwm;
 import android.view.KeyEvent;
 
 public class EventKey {
-	public static enum EventKeyType { DEVICE, INVOKED }
 	public static enum PressStates { NONE, DOWN, UP }
 
     private KeyEvent mKeyEvent = null; //Original KeyEvent, used as status

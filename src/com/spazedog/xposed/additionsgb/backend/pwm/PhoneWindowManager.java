@@ -419,8 +419,7 @@ public final class PhoneWindowManager {
                             mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, keyEvent.getRepeatCount()+1, policyFlags);
                         } else {
                             timeoutExpired = false;
-                            //Release happened while waiting
-                            mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_UP, 0, policyFlags);
+                            //Release invoked keys when next up is dispatched (could be inserted here, but the other situation must be handled anyway)
                         }
                     }
                     if (timeoutExpired && repeatCount == 0 && !mEventManager.getInvokedDefault()) {
@@ -503,10 +502,11 @@ public final class PhoneWindowManager {
                                 }
 
                             } else {
-                                Integer invokedKey = mEventManager.handleKeyAction(eventAction, ActionType.PRESS, mEventManager.isCallButton(), 0, mEventManager);
+                                Integer invokedKey = mEventManager.handleKeyAction(eventAction, mEventManager.isCallButton());
                                 if (invokedKey > 0) {
-                                    mEventManager.setState(State.REPEATING, invokedKey);
+                                    mEventManager.invokeKey(invokedKey, ActionType.PRESS);
                                     mEventManager.performLongPressFeedback();
+                                    mEventManager.setState(State.REPEATING, invokedKey);
                                 } else {
                                     mEventManager.setState(State.INVOKED);
                                 }
@@ -551,7 +551,10 @@ public final class PhoneWindowManager {
                                     mEventManager.setState(State.INVOKED);
                                 }
                             } else {
-                                mEventManager.handleKeyAction(eventAction, ActionType.CLICK, mEventManager.isCallButton(), 0, mEventManager);
+                                Integer invokedKey = mEventManager.handleKeyAction(eventAction, mEventManager.isCallButton());
+                                if (invokedKey > 0) {
+                                    mEventManager.invokeKey(invokedKey, ActionType.CLICK);
+                                }
                                 mEventManager.setState(State.INVOKED);
                             }
                         } else {

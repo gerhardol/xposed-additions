@@ -654,7 +654,7 @@ public abstract class IEventMediator extends IMediatorSetup {
         }
     }
 
-    public Integer handleKeyAction(final String action, final ActionType actionType, final Boolean invokeCallbutton, final Integer policyFlags, final EventManager eventManager) {
+    public Integer handleKeyAction(final String action, final Boolean invokeCallbutton) {
         if (invokeCallbutton && invokeCallButton()) {
             return 0;
         }
@@ -721,14 +721,10 @@ public abstract class IEventMediator extends IMediatorSetup {
 				} else if ("tasker".equals(type)) { 
 					sendBroadcast(new TaskerIntent(action.replace("tasker:", "")));
 				
-				} else {
-					//"dispatch"
-                    Integer keyAction = (actionType == ActionType.PRESS) ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_MULTIPLE;
-                    //Add the key to tracked keys
-                    KeyEvent keyEvent = new KeyEvent(keyAction, keyCode);
-                    Integer flags = fixPolicyFlags(keyCode, policyFlags);
-                    eventManager.registerInvoked(keyEvent, flags);
-                    injectInputEvent(keyEvent, keyAction, 0, flags);
+				}
+                else if (!"dispatch".equals(type)) {
+                    //Dispatch (key code) is handled in PhoneWindowManager
+                    Log.d(TAG, "Strange: unhandled action: "+action);
 				}
 			}
 		});
