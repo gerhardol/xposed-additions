@@ -57,8 +57,9 @@ public class InputManager {
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			if (param.args[0] instanceof KeyEvent) {
-				if ((((KeyEvent) param.args[0]).getFlags() & FLAG_INJECTED) == 0) {
-					if(Common.debug()) Log.d(TAG, "Adding FLAG_INJECTED flag on KeyEvent " + ((KeyEvent) param.args[0]).getKeyCode());
+                KeyEvent keyEvent = ((KeyEvent) param.args[0]);
+				if ((keyEvent.getFlags() & FLAG_INJECTED) == 0) {
+					if(Common.debug()) Log.d(TAG, "Adding FLAG_INJECTED flag on KeyEvent " + keyEvent.getKeyCode());
 					
 					/*
 					 * KitKat has an error where PolicyFlags[FLAG_INJECTED] will always show the key as injected in PhoneWindowManager#interceptKeyBeforeDispatching. 
@@ -67,14 +68,14 @@ public class InputManager {
 					 * KeyEvent itself whenever it get's parsed though this service method.
 					 */
 					try {
-						ReflectClass.forReceiver(param.args[0]).findField("mFlags").setValue(((KeyEvent) param.args[0]).getFlags() | FLAG_INJECTED);
+						ReflectClass.forReceiver(param.args[0]).findField("mFlags").setValue(keyEvent.getFlags() | FLAG_INJECTED);
 
 					} catch (ReflectException e) {
 						Log.e(TAG, e.getMessage(), e);
 					}
 					
 				} else {
-					if(Common.debug()) Log.d(TAG, "The KeyEvent " + ((KeyEvent) param.args[0]).getKeyCode() + " already contains the FLAG_INJECTED flag");
+					if(Common.debug()) Log.d(TAG, "The KeyEvent " + keyEvent.getKeyCode() + " already contains the FLAG_INJECTED flag: "+ (keyEvent.getAction()==KeyEvent.ACTION_DOWN?"down":"up"));
 				}
 			}
 		}

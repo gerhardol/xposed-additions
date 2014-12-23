@@ -30,8 +30,6 @@ import android.widget.Toast;
 import com.spazedog.lib.reflecttools.ReflectClass;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
 import com.spazedog.xposed.additionsgb.Common;
-import com.spazedog.xposed.additionsgb.backend.pwm.EventKey;
-import com.spazedog.xposed.additionsgb.backend.pwm.EventKey.EventKeyType;
 import com.spazedog.xposed.additionsgb.backend.pwm.EventManager;
 import com.spazedog.xposed.additionsgb.backend.pwm.PhoneWindowManager;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
@@ -152,43 +150,47 @@ public abstract class IEventMediator extends IMediatorSetup {
 		return mDeviceIds.get(deviceId);
 	}
 	
-	@SuppressLint("NewApi")
     public void injectInputEvent(KeyEvent keyEvent, Integer action, Integer repeatCount, Integer flags) {
-        synchronized(PhoneWindowManager.class) {
-            //ACTION_MULTIPLE is not implemented in injectInputEvent, use two actions
-            Integer[] actions = action == KeyEvent.ACTION_MULTIPLE ? new Integer[]{KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP} : new Integer[]{action};
-            Long time = SystemClock.uptimeMillis();
+        //ACTION_MULTIPLE is not implemented in injectInputEvent, use two actions
+        Integer[] actions = action == KeyEvent.ACTION_MULTIPLE ? new Integer[]{KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP} : new Integer[]{action};
+        Long time = SystemClock.uptimeMillis();
 
-            if ((flags & KeyEvent.FLAG_FROM_SYSTEM) == 0)
-                flags |= KeyEvent.FLAG_FROM_SYSTEM;
+        if ((flags & KeyEvent.FLAG_FROM_SYSTEM) == 0)
+            flags |= KeyEvent.FLAG_FROM_SYSTEM;
 
-            if ((flags & ORIGINAL.FLAG_INJECTED) == 0)
-                flags |= ORIGINAL.FLAG_INJECTED;
+        if ((flags & ORIGINAL.FLAG_INJECTED) == 0)
+            flags |= ORIGINAL.FLAG_INJECTED;
 
-            if ((flags & KeyEvent.FLAG_LONG_PRESS) == 0 && repeatCount == 1)
-                flags |= KeyEvent.FLAG_LONG_PRESS;
+        if ((flags & KeyEvent.FLAG_LONG_PRESS) == 0 && repeatCount == 1)
+            flags |= KeyEvent.FLAG_LONG_PRESS;
 
-            if ((flags & KeyEvent.FLAG_LONG_PRESS) != 0 && repeatCount != 1)
-                flags &= ~KeyEvent.FLAG_LONG_PRESS;
+        if ((flags & KeyEvent.FLAG_LONG_PRESS) != 0 && repeatCount != 1)
+            flags &= ~KeyEvent.FLAG_LONG_PRESS;
 
-            keyEvent = KeyEvent.changeTimeRepeat(keyEvent, time, repeatCount, flags);
+        keyEvent = KeyEvent.changeTimeRepeat(keyEvent, time, repeatCount, flags);
 
-            for(Integer keyAction: actions) {
-                if (keyEvent.getAction() != keyAction) {
-                    keyEvent = KeyEvent.changeAction(keyEvent, keyAction);
+        for (Integer keyAction: actions) {
+            if (keyEvent.getAction() != keyAction) {
+                keyEvent = KeyEvent.changeAction(keyEvent, keyAction);
+            }
+
+            injectInputEvent(keyEvent);
+        }
+    }
+
+    @SuppressLint("NewApi")
+    public void injectInputEvent(KeyEvent keyEvent) {
+        synchronized (PhoneWindowManager.class) {
+            try {
+                if (SDK.MANAGER_HARDWAREINPUT_VERSION > 1) {
+                    mMethods.get("injectInputEvent").invoke(keyEvent, ORIGINAL.INPUT_MODE_ASYNC);
+
+                } else {
+                    mMethods.get("injectInputEvent").invoke(keyEvent);
                 }
 
-                try {
-                    if (SDK.MANAGER_HARDWAREINPUT_VERSION > 1) {
-                        mMethods.get("injectInputEvent").invoke(keyEvent, ORIGINAL.INPUT_MODE_ASYNC);
-
-                    } else {
-                        mMethods.get("injectInputEvent").invoke(keyEvent);
-                    }
-
-                } catch (ReflectException e) {
-                    Log.e(TAG, e.getMessage(), e);
-                }
+            } catch (ReflectException e) {
+                Log.e(TAG, e.getMessage(), e);
             }
         }
     }
@@ -652,9 +654,9 @@ public abstract class IEventMediator extends IMediatorSetup {
         }
     }
 
-    public Boolean handleKeyAction(final String action, final ActionType actionType, final Boolean invokeCallbutton, final Integer policyFlags, final EventManager eventManager) {
+    public Integer handleKeyAction(final String action, final ActionType actionType, final Boolean invokeCallbutton, final Integer policyFlags, final EventManager eventManager) {
         if (invokeCallbutton && invokeCallButton()) {
-            return false;
+            return 0;
         }
 
 		/*
@@ -663,6 +665,12 @@ public abstract class IEventMediator extends IMediatorSetup {
 		 * -> 'Can't create handler inside thread that has not called Looper.prepare()'
 		 */
         final String type = Common.actionType(action);
+        final Integer keyCode;
+        if ("dispatch".equals(type)) {
+            keyCode = Integer.parseInt(action);
+        } else {
+            keyCode = 0;
+        }
 
         mHandler.post(new Runnable() {
 			public void run() {
@@ -715,22 +723,16 @@ public abstract class IEventMediator extends IMediatorSetup {
 				
 				} else {
 					//"dispatch"
-					Integer keyCode = Integer.parseInt(action);
                     Integer keyAction = (actionType == ActionType.PRESS) ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_MULTIPLE;
                     //Add the key to tracked keys
                     KeyEvent keyEvent = new KeyEvent(keyAction, keyCode);
                     Integer flags = fixPolicyFlags(keyCode, policyFlags);
-					if (actionType == ActionType.PRESS) {
-                        EventKey ikey = eventManager.initiateKey(keyEvent, flags, EventKeyType.INVOKED);
-                        ikey.invoke(keyEvent);
-						performLongPressFeedback();
-					} else {
-                        injectInputEvent(keyEvent, keyAction, 0, flags);
-					}
+                    eventManager.registerInvoked(keyEvent, flags);
+                    injectInputEvent(keyEvent, keyAction, 0, flags);
 				}
 			}
 		});
-        //Is Key?
-        return "dispatch".equals(type);
+
+        return keyCode;
  	}
 }

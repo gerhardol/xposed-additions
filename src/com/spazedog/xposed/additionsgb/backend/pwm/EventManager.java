@@ -19,19 +19,21 @@ public final class EventManager extends IEventMediator {
 	
 	public static enum State { PENDING, ONGOING, REPEATING, INVOKED }
 
-    private final int cPrimary = 0;
-    private final int cSecondary = 1;
-	private final EventKey[] mDeviceKeys = new EventKey[2];
-	private final EventKey[] mInvokedKeys = new EventKey[1];
+    public final int EVENTKEY_INVOKED = 0;
+    public final int EVENTKEY_PRIMARY = 1;
+    public final int EVENTKEY_SECONDARY = 2;
 
-	public State mState = State.PENDING;
+	private final EventKey[] mTrackedKeys = new EventKey[1+EVENTKEY_SECONDARY];
+
+	private State mState = State.PENDING;
+    public String stateName(){ return mState.name(); }
 	private Integer mTapCount = 0;
-	private Long mEventTime = 0L; //time for last event change
+    private Long mEventChangeTime = 0L; //time for last event change
+    private Long mEventStartTime = 0L; //time for last event change
     //ongoing combo timeouts
     private Boolean mComboStarted = false;
-    private Boolean mComboPendingEnd = false;
-
-    private Boolean mInvokedIsDefault = false;
+    //The ongoing long press (repeat) key
+    private Integer mLongPressKeyCode = -1;
 
 	private Boolean mIsScreenOn = true;
 	private Boolean mIsExtended = false;
@@ -49,36 +51,9 @@ public final class EventManager extends IEventMediator {
 
 	protected EventManager(ReflectClass pwm, XServiceManager xServiceManager) {
 		super(pwm, xServiceManager);
-        for (int i = 0; i < mDeviceKeys.length; i++) {
-            mDeviceKeys[i] = new EventKey(this);
+        for (int i = 0; i < mTrackedKeys.length; i++) {
+            mTrackedKeys[i] = new EventKey();
         }
-        for (int i = 0; i < mInvokedKeys.length; i++) {
-            mInvokedKeys[i] = new EventKey(this);
-        }
-	}
-	
-	public EventKey initiateKey(KeyEvent keyEvent, Integer policyFlags, EventKeyType keyType) {
-		synchronized(mEventLock) {
-            final EventKey[] keys = getKeyList(keyType);
-            for (EventKey key: keys) {
-                //should not happen, but reuse if so
-                if (key.getCode().equals(keyEvent.getKeyCode())) {
-                    if(Common.debug()) Log.d(TAG, "Strange: keyCode already in array");
-                    key.setUnused();
-                    break;
-                }
-            }
-            EventKey eventKey = null;
-            for (EventKey key: keys) {
-                if (!key.isUsed()) {
-                    key.initiateInstance(keyEvent, policyFlags);
-                    eventKey = key;
-                    break;
-                }
-            }
-
-			return eventKey;
-		}
 	}
 
     private int getActionsForEvent(int primCode, int secCode, Boolean isScreenOn) {
@@ -142,19 +117,25 @@ public final class EventManager extends IEventMediator {
         if (maxActionIndex < 0) {
             mState = State.PENDING;
             mIsCallButton = false;
+            mComboStarted = false;
 
         } else {
             mState = State.ONGOING;
             mIsScreenOn = isScreenOn;
             mIsCallButton = mXServiceManager.getBooleanGroup(Settings.REMAP_KEY_ENABLE_CALLBTN, configName);
             mKeyActions = keyActions;
+            if(secCode > 0) {
+                mComboStarted = true;
+            }
         }
         mTapCount = 0;
-        mInvokedIsDefault = false;
-        mComboStarted = false;
-        mComboPendingEnd = false;
 
         return maxActionIndex;
+    }
+
+    public EventKey registerInvoked(KeyEvent keyEvent, Integer policyFlags) {
+        mTrackedKeys[EVENTKEY_INVOKED].initiateInstance(keyEvent, policyFlags);
+        return mTrackedKeys[EVENTKEY_INVOKED];
     }
 
 	public Boolean registerKey(KeyEvent keyEvent, Boolean isScreenOn, Integer policyFlags) {
@@ -163,48 +144,50 @@ public final class EventManager extends IEventMediator {
             Integer keyCode = keyEvent.getKeyCode();
             Boolean isKeyDown = keyEvent.getAction() == KeyEvent.ACTION_DOWN;
             // Make sure not event hangs: Cancel at new presses 1000 + longest handled timeout
-			if (isKeyDown && (keyEvent.getEventTime() - mEventTime) > 1000 + getLongLongPressDelay()) {
+            if (isKeyDown && (keyEvent.getEventTime() - mEventChangeTime) > 1000 + getLongLongPressDelay()) {
 				releaseAllKeys();
 			}
 
             EventKey key = getKey(keyCode, EventKeyType.DEVICE);
             Boolean keyExists = key != null;
             //Set event time, abort timeouts
-            mEventTime = keyEvent.getEventTime();
+            Long currEventChangeTime = mEventChangeTime;
+            mEventChangeTime = keyEvent.getEventTime();
 
             if (isKeyDown) {
 				if (mState == State.ONGOING && keyExists) {
                     //Part of an ongoing event
-                    //Combo is aborted if primary is up, so this is a repeat
-                    if (mDeviceKeys[cSecondary].isUsed() && mDeviceKeys[cPrimary].getCode().equals(keyCode)) {
-                        if (Common.debug()) Log.i(TAG, "Ignoring unexpected primary repeat");
-                        return false;
+                    if (mTrackedKeys[EVENTKEY_SECONDARY].isUsed() && mTrackedKeys[EVENTKEY_PRIMARY].getCode().equals(keyCode)) {
+                        if (Common.debug()) Log.i(TAG, "Ignoring primary repeat");
+                        mEventChangeTime = currEventChangeTime;
+                    } else {
+                        if (Common.debug()) Log.d(TAG, "Registering new tap event");
+                        mTapCount += 1;
                     }
-                    if (Common.debug()) Log.d(TAG, "Registering new tap event");
-                    mTapCount += 1;
 
                 } else {
+                    //New key or handled state, must be new event
+                    //Set new state after checking if this is a new event
+
                     //Pull, in case they are changed
+                    //Must not be in REPEAT>ING when doing this
                     mTapTimeout = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_DOUBLECLICK, ViewConfiguration.getDoubleTapTimeout());
                     mPressTimeout = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_LONGPRESS, ViewConfiguration.getLongPressTimeout());
                     mIsExtended = mXServiceManager.isPackageUnlocked();
 
                     mMaxActionIndex = -1;
                     if (!keyExists) {
-                        if (mDeviceKeys[cPrimary].isUsed() && mDeviceKeys[cSecondary].isUsed()) {
+                        if (mTrackedKeys[EVENTKEY_PRIMARY].isUsed() && mTrackedKeys[EVENTKEY_SECONDARY].isUsed()) {
                             if(Common.debug()) Log.i(TAG, "Exceeding combo, resetting");
                             releaseAllKeys();
 
-                        } else if (mState == State.ONGOING && mDeviceKeys[cPrimary].isUsed() && isDownEvent() && mIsExtended) {
+                        } else if (mState == State.ONGOING && mTrackedKeys[EVENTKEY_PRIMARY].isUsed() && isDownEvent() && mIsExtended) {
                             if (Common.debug()) Log.d(TAG, "Registering new combo event");
 
-                            mMaxActionIndex = getActionsForEvent(mDeviceKeys[cPrimary].getCode(), keyCode, isScreenOn);
-                            if (mMaxActionIndex > 0) {
-                                //Ignore the primary, until invoked/default
-                                mComboStarted = true;
+                            mMaxActionIndex = getActionsForEvent(mTrackedKeys[EVENTKEY_PRIMARY].getCode(), keyCode, isScreenOn);
+                            if(mMaxActionIndex >= 0) {
+                                mTrackedKeys[EVENTKEY_SECONDARY].initiateInstance(keyEvent, policyFlags);
                             }
-                        } else {
-                            //Intentionally empty: No ongoing, handled next
                         }
                     }
                     if(mMaxActionIndex < 0){
@@ -213,21 +196,25 @@ public final class EventManager extends IEventMediator {
                         //This is not continuing, make sure existing are removed (default handled)
                         releaseAllKeys();
                         mMaxActionIndex = getActionsForEvent(keyCode, 0, isScreenOn);
+                        if(mMaxActionIndex >= 0) {
+                            mTrackedKeys[EVENTKEY_PRIMARY].initiateInstance(keyEvent, policyFlags);
+                            mTrackedKeys[EVENTKEY_SECONDARY].setUnused();
+                            //The context for the start is changed for the first key only
+                            mEventStartTime = mEventChangeTime;
+                        }
                     }
                     if(mMaxActionIndex >= 0) {
-                        key = initiateKey(keyEvent, policyFlags, EventKeyType.DEVICE);
                         newEvent = true;
                     }
                 }
 
 			} else {
-                if (mState == State.ONGOING && mDeviceKeys[cSecondary].isUsed() && mDeviceKeys[cPrimary].getCode().equals(keyCode)) {
-                    //Primary key in an existing combo
-                    //If secondary is up execute action
-                    //if secondary is down, set default handling
-                    if(mDeviceKeys[cSecondary].isPressed()) {
+                //key up
+                if (mState == State.ONGOING && mTrackedKeys[EVENTKEY_SECONDARY].isUsed() && mTrackedKeys[EVENTKEY_PRIMARY].getCode().equals(keyCode)) {
+                    //Primary key in an existing combo, ignore
+                    if(mTrackedKeys[EVENTKEY_SECONDARY].isPressed()) {
                         if (Common.debug()) Log.d(TAG, "Primary up, default handling");
-                        mComboPendingEnd = true;
+                        mEventChangeTime = currEventChangeTime;
                     }
                 }
             }
@@ -264,15 +251,12 @@ public final class EventManager extends IEventMediator {
 
     //Are all (combo) keys pressed?
 	public Boolean isDownEvent() {
-		for (EventKey key : mDeviceKeys) {
-			if (!key.isPressed() && key.isUsed()) {
-				return false;
-			}
-		}
-		
-		return true;
+        return (!mTrackedKeys[EVENTKEY_PRIMARY].isUsed() ||
+                mTrackedKeys[EVENTKEY_PRIMARY].isPressed()) &&
+                (!mTrackedKeys[EVENTKEY_SECONDARY].isUsed() ||
+                        mTrackedKeys[EVENTKEY_SECONDARY].isPressed());
 	}
-	
+
 	public Integer getLongLongPressDelay() {
 		return 2 * mPressTimeout;
 	}
@@ -280,14 +264,18 @@ public final class EventManager extends IEventMediator {
 	public Integer getTapCount() {
 		return mTapCount;
 	}
-	
-	public Long getEventTime() {
-		return mEventTime;
-	}
 
-    public Boolean getInvokedDefault() { return mInvokedIsDefault; }
+    public Long getEventChangeTime() {
+        return mEventChangeTime;
+    }
 
-    public void setInvokedDefault() { mInvokedIsDefault = true; }
+    public Long getEventStartTime() {
+        return mEventStartTime;
+    }
+
+    public Boolean getInvokedDefault() {
+        return !mTrackedKeys[EVENTKEY_INVOKED].isUsed() || !mTrackedKeys[EVENTKEY_INVOKED].getCode().equals(getLongPressKeyCode());
+    }
 
  	public Boolean isCallButton() {
 		return mIsCallButton;
@@ -321,8 +309,41 @@ public final class EventManager extends IEventMediator {
 		int index = 1 + getActionIndex(ActionType.CLICK);
         return (index <= this.mMaxActionIndex);
 	}
-	
-	public void setState(State state) {
+
+    public Integer getLongPressKeyCode() {
+        return mLongPressKeyCode;
+    }
+
+    public Boolean getIsCombo(){return mComboStarted;}
+
+    public KeyEvent getPrimaryKeyEvent() { return mTrackedKeys[EVENTKEY_PRIMARY].getKeyEvent(); }
+
+    public void setState(State state, Integer keyCode) {
+        if(state == State.REPEATING) {
+            mLongPressKeyCode = keyCode;
+        }
+        setState(state);
+    }
+
+    public void setState(State state) {
+        if(state == mState) {
+            return;
+        }
+        if(mState == State.REPEATING){
+            if(mLongPressKeyCode > 0) {
+                mLongPressKeyCode = -1;
+            }
+            if (state == State.INVOKED) {
+                mEventStartTime++;
+
+                //Released invoked keys, device default is handled separately
+                EventKey invokedKey = mTrackedKeys[EVENTKEY_INVOKED];
+                if (invokedKey.isUsed()) {
+                    this.injectInputEvent(invokedKey.getKeyEvent(), KeyEvent.ACTION_UP, 0, invokedKey.getFlags());
+                    //invokedKey.setUnused();
+                }
+            }
+        }
 		mState = state;
 	}
 	
@@ -336,27 +357,23 @@ public final class EventManager extends IEventMediator {
 		return false;
 	}
 
-    public EventKey[] getKeyList(EventKeyType keyType) {
-        final EventKey[] keys;
-        if (keyType == EventKeyType.INVOKED) {
-            keys = mInvokedKeys;
-        } else {
-            keys = mDeviceKeys;
-        }
-        return keys;
-    }
-
-    public Boolean isHandledKey(int keyCode, EventKeyType keyType) {
-        return getKey(keyCode, keyType) != null;
-    }
-
     public Boolean isHandledKey(int keyCode) {
         return getKey(keyCode) != null;
     }
 
     public EventKey getKey(Integer keyCode, EventKeyType keyType) {
-        for(EventKey key: getKeyList(keyType)) {
-            if (key != null && key.getCode().equals(keyCode) && key.isUsed()) {
+        int start;
+        int end;
+        if (keyType == EventKeyType.INVOKED) {
+            start = EVENTKEY_INVOKED;
+            end = EVENTKEY_INVOKED;
+        } else {
+            start = EVENTKEY_PRIMARY;
+            end = EVENTKEY_SECONDARY;
+        }
+        for(int i = start; i <= end; i++) {
+            EventKey key = mTrackedKeys[i];
+            if (key.getCode().equals(keyCode) && key.isUsed()) {
                 return key;
             }
         }
@@ -365,45 +382,32 @@ public final class EventManager extends IEventMediator {
 
     public EventKey getKey(Integer keyCode) {
         //Check invoked first, to handle mapping to same
-        EventKey key = getKey(keyCode, EventKeyType.INVOKED);
-        if (key == null) {
-            key = getKey(keyCode, EventKeyType.DEVICE);
-        }
-        return key;
-    }
-
-    private void recycleKeys(EventKeyType keyType) {
-        synchronized(mEventLock) {
-            final EventKey[] keys = getKeyList(keyType);
-            for (EventKey key : keys) {
-                key.setUnused();
+        for(EventKey key: mTrackedKeys) {
+            if (key != null && key.getCode().equals(keyCode) && key.isUsed()) {
+                return key;
             }
         }
+        return null;
     }
 
     private void releaseAllKeys() {
-        for (EventKey key: mDeviceKeys) {
-            key.release(null);
+        //If ONGOING or REPEAT-default, the default handling fixes the abort (context changed)
+        if(mState == State.REPEATING && mTrackedKeys[EVENTKEY_INVOKED].isUsed() &&
+                this.getLongPressKeyCode().equals(mTrackedKeys[EVENTKEY_INVOKED].getCode())) {
+            this.injectInputEvent(mTrackedKeys[EVENTKEY_INVOKED].getKeyEvent(), KeyEvent.ACTION_UP, 0, mTrackedKeys[EVENTKEY_INVOKED].getFlags());
         }
-        recycleKeys(EventKeyType.DEVICE);
-        for (EventKey key: mInvokedKeys) {
-            key.release(null);
-        }
-        recycleKeys(EventKeyType.INVOKED);
-    }
 
-    public void setAllKeysReleased(EventKeyType keyType) {
-        for (EventKey key: getKeyList(keyType)) {
-            key.setKeyPressSent(false);
-        }
+        this.mLongPressKeyCode = -1;
+        mTrackedKeys[EVENTKEY_PRIMARY].setUnused();
+        mTrackedKeys[EVENTKEY_SECONDARY].setUnused();
+        mTrackedKeys[EVENTKEY_INVOKED].setUnused();
+        mComboStarted = false;
     }
 
     //wait for timeout or state change, but let primary timeout first
-    public Boolean waitForPressChange(EventKey key, KeyEvent origContext) {
+    public Boolean waitForPressChange(EventKey key, Long origContext) {
         Integer timeout = this.getPressTimeout();
-        Long lastEventTime = mEventTime; //Context for current event status
-        Boolean comboStarted = false;
-        int allowedFailures = 3;
+        Long lastEventTime = mEventChangeTime; //Context for current event status
 
         do {
             try {
@@ -413,26 +417,18 @@ public final class EventManager extends IEventMediator {
 
             timeout -= 1;
 
-            if (mComboStarted) {
-                synchronized(mEventLock) {
-                    //Extend time for primary when secondary starts
-                    if (mComboStarted && key == mDeviceKeys[cPrimary]) {
-                        mComboStarted = false;
-                        comboStarted = true;
-                    }
-                }
-            }
-        } while ((mState == State.ONGOING &&
-                (timeout > 0 && lastEventTime.equals(mEventTime) || comboStarted) ||allowedFailures-->0) &&
-                origContext.equals(key.getKeyEvent()));
+        } while (mState == State.ONGOING &&
+                timeout > 0 && lastEventTime.equals(mEventChangeTime) && (!mComboStarted || key.getCode().equals(mTrackedKeys[EVENTKEY_SECONDARY].getCode())) &&
+                origContext.equals(mEventStartTime));
         //if (Common.debug())
-        //    Log.d(TAG, "waitForPressChange: " + key.getCode()+" " + timeout + " " + mState + " " + origContext.equals(key.getKeyEvent())+lastEventTime.equals(mEventTime)+ comboStarted);
+        //    Log.d(TAG, "waitForPressChange: " + key.getCode()+" " + timeout + " " + mState + " " + origContext.equals(key.getKeyEvent())+lastEventTime.equals(mEventChangeTime)+ comboStarted);
 
-        return timeout <= 0 && !comboStarted;
+        return timeout <= 0;
     }
 
     //wait for timeout or state change
-    public Boolean waitForLongpressChange(Integer timeout) {
+    public Boolean waitForLongpressChange(Integer timeout, Long origContext) {
+        Long lastEventTime = mEventChangeTime;
 
         do {
             try {
@@ -442,15 +438,15 @@ public final class EventManager extends IEventMediator {
 
             timeout -= 1;
             //Only abort for state change
-        } while (timeout > 0 && mState == State.REPEATING);
+        } while (timeout > 0 && (mState == State.REPEATING)
+                && lastEventTime.equals(mEventChangeTime) && origContext.equals(mEventStartTime));
 
         return timeout <= 0;
     }
 
-    public Boolean waitForClickChange(EventKey key, KeyEvent origContext) {
+    public Boolean waitForClickChange(EventKey key, Long origContext) {
         Integer timeout = getTapTimeout();
-        Long lastEventTime = mEventTime;
-        Boolean comboPendingEnd = false;
+        Long lastEventTime = mEventChangeTime;
 
         do {
             try {
@@ -460,22 +456,12 @@ public final class EventManager extends IEventMediator {
 
             timeout -= 1;
 
-            if (mComboPendingEnd) {
-                synchronized(mEventLock) {
-                    //Extend time for primary when secondary starts
-                    if (mComboPendingEnd && key == mDeviceKeys[cPrimary]) {
-                        mComboPendingEnd = false;
-                        comboPendingEnd = true;
-                    }
-                }
-            }
-        } while ((timeout > 0 && mState == State.ONGOING && lastEventTime.equals(mEventTime) && !comboPendingEnd ||
-                //wait until (primary) key is released
-                key.isPressed() && getInvokedDefault()) &&
-                origContext.equals(key.getKeyEvent()));
+        } while (timeout > 0 && mState == State.ONGOING && lastEventTime.equals(mEventChangeTime) &&
+                (!mComboStarted || key.getCode().equals(mTrackedKeys[EVENTKEY_SECONDARY].getCode())) &&
+                origContext.equals(mEventStartTime));
         //if (Common.debug())
-        //    Log.d(TAG, "waitForClickChange: " + key.getCode()+" " + timeout + " " + mState + " " + origContext.equals(key.getKeyEvent())+lastEventTime.equals(mEventTime)+ comboPendingEnd);
+        //    Log.d(TAG, "waitForClickChange: " +(key == mTrackedKeys[EVENTKEY_SECONDARY])+ key.getCode()+" " + timeout + " " + mState + " " + origContext.equals(mEventStartTime)+lastEventTime.equals(mEventChangeTime)+ mComboStarted);
 
-        return timeout <= 0 && !comboPendingEnd;
+        return timeout <= 0;
     }
 }
