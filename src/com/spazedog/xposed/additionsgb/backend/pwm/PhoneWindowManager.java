@@ -215,13 +215,22 @@ public final class PhoneWindowManager {
 	protected final XC_MethodHook hook_interceptKeyBeforeQueueing = new XC_MethodHook() {
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
-			Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
-            KeyEvent keyEvent;
-            Object keyObject;
+			final Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
+            final KeyEvent keyEvent;
+            final Object keyObject;
+            final Integer KEYEVENT_POS;
+            final Integer POLICYFLAGS_POS;
+            final Integer ISSCREENON_POS;
             if (methodVersion > 1) {
-                keyEvent = (KeyEvent) param.args[0];
+                KEYEVENT_POS = 0;
+                POLICYFLAGS_POS = 1;
+                ISSCREENON_POS = 2;
+                keyEvent = (KeyEvent) param.args[KEYEVENT_POS];
                 keyObject = keyEvent;
             } else {
+                KEYEVENT_POS = -1;
+                POLICYFLAGS_POS = 5;
+                ISSCREENON_POS = 6;
                 Integer keyCode = (Integer)param.args[3];
                 Integer action = (Integer)param.args[1];
                 Long eventTime = android.os.SystemClock.uptimeMillis();
@@ -231,9 +240,8 @@ public final class PhoneWindowManager {
                 keyEvent = new KeyEvent(downTime,eventTime,action,keyCode,repeatCount,metaState);
                 keyObject = keyCode;
             }
-            Integer policyFlagsPos = methodVersion == 1 ? 5 : 1;
-            Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
-            Boolean isScreenOn = (Boolean) (methodVersion == 1 ? param.args[6] : param.args[2]);
+            Integer policyFlags = (Integer) (param.args[POLICYFLAGS_POS]);
+            Boolean isScreenOn = (Boolean) (param.args[ISSCREENON_POS]);
 
 			Integer keyCode = keyEvent.getKeyCode();
 			Integer action = keyEvent.getAction();
@@ -276,7 +284,7 @@ public final class PhoneWindowManager {
 						/*
 						 * Some ROM's disables features on injected keys. So let's remove the flag.
 						 */
-						param.args[policyFlagsPos] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
+						param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
 					}
 					
 				/*
@@ -356,13 +364,30 @@ public final class PhoneWindowManager {
 		protected final void beforeHookedMethod(final MethodHookParam param) {
             mActiveDispatching = true;
 
-            Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
-            KeyEvent keyEvent = methodVersion == 1 ? null : (KeyEvent) param.args[1];
-            Integer keyCode = (Integer) (methodVersion == 1 ? param.args[3] : keyEvent.getKeyCode());
-            Integer action = (Integer) (methodVersion == 1 ? param.args[1] : keyEvent.getAction());
-            Integer policyFlagsPos = methodVersion == 1 ? 7 : 2;
-            Integer policyFlags = (Integer) (param.args[policyFlagsPos]);
-            Integer repeatCount = (Integer) (methodVersion == 1 ? param.args[6] : keyEvent.getRepeatCount());
+            final Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
+            final KeyEvent keyEvent;
+            final Integer KEYEVENT_POS;
+            final Integer POLICYFLAGS_POS;
+            if (methodVersion > 1) {
+                KEYEVENT_POS = 1;
+                POLICYFLAGS_POS = 2;
+                keyEvent = (KeyEvent) param.args[KEYEVENT_POS];
+            } else {
+                KEYEVENT_POS = -1;
+                POLICYFLAGS_POS = 7;
+                Integer keyCode = (Integer)param.args[3];
+                Integer action = (Integer)param.args[1];
+                Long eventTime = android.os.SystemClock.uptimeMillis();
+                Long downTime = eventTime;
+                Integer repeatCount = (Integer)param.args[6];
+                Integer metaState = 0;
+                keyEvent = new KeyEvent(downTime,eventTime,action,keyCode,repeatCount,metaState);
+            }
+            Integer policyFlags = (Integer) (param.args[POLICYFLAGS_POS]);
+
+            Integer keyCode = keyEvent.getKeyCode();
+            Integer action = keyEvent.getAction();
+            Integer repeatCount = keyEvent.getRepeatCount();
             Boolean down = action == KeyEvent.ACTION_DOWN;
 
             EventKey key = mEventManager.getKey(keyCode);
@@ -434,7 +459,7 @@ public final class PhoneWindowManager {
 
                 } else if ((policyFlags & ORIGINAL.FLAG_INJECTED) != 0) {
                     //Restore original flags
-                    param.args[policyFlagsPos] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
+                    param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
                 }
 
             } else if (mEventManager.hasState(State.ONGOING)) {
