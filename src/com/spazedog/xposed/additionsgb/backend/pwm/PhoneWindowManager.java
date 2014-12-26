@@ -263,7 +263,7 @@ public final class PhoneWindowManager {
 				 * Using KitKat work-around from the InputManager Hook
 				 */
 				Boolean isInjected = SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ? 
-						(((KeyEvent) param.args[0]).getFlags() & ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & ORIGINAL.FLAG_INJECTED) != 0;
+						(keyEvent.getFlags() & ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & ORIGINAL.FLAG_INJECTED) != 0;
 				
 				/*
 				 * The module should not handle injected keys. 
@@ -375,13 +375,13 @@ public final class PhoneWindowManager {
             } else {
                 KEYEVENT_POS = -1;
                 POLICYFLAGS_POS = 7;
-                Integer keyCode = (Integer)param.args[3];
-                Integer action = (Integer)param.args[1];
+                Integer keyCode = (Integer) param.args[3];
+                Integer action = (Integer) param.args[1];
                 Long eventTime = android.os.SystemClock.uptimeMillis();
                 Long downTime = eventTime;
-                Integer repeatCount = (Integer)param.args[6];
+                Integer repeatCount = (Integer) param.args[6];
                 Integer metaState = 0;
-                keyEvent = new KeyEvent(downTime,eventTime,action,keyCode,repeatCount,metaState);
+                keyEvent = new KeyEvent(downTime, eventTime, action, keyCode, repeatCount, metaState);
             }
             Integer policyFlags = (Integer) (param.args[POLICYFLAGS_POS]);
 
@@ -393,20 +393,6 @@ public final class PhoneWindowManager {
             EventKey key = mEventManager.getKey(keyCode);
             String tag = TAG + "#Dispatching/" + (down ? "Down " : "Up ") + keyCode + "(" + mEventManager.getTapCount() + "," + repeatCount + "): ";
 
-            //Abort repeating on any key
-            //The standard is to stop repeating when the invoked key is up, but this must handle abort sequences
-            if (!down && mEventManager.hasState(State.REPEATING)) {
-                if (Common.debug())
-                    Log.d(tag, "Key up, ending longpress");
-
-                synchronized (mQueueLock) {
-                    if (mEventManager.hasState(State.REPEATING)) {
-                        //Release invoked long press keys on any up key
-                        mEventManager.setState(State.INVOKED);
-                    }
-                }
-            }
-
             if (key == null || mEventManager.hasState(State.PENDING)) {
                 if (Common.debug()) Log.d(tag, "Unconfigured key, not handling");
                 return;
@@ -416,11 +402,29 @@ public final class PhoneWindowManager {
 			 * Using KitKat work-around from the InputManager Hook
 			 */
             Boolean isInjected = SDK.MANAGER_HARDWAREINPUT_VERSION > 1 ?
-                    (((KeyEvent) param.args[1]).getFlags() & ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & ORIGINAL.FLAG_INJECTED) != 0;
+                    (keyEvent.getFlags() & ORIGINAL.FLAG_INJECTED) != 0 : (policyFlags & ORIGINAL.FLAG_INJECTED) != 0;
 
-            //Default action longpress has no injected flag when repeating
-            //REPEATING may go to INVOKED, all handling here
-            if (isInjected || mEventManager.hasState(State.REPEATING, State.INVOKED)) {
+            if (mEventManager.hasState(State.INVOKED)) {
+                if (isInjected) {
+                    //All in this state should be explicitly injected
+
+                    if ((policyFlags & ORIGINAL.FLAG_INJECTED) != 0) {
+                        //Restore original flags
+                        param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
+                    }
+                    if (Common.debug())
+                        Log.d(tag, "Dispatching injected key");
+                    //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                    return;
+
+                } else {
+                    if (Common.debug())
+                        Log.d(tag, "Already handled device key (" + mEventManager.stateName() + ") " + mEventManager.isDownEvent());
+                    param.setResult(ORIGINAL.DISPATCHING_REJECT);
+                    return;
+                }
+
+            } else if (mEventManager.hasState(State.REPEATING)) {
 				/*
 				 * When we disallow applications from getting the event, we also disable repeats. 
 				 * This is a hack where we create a controlled injection loop to simulate repeats. 
@@ -428,7 +432,9 @@ public final class PhoneWindowManager {
 				 * If we did not have to support GB, then we could have just returned the timeout to force repeat without global dispatching. 
 				 * But since we have GB to think about, this is the best solution. 
 				 */
-                if (down && mEventManager.hasState(State.REPEATING) && keyCode.equals(mEventManager.getLongPressKeyCode())) {
+                Boolean dispatch = true;
+                //Any down key should be repeating
+                if (down) {
                     if (Common.debug()) Log.d(tag, "Injecting a new repeat " + repeatCount);
 
                     Long origEventContext = mEventManager.getEventStartTime();
@@ -438,12 +444,13 @@ public final class PhoneWindowManager {
                     Boolean timeoutExpired = mEventManager.waitForLongpressChange(curTimeout, origEventContext);
 
                     synchronized (mQueueLock) {
-                        //Check state, ignore timeout
+                        //Check state
                         if (timeoutExpired && mEventManager.hasState(State.REPEATING) &&
-                                    keyCode.equals(mEventManager.getLongPressKeyCode()) && origEventContext.equals(mEventManager.getEventStartTime())) {
+                                origEventContext.equals(mEventManager.getEventStartTime())) {
                             mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, keyEvent.getRepeatCount()+1, policyFlags);
                         } else {
                             timeoutExpired = false;
+                            dispatch = false;
                             //Release invoked keys when next up is dispatched (could be inserted here, but the other situation must be handled anyway)
                         }
                     }
@@ -451,15 +458,41 @@ public final class PhoneWindowManager {
                         mEventManager.performLongPressFeedback();
                     }
                 }
-
-                if (!isInjected && mEventManager.hasState(State.INVOKED)) {
+                if (!down) {
                     if (Common.debug())
-                        Log.d(tag, "Already handled (" + mEventManager.stateName() + ") " + mEventManager.isDownEvent());
-                    param.setResult(ORIGINAL.DISPATCHING_REJECT);
+                        Log.d(tag, "Key up, ending longpress");
 
-                } else if ((policyFlags & ORIGINAL.FLAG_INJECTED) != 0) {
-                    //Restore original flags
-                    param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
+                    synchronized (mQueueLock) {
+                        //Release invoked long press keys on any up key
+                        if (mEventManager.getLongPressKeyCode() > 0) {
+                            if(!isInjected) {
+                                if (Common.debug())
+                                    Log.d(tag, "Key up, ending longpress for device key");
+                                dispatch = false;
+                            } else {
+                                if (Common.debug())
+                                    Log.d(tag, "Strange: Key up, ending longpress from injected key");
+                            }
+                            //Invoke key up
+                            mEventManager.setState(State.INVOKED);
+                            mEventManager.setLongPressKeyCode(-1);
+                        } else {
+                            if (Common.debug())
+                                Log.d(tag, "Key up, ending longpressfor device key up");
+                            //Default invoked keys. Primary should not be sent, if the handling is changed just release
+                            mEventManager.setState(State.PENDING);
+                        }
+                    }
+                }
+
+                if (dispatch) {
+                    if ((policyFlags & ORIGINAL.FLAG_INJECTED) != 0) {
+                        //Restore original flags
+                        param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
+                    }
+                    //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                } else {
+                    param.setResult(ORIGINAL.DISPATCHING_REJECT);
                 }
 
             } else if (mEventManager.hasState(State.ONGOING)) {
@@ -505,7 +538,7 @@ public final class PhoneWindowManager {
                                     }
                                 }
                                 if (origEventContext.equals(mEventManager.getEventStartTime())) {
-                                    mEventManager.setState(State.REPEATING, keyCode);
+                                    mEventManager.setState(State.REPEATING);
                                     if (primaryKeyEvent != null) {
                                         //Insert secondary after the primary key
                                         mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, 0, policyFlags);
@@ -517,7 +550,7 @@ public final class PhoneWindowManager {
                                 } else {
                                     //Already started new event, finish this
                                     if (primaryKeyEvent != null) {
-                                        mEventManager.injectInputEvent(primaryKeyEvent, KeyEvent.ACTION_UP, 0, primaryKeyEvent.getFlags());
+                                        mEventManager.injectInputEvent(primaryKeyEvent, KeyEvent.ACTION_MULTIPLE, 0, primaryKeyEvent.getFlags());
                                     }
                                     mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, 0, policyFlags);
                                     if (timeoutExpired) {
@@ -531,7 +564,8 @@ public final class PhoneWindowManager {
                                 if (invokedKey > 0) {
                                     mEventManager.invokeKey(invokedKey, ActionType.PRESS);
                                     mEventManager.performLongPressFeedback();
-                                    mEventManager.setState(State.REPEATING, invokedKey);
+                                    mEventManager.setState(State.REPEATING);
+                                    mEventManager.setLongPressKeyCode(invokedKey);
                                 } else {
                                     mEventManager.setState(State.INVOKED);
                                 }

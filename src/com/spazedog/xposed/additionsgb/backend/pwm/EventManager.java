@@ -278,7 +278,7 @@ public final class EventManager extends IEventMediator {
     }
 
     public Boolean getInvokedDefault() {
-        return !mTrackedKeys[EVENTKEY_INVOKED].isUsed() || !mTrackedKeys[EVENTKEY_INVOKED].getCode().equals(getLongPressKeyCode());
+        return (getLongPressKeyCode() <= 0);
     }
 
  	public Boolean isCallButton() {
@@ -317,26 +317,19 @@ public final class EventManager extends IEventMediator {
     public Integer getLongPressKeyCode() {
         return mLongPressKeyCode;
     }
+    public void setLongPressKeyCode(Integer longPressKeyCode) {
+        mLongPressKeyCode = longPressKeyCode;
+    }
 
     public Boolean getIsCombo(){return mComboStarted;}
 
     public KeyEvent getPrimaryKeyEvent() { return mTrackedKeys[EVENTKEY_PRIMARY].getKeyEvent(); }
-
-    public void setState(State state, Integer keyCode) {
-        if(state == State.REPEATING) {
-            mLongPressKeyCode = keyCode;
-        }
-        setState(state);
-    }
 
     public void setState(State state) {
         if(state == mState) {
             return;
         }
         if(mState == State.REPEATING){
-            if(mLongPressKeyCode > 0) {
-                mLongPressKeyCode = -1;
-            }
             if (state == State.INVOKED) {
                 mEventStartTime++;
 
@@ -395,7 +388,6 @@ public final class EventManager extends IEventMediator {
             this.injectInputEvent(mTrackedKeys[EVENTKEY_INVOKED].getKeyEvent(), KeyEvent.ACTION_UP, 0, mTrackedKeys[EVENTKEY_INVOKED].getFlags());
         }
 
-        this.mLongPressKeyCode = -1;
         mTrackedKeys[EVENTKEY_INVOKED].setUnused();
         mComboStarted = false;
     }
