@@ -217,12 +217,10 @@ public final class EventManager extends IEventMediator {
             //key up
             if (mState == State.ONGOING && mTrackedKeys[EVENTKEY_SECONDARY].isUsed() && mTrackedKeys[EVENTKEY_PRIMARY].getCode().equals(keyCode)) {
                 //Primary key in an existing combo, ignore
-                if (mTrackedKeys[EVENTKEY_SECONDARY].isPressed()) {
-                    if (Common.debug()) Log.d(TAG, "Primary up, default handling");
-                    mEventChangeTime = currEventChangeTime;
-                }
+                if (Common.debug()) Log.d(TAG, "Primary up, default handling");
+                mEventChangeTime = currEventChangeTime;
             }
-        }
+         }
         if (key != null) {
             key.setKetPressDevice(isKeyDown);
         }
