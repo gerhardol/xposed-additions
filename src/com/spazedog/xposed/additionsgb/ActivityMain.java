@@ -110,8 +110,13 @@ public class ActivityMain extends PreferenceActivity implements OnPreferenceClic
     		}
     		
     		if (mPreferences != null && mPreferences.isPackageUnlocked()) {
-    			getPreferenceScreen().removePreference( findPreference("pro_link") );
-    			
+                //TBD, temporary unlocked
+                if (mPreferences != null && mPreferences.isPackageUnlocked_Pro()) {
+                    getPreferenceScreen().removePreference(findPreference("pro_link"));
+                }
+                else {
+                    findPreference("pro_link").setOnPreferenceClickListener(this);
+                }
     			if (!mPreferences.getBoolean("tasker_external_information") && TaskerIntent.testStatus(this).equals(TaskerIntent.Status.AccessBlocked)) {
     	    		new AlertDialog.Builder(this)
     	    		.setTitle("Tasker Detected")
