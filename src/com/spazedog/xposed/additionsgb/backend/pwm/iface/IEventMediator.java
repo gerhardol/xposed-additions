@@ -151,7 +151,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 	}
 	
     public void injectInputEvent(KeyEvent keyEvent, Integer action, Integer repeatCount, Integer flags) {
-        //ACTION_MULTIPLE is not implemented in injectInputEvent, use two actions
+        //ACTION_MULTIPLE is really abuse of the action, but calling code is shorter...
         Integer[] actions = action == KeyEvent.ACTION_MULTIPLE ? new Integer[]{KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP} : new Integer[]{action};
         Long time = SystemClock.uptimeMillis();
 
