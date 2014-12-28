@@ -247,9 +247,9 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 	protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
 
         if (intent != null) {
+            Intent returnIntent;
             switch (requestCode) {
 
-                Intent returnIntent;
                 case REQUEST_SELECT_TASKER:
                     returnIntent = getIntent();
                     returnIntent.putExtra("result", "tasker:" + intent.getDataString());
