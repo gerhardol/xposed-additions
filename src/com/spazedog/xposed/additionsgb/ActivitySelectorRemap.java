@@ -54,8 +54,21 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 	private String mAction;
 	
 	private AppBuilder mAppBuilder;
-	
-	@Override
+
+    final int REQUEST_SELECT_TASKER = 1;
+    final int REQUEST_SELECT_APPSHORTCUT = 2;
+    final int REQUEST_CREATE_APPSHORTCUT = 3;
+
+    private Intent getAppShortcutSelectIntent() {
+        Intent intent = new Intent(Intent.ACTION_PICK_ACTIVITY);
+
+        intent.putExtra(Intent.EXTRA_INTENT, new Intent(Intent.ACTION_CREATE_SHORTCUT));
+        intent.putExtra(Intent.EXTRA_TITLE, R.string.preference_title_select_appshortcut);
+        return intent;
+    }
+
+
+    @Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		
@@ -156,27 +169,30 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
     				}
     			}
     		}
-    		
-			if (mPreferences.isPackageUnlocked() && !("add_action".equals(mAction) && "off".equals(getIntent().getStringExtra("condition")))) {
-				findPreference("load_apps_preference").setOnPreferenceClickListener(this);
-				
-				if ("add_action".equals(mAction) && TaskerIntent.testStatus(this).equals(TaskerIntent.Status.OK)) {
-					findPreference("select_tasker_preference").setOnPreferenceClickListener(this);
-				
-				} else {
-					((PreferenceGroup) findPreference("application_group")).removePreference(findPreference("select_tasker_preference"));
-				}
-				
-			} else {
-				if (mPreferences.isPackageUnlocked() && "add_action".equals(mAction) && TaskerIntent.testStatus(this).equals(TaskerIntent.Status.OK)) {
-					((PreferenceGroup) findPreference("application_group")).removePreference(findPreference("load_apps_preference"));
-					findPreference("select_tasker_preference").setOnPreferenceClickListener(this);
-					
-				} else {
-					preferenceScreen.removePreference(findPreference("application_group"));
-				}
-			}
-    	}
+
+            if (mPreferences.isPackageUnlocked()) {
+                if ("add_action".equals(mAction)) {
+                    findPreference("select_appshortcut_preference").setOnPreferenceClickListener(this);
+                } else {
+                    ((PreferenceGroup) findPreference("application_group")).removePreference(findPreference("select_appshortcut_preference"));
+                }
+
+                if ("add_action".equals(mAction) && TaskerIntent.testStatus(this).equals(TaskerIntent.Status.OK)) {
+                        findPreference("select_tasker_preference").setOnPreferenceClickListener(this);
+                } else {
+                    ((PreferenceGroup) findPreference("application_group")).removePreference(findPreference("select_tasker_preference"));
+                }
+
+                if ("add_action".equals(mAction) && "off".equals(getIntent().getStringExtra("condition"))) {
+                    ((PreferenceGroup) findPreference("application_group")).removePreference(findPreference("load_apps_preference"));
+                } else {
+                    findPreference("load_apps_preference").setOnPreferenceClickListener(this);
+                }
+
+            } else {
+                preferenceScreen.removePreference(findPreference("application_group"));
+            }
+        }
     }
 	
 	@Override
@@ -208,11 +224,14 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 					);
 				}
 			});
-			
-		} else if ("select_tasker_preference".equals(preference.getKey())) {
-			startActivityForResult(TaskerIntent.getTaskSelectIntent(), 1);
 
-		} else {
+        } else if ("select_tasker_preference".equals(preference.getKey())) {
+            startActivityForResult(TaskerIntent.getTaskSelectIntent(), REQUEST_SELECT_TASKER);
+
+        } else if ("select_appshortcut_preference".equals(preference.getKey())) {
+            startActivityForResult(getAppShortcutSelectIntent(), REQUEST_SELECT_APPSHORTCUT);
+
+        } else {
 			Intent intent = getIntent();
 			intent.putExtra("result", (String) ((IWidgetPreference) preference).getTag());
 			
@@ -223,19 +242,44 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 		
 		return false;
 	}
-	
+
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
-		if (intent != null) {
-			Intent returnIntent = getIntent();
-			returnIntent.putExtra("result", "tasker:" + intent.getDataString());
-			
-			setResult(RESULT_OK, returnIntent);
-			
-			finish();
-		}
-	}
-	
+
+        if (intent != null) {
+            Intent returnIntent;
+            switch (requestCode) {
+
+                case REQUEST_SELECT_TASKER:
+                    returnIntent = getIntent();
+                    returnIntent.putExtra("result", "tasker:" + intent.getDataString());
+
+                    setResult(RESULT_OK, returnIntent);
+
+                    finish();
+                    break;
+
+                case REQUEST_SELECT_APPSHORTCUT:
+                    startActivityForResult(intent, REQUEST_CREATE_APPSHORTCUT);
+
+                    break;
+
+                case REQUEST_CREATE_APPSHORTCUT:
+                    String name = intent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME).replace(':', '_');
+
+                    Intent appIntent = intent.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT);
+                    returnIntent = getIntent();
+
+                    returnIntent.putExtra("result", "appshortcut:" + name + ":" + appIntent.toUri(Intent.URI_INTENT_SCHEME));
+
+                    setResult(RESULT_OK, returnIntent);
+
+                    finish();
+                    break;
+            }
+        }
+    }
+
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	private Preference getSelectPreference(String title, String summary, String tag, Drawable icon, Intent intent) {
 		WidgetPreference preference = new WidgetPreference(this);

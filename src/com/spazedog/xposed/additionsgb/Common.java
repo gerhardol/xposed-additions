@@ -71,49 +71,71 @@ public final class Common {
 	
 	public static final File LOG_FILE = new File(Environment.getDataDirectory(), "data/" + PACKAGE_NAME + "/cache/error.log");
 	public static final Long LOG_SIZE = 1024L*512;
-	
-	public static String actionType(String action) {
-		return action == null ? null : 
-			action.matches("^[0-9]+$") ? "dispatch" : 
-				action.startsWith("tasker:") ? "tasker" : 
-				action.contains(".") ? "launcher" : "custom";
-	}
-	
-	public static String actionToString(Context context, String action) {
-		String type = actionType(action);
-		
-		if ("dispatch".equals(type)) {
-			return keyToString( Integer.parseInt(action) );
-			
-		} else if ("launcher".equals(type)) {
-			try {
-				PackageManager packageManager = context.getPackageManager();
-				ApplicationInfo applicationInfo = packageManager.getApplicationInfo(action, 0);
-				
-				return (String) packageManager.getApplicationLabel(applicationInfo);
-				
-			} catch(Throwable e) {}
-			
-		} else if ("tasker".equals(type)) {
-			try {
-				return action.replace("tasker:", "Tasker: ");
-				
-			} catch (Throwable e) {}
-			
-		} else {
-			try {
-				for (RemapAction current : Actions.COLLECTION) {
-					if (current.getAction().equals(action)) {
-						return current.getLabel(context);
-					}
-				}
-				
-			} catch(Throwable e) {}
-		}
-		
-		return null;
-	}
-	
+
+    public static String[] actionParse(Context context, String action) {
+        //type, action, display name
+        String[] result = {null, null, null};
+        if (action != null) {
+            if (action.matches("^[0-9]+$")) {
+                result[0] = "dispatch";
+                result[1] = action;
+                result[2] = keyToString( Integer.parseInt(action) );
+
+            } else if (action.startsWith("tasker:")) {
+                result[0] = "tasker";
+                int i = "tasker:".length();
+                result[1] = action.substring(i+1);
+                result[2] = "Tasker: " + result[1];
+
+            } else if (action.startsWith("appshortcut:")) {
+                result[0] = "appshortcut";
+                int i = "appshortcut:".length();
+                int j = action.indexOf(':', i);
+                result[1] = action.substring(j+1);
+                result[2] = "App Shortcut: " + action.substring(i,j);
+
+            } else if (action.contains(".")) {
+                result[0] = "launcher";
+                result[1] = action;
+                if (context != null) {
+                    try {
+                        PackageManager packageManager = context.getPackageManager();
+                        ApplicationInfo applicationInfo = packageManager.getApplicationInfo(action, 0);
+
+                        result[2] = (String) packageManager.getApplicationLabel(applicationInfo);
+
+                    } catch (Throwable e) {
+                    }
+                }
+
+            } else {
+                result[0] = "custom";
+                result[1] = action;
+                if (context != null) {
+                    try {
+                        for (RemapAction current : Actions.COLLECTION) {
+                            if (current.getAction().equals(action)) {
+                                result[2] = current.getLabel(context);
+                                break;
+                            }
+                        }
+                    } catch (Throwable e) {
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    public static String actionType(Context context, String action) {
+        return actionParse(context, action)[0];
+    }
+
+
+    public static String actionName(Context context, String action) {
+        return actionParse(context, action)[2];
+    }
+
 	public static String conditionToString(Context context, String condition) {
 		Integer id = context.getResources().getIdentifier("condition_type_$" + condition, "string", PACKAGE_NAME);
 		

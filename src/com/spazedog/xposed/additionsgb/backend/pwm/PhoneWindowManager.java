@@ -395,7 +395,7 @@ public final class PhoneWindowManager {
 
             if (key == null || mEventManager.hasState(State.PENDING)) {
                 if (Common.debug()) Log.d(tag, "Unconfigured key, not handling");
-                param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                 return;
             }
 
@@ -415,7 +415,7 @@ public final class PhoneWindowManager {
                     }
                     if (Common.debug())
                         Log.d(tag, "Dispatching INVOKED injected key");
-                    param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                    //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                     return;
 
                 } else {
@@ -489,7 +489,7 @@ public final class PhoneWindowManager {
                         //Restore original flags
                         param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
                     }
-                    param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                    //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                 } else {
                     param.setResult(ORIGINAL.DISPATCHING_REJECT);
                 }
