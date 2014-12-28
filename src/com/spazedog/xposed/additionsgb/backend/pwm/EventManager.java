@@ -130,12 +130,10 @@ public final class EventManager extends IEventMediator {
         return maxActionIndex;
     }
 
-    public void invokeKey(Integer keyCode, ActionType actionType) {
+    public void invokeKey(Integer keyCode, Integer keyAction, Integer flags) {
         abortRepeatingKeys();
-        Integer keyAction = (actionType == ActionType.PRESS) ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_MULTIPLE;
         //Add the key to tracked keys
         KeyEvent keyEvent = new KeyEvent(keyAction, keyCode);
-        Integer flags = fixPolicyFlags(keyCode, 0);
         mTrackedKeys[EVENTKEY_INVOKED].initiateInstance(keyEvent, flags);
         injectInputEvent(keyEvent, keyAction, 0, flags);
     }

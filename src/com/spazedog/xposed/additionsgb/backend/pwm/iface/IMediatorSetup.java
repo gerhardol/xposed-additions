@@ -138,9 +138,10 @@ public abstract class IMediatorSetup {
 	public static final class ORIGINAL {
 		public static Integer FLAG_INJECTED;
 		public static Integer FLAG_VIRTUAL;
-		public static Integer FLAG_WAKE_DROPPED;
-		
-		public static Integer QUEUEING_ALLOW;
+        public static Integer FLAG_WAKE_DROPPED;
+        public static Integer FLAG_WAKE;
+
+        public static Integer QUEUEING_ALLOW;
 		public static Integer QUEUEING_REJECT;
 		
 		public static Object DISPATCHING_ALLOW;
@@ -195,9 +196,10 @@ public abstract class IMediatorSetup {
 		
 		ORIGINAL.FLAG_INJECTED = (Integer) wmp.findField("FLAG_INJECTED").getValue();
 		ORIGINAL.FLAG_VIRTUAL = (Integer) wmp.findField("FLAG_VIRTUAL").getValue();
-		ORIGINAL.FLAG_WAKE_DROPPED = (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
-		
-		ORIGINAL.QUEUEING_ALLOW = (Integer) wmp.findFieldDeep("ACTION_PASS_TO_USER").getValue();
+        ORIGINAL.FLAG_WAKE_DROPPED = (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
+        ORIGINAL.FLAG_WAKE = (Integer) ((wmp.findField("FLAG_WAKE").getValue()));
+
+        ORIGINAL.QUEUEING_ALLOW = (Integer) wmp.findFieldDeep("ACTION_PASS_TO_USER").getValue();
 		ORIGINAL.QUEUEING_REJECT = 0;
 		
 		ORIGINAL.DISPATCHING_ALLOW = SDK.METHOD_INTERCEPT_VERSION == 1 ? false : 0;

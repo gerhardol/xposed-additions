@@ -327,7 +327,7 @@ public final class PhoneWindowManager {
 						}
 						
 					} else {
-						if (!mEventManager.isHandledKey(keyCode)) {
+						if (mEventManager.hasState(State.PENDING) || !mEventManager.isHandledKey(keyCode)) {
 							if(Common.debug()) Log.d(tag, "Unconfigured key, no action");
 							return;
 						}
@@ -395,6 +395,7 @@ public final class PhoneWindowManager {
 
             if (key == null || mEventManager.hasState(State.PENDING)) {
                 if (Common.debug()) Log.d(tag, "Unconfigured key, not handling");
+                param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                 return;
             }
 
@@ -413,8 +414,8 @@ public final class PhoneWindowManager {
                         param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
                     }
                     if (Common.debug())
-                        Log.d(tag, "Dispatching injected key");
-                    //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                        Log.d(tag, "Dispatching INVOKED injected key");
+                    param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                     return;
 
                 } else {
@@ -458,16 +459,14 @@ public final class PhoneWindowManager {
                         mEventManager.performLongPressFeedback();
                     }
                 }
-                if (!down) {
-                    if (Common.debug())
-                        Log.d(tag, "Key up, ending longpress");
 
+                if (!down) {
                     synchronized (mQueueLock) {
                         //Release invoked long press keys on any up key
                         if (mEventManager.getLongPressKeyCode() > 0) {
                             if(!isInjected) {
                                 if (Common.debug())
-                                    Log.d(tag, "Key up, ending longpress for device key");
+                                    Log.d(tag, "Key up, ending invoked longpress for device key");
                                 dispatch = false;
                             } else {
                                 if (Common.debug())
@@ -478,7 +477,7 @@ public final class PhoneWindowManager {
                             mEventManager.setLongPressKeyCode(-1);
                         } else {
                             if (Common.debug())
-                                Log.d(tag, "Key up, ending longpressfor device key up");
+                                Log.d(tag, "Key up, ending default longpress for device key up");
                             //Default invoked keys. Primary should not be sent, if the handling is changed just release
                             mEventManager.setState(State.PENDING);
                         }
@@ -490,7 +489,7 @@ public final class PhoneWindowManager {
                         //Restore original flags
                         param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
                     }
-                    //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                    param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                 } else {
                     param.setResult(ORIGINAL.DISPATCHING_REJECT);
                 }
@@ -518,11 +517,10 @@ public final class PhoneWindowManager {
                             if (Common.debug())
                                 Log.d(tag, "Invoking press action: " + (isDefault ? "<default>" : eventAction));
 
-                            //If this is a key, do long press handling
-                            mEventManager.handleFeedbackAndScreen(eventAction, ActionType.PRESS, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.getEventChangeTime(), 0);
+                            mEventManager.performHapticFeedback(null, HapticFeedbackConstants.LONG_PRESS, policyFlags);
 
                             if (isDefault) {
-									/*
+      									/*
 									 * The first one MUST be dispatched throughout the system.
 									 * Applications can ONLY start tracking from the original event object.
 									 */
@@ -560,13 +558,15 @@ public final class PhoneWindowManager {
                                 }
 
                             } else {
-                                Integer invokedKey = mEventManager.handleKeyAction(eventAction, mEventManager.isCallButton());
-                                if (invokedKey > 0) {
-                                    mEventManager.invokeKey(invokedKey, ActionType.PRESS);
+                                Integer invokeKeyCode = mEventManager.getActionKeyCode(eventAction);
+                                if (invokeKeyCode > 0) {
+                                    Integer flags = mEventManager.fixPolicyFlags(invokeKeyCode,0);
+                                    mEventManager.invokeKey(invokeKeyCode, KeyEvent.ACTION_DOWN, flags);
                                     mEventManager.performLongPressFeedback();
                                     mEventManager.setState(State.REPEATING);
-                                    mEventManager.setLongPressKeyCode(invokedKey);
+                                    mEventManager.setLongPressKeyCode(invokeKeyCode);
                                 } else {
+                                    mEventManager.handleEventAction(eventAction);
                                     mEventManager.setState(State.INVOKED);
                                 }
                             }
@@ -597,7 +597,25 @@ public final class PhoneWindowManager {
                             if (Common.debug())
                                 Log.d(tag, "Invoking click action: " + (isDefault ? "<default>" : eventAction));
 
-                            mEventManager.handleFeedbackAndScreen(eventAction, ActionType.CLICK, mEventManager.getTapCount(), mEventManager.isScreenOn(), mEventManager.getEventChangeTime(), 0);
+                            final Integer flags;
+                            Integer invokeKeyCode = -1;
+                            if (isDefault) {
+                                invokeKeyCode = -1;
+                                flags = policyFlags | ((primaryKeyEvent != null) ? primaryKeyEvent.getFlags() : 0);
+                            } else {
+                                if (mEventManager.isCallButton()) {
+                                    invokeKeyCode = mEventManager.invokeCallButton();
+                                }
+                                if (invokeKeyCode <= 0) {
+                                    invokeKeyCode = mEventManager.getActionKeyCode(eventAction);
+                                }
+                                flags = mEventManager.fixPolicyFlags(invokeKeyCode,0);
+                            }
+
+                            if (mEventManager.handleScreen(eventAction, ActionType.CLICK, mEventManager.isScreenOn(), mEventManager.getEventChangeTime(), flags)) {
+                                //No action, just awake
+                                mEventManager.setState(State.INVOKED);
+                            }
 
                             if (isDefault) {
                                 //Dispatch the original key. We cannot dispatch the original event,
@@ -609,10 +627,11 @@ public final class PhoneWindowManager {
                                 if (origEventContext.equals(mEventManager.getEventStartTime())) {
                                     mEventManager.setState(State.INVOKED);
                                 }
-                            } else {
-                                Integer invokedKey = mEventManager.handleKeyAction(eventAction, mEventManager.isCallButton());
-                                if (invokedKey > 0) {
-                                    mEventManager.invokeKey(invokedKey, ActionType.CLICK);
+                            } else if (mEventManager.hasState(State.ONGOING)){
+                                if (invokeKeyCode > 0) {
+                                    mEventManager.invokeKey(invokeKeyCode, KeyEvent.ACTION_MULTIPLE, flags);
+                                } else {
+                                    mEventManager.handleEventAction(eventAction);
                                 }
                                 mEventManager.setState(State.INVOKED);
                             }

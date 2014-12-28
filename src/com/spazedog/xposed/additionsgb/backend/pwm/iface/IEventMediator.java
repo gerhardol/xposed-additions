@@ -374,7 +374,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 		return pkg != null ? pkg.id : 0;
 	}
 	
-	public Boolean invokeCallButton() {
+	public Integer invokeCallButton() {
 		Integer mode = ((AudioManager) mAudioManager.getReceiver()).getMode();
 		Integer callCode = 0;
 		
@@ -384,14 +384,8 @@ public abstract class IEventMediator extends IMediatorSetup {
 		} else if (mode == AudioManager.MODE_RINGTONE) {
 			callCode = KeyEvent.KEYCODE_CALL;
 		}
-		
-		if (callCode > 0) {
-            KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_MULTIPLE, callCode);
-            injectInputEvent(keyEvent, KeyEvent.ACTION_MULTIPLE, 0, 0);
-            return true;
-		}
-		
-		return false;
+
+        return callCode;
 	}
 	
 	public Object getUserInstance() {
@@ -637,33 +631,23 @@ public abstract class IEventMediator extends IMediatorSetup {
 		return policyFlags;
 	}
 	
-	public void handleFeedbackAndScreen(String action, ActionType actionType, Integer tapCount, Boolean isScreenOn, Long eventDownTime, Integer policyFlags) {
-        Boolean isSingleClick = actionType != ActionType.PRESS && tapCount == 0;
-
-        if (!isSingleClick) {
-            performHapticFeedback(null, HapticFeedbackConstants.LONG_PRESS, policyFlags);
-        }
-		
+	public Boolean handleScreen(String action, ActionType actionType, Boolean isScreenOn, Long eventDownTime, Integer policyFlags) {
 		/*
 		 * We handle display on here, because some devices has issues
 		 * when executing handlers while in deep sleep.
 		 * Some times they will need a few key presses before reacting.
 		 */
-        if (!isScreenOn && isSingleClick && action != null && (action.equals("" + KeyEvent.KEYCODE_POWER) || (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0)) {
+        if (!isScreenOn && actionType == ActionType.CLICK &&
+                ((action != null && action.equals("" + KeyEvent.KEYCODE_POWER)) ||
+                ((policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) ||
+                ((policyFlags & ORIGINAL.FLAG_WAKE) != 0))) {
             changeDisplayState(eventDownTime, true);
+            return true;
         }
+        return false;
     }
 
-    public Integer handleKeyAction(final String action, final Boolean invokeCallbutton) {
-        if (invokeCallbutton && invokeCallButton()) {
-            return 0;
-        }
-
-		/*
-		 * This should always be wrapped and sent to a handler. 
-		 * If this is executed directly, some of the actions will crash with the error 
-		 * -> 'Can't create handler inside thread that has not called Looper.prepare()'
-		 */
+    public Integer getActionKeyCode(String action) {
         final String type = Common.actionType(action);
         final Integer keyCode;
         if ("dispatch".equals(type)) {
@@ -671,7 +655,17 @@ public abstract class IEventMediator extends IMediatorSetup {
         } else {
             keyCode = 0;
         }
+        return keyCode;
+    }
 
+    public void handleEventAction(final String action) {
+		/*
+		 * This should always be wrapped and sent to a handler. 
+		 * If this is executed directly, some of the actions will crash with the error 
+		 * -> 'Can't create handler inside thread that has not called Looper.prepare()'
+		 */
+
+        final String type = Common.actionType(action);
         mHandler.post(new Runnable() {
 			public void run() {
 				if ("launcher".equals(type)) {
@@ -722,13 +716,11 @@ public abstract class IEventMediator extends IMediatorSetup {
 					sendBroadcast(new TaskerIntent(action.replace("tasker:", "")));
 				
 				}
-                else if (!"dispatch".equals(type)) {
-                    //Dispatch (key code) is handled in PhoneWindowManager
+                else {
+                    //"dispatch" (key code) is handled in PhoneWindowManager
                     Log.d(TAG, "Strange: unhandled action: "+action);
 				}
 			}
 		});
-
-        return keyCode;
  	}
 }
