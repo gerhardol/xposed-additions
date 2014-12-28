@@ -481,8 +481,20 @@ public abstract class IEventMediator extends IMediatorSetup {
 			((Context) mContext.getReceiver()).sendBroadcast(intent);
 		}
 	}
-	
-	public void toggleFlashLight() {
+
+    void startShortcut(String uri) {
+        Intent intent = new Intent();
+        try {
+            intent = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Parse URI exception!"+e.getMessage(), e);
+        }
+        launchIntent(intent);
+    }
+
+    public void toggleFlashLight() {
 		if (mTorchIntent != null) {
 			if (Common.TORCH_INTENT_ACTION.equals(mTorchIntent.getAction())) {
 				if(Common.debug()) Log.d(TAG, "Toggling native Torch service");
@@ -648,8 +660,9 @@ public abstract class IEventMediator extends IMediatorSetup {
     }
 
     public Integer getActionKeyCode(String action) {
-        final String type = Common.actionType(action);
-        final Integer keyCode;
+        String[] actions = Common.actionParse((Context)mContext.getReceiver(), action);
+        String type = actions[0];
+        Integer keyCode;
         if ("dispatch".equals(type)) {
             keyCode = Integer.parseInt(action);
         } else {
@@ -658,14 +671,16 @@ public abstract class IEventMediator extends IMediatorSetup {
         return keyCode;
     }
 
-    public void handleEventAction(final String action) {
+    public void handleEventAction(final String actionString) {
 		/*
 		 * This should always be wrapped and sent to a handler. 
 		 * If this is executed directly, some of the actions will crash with the error 
 		 * -> 'Can't create handler inside thread that has not called Looper.prepare()'
 		 */
 
-        final String type = Common.actionType(action);
+        String[] actions = Common.actionParse((Context)mContext.getReceiver(), actionString);
+        final String type = actions[0];
+        final String action = actions[1];
         mHandler.post(new Runnable() {
 			public void run() {
 				if ("launcher".equals(type)) {
@@ -711,11 +726,14 @@ public abstract class IEventMediator extends IMediatorSetup {
 							keyGuardDismiss();
 						}
 					}
-					
-				} else if ("tasker".equals(type)) { 
-					sendBroadcast(new TaskerIntent(action.replace("tasker:", "")));
-				
-				}
+
+                } else if ("tasker".equals(type)) {
+                    sendBroadcast(new TaskerIntent(action));
+
+                } else if ("appshortcut".equals(type)) {
+                    startShortcut(action);
+
+                }
                 else {
                     //"dispatch" (key code) is handled in PhoneWindowManager
                     Log.d(TAG, "Strange: unhandled action: "+action);

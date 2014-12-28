@@ -86,7 +86,7 @@ public final class EventManager extends IEventMediator {
                     //No triple, double press
                     if (i >= 2 ||
                             //No program, tasker
-                            keyActions[i].startsWith("launcher") || keyActions[i].startsWith("tasker")) {
+                            keyActions[i].contains(".") || keyActions[i].startsWith("appshortcut:") || keyActions[i].startsWith("tasker:")) {
                         keyActions[i] = null;
                     }
                 }
