@@ -39,13 +39,9 @@
 	
 	<string name='category_title_logviewer'>Error Log</string>
 	
-    <string name='category_title_pro'>Get Pro Extension permanently</string>
-    <string name='category_summary_pro'>Pro Extension enabled for evaluation purposes</string>
-<!--
     <string name='category_title_pro'>Get Pro Extension</string>
-    <string name='category_summary_pro'>Add more features with the Pro Extension</string>
--->
-
+	<string name='category_summary_pro'>Add more features with the Pro Extension</string>
+	
 	<string name='category_title_usbplug'>USB Plug/UnPlug</string>
 	<string name='category_summary_usbplug'>Change the behavior when Plugging/UnPlugging the USB cable</string>
     

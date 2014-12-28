@@ -78,7 +78,7 @@ public class ActivityViewerLog extends Activity {
 				if (Common.LOG_FILE.exists()) {
 					try {
 						Intent intent = new Intent(Intent.ACTION_SEND);
-						intent.putExtra(Intent.EXTRA_EMAIL, new String[] {"gerhard.nospam@gmail.com"}); //TODO: temporary
+						intent.putExtra(Intent.EXTRA_EMAIL, new String[] {"d.bergloev@gmail.com"});
 						intent.putExtra(Intent.EXTRA_SUBJECT, "XposedAdditions: Error Log");
 						intent.putExtra(Intent.EXTRA_TEXT, getDeviceInfo());
 						intent.setType("text/plain");

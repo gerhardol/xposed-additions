@@ -430,13 +430,8 @@ public class XServiceManager {
 			
 		} catch (RemoteException e) { handleRemoteException(e); }
 	}
-
-    //TBD permanent license unlock
-    public Boolean isPackageUnlocked() {
-        return true;
-    }
-    //Original method, retained to get printout in app only
-	public Boolean isPackageUnlocked_Pro() {
+	
+	public Boolean isPackageUnlocked() {
 		if (mIsUnlocked == null) {
 			try {
 				mIsUnlocked = mService.isUnlocked();
