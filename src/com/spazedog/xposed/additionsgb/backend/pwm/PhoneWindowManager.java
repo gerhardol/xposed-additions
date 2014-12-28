@@ -542,7 +542,7 @@ public final class PhoneWindowManager {
                                         mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, 0, policyFlags);
                                     } else {
                                         //No invoking needed, just allow
-                                        //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                                        param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                                         return;
                                     }
                                 } else {
