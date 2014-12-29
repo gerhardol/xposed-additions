@@ -395,7 +395,7 @@ public final class PhoneWindowManager {
 
             if (key == null || mEventManager.hasState(State.PENDING)) {
                 if (Common.debug()) Log.d(tag, "Unconfigured key, not handling");
-                //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                //Return, do default handling, not call:  param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                 return;
             }
 
@@ -541,8 +541,7 @@ public final class PhoneWindowManager {
                                         //Insert secondary after the primary key
                                         mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, 0, policyFlags);
                                     } else {
-                                        //No invoking needed, just allow
-                                        param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                                        //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                                         return;
                                     }
                                 } else {
@@ -593,28 +592,22 @@ public final class PhoneWindowManager {
                         Boolean isDefault = !origEventContext.equals(mEventManager.getEventStartTime());
                         if (timeoutExpired && mEventManager.hasState(State.ONGOING) || isDefault) {
                             String eventAction = mEventManager.getAction(ActionType.CLICK);
-                            isDefault = isDefault || eventAction == null;
-                            if (Common.debug())
-                                Log.d(tag, "Invoking click action: " + (isDefault ? "<default>" : eventAction));
-
-                            final Integer flags;
                             Integer invokeKeyCode = -1;
-                            if (isDefault) {
-                                invokeKeyCode = -1;
-                                flags = policyFlags | ((primaryKeyEvent != null) ? primaryKeyEvent.getFlags() : 0);
+                            if (!isDefault && mEventManager.isCallButton()) {
+                                //Call button overrides configuration of the button (unless the sequence was aborted)
+                                invokeKeyCode = mEventManager.invokeCallButton();
                             } else {
-                                if (mEventManager.isCallButton()) {
-                                    invokeKeyCode = mEventManager.invokeCallButton();
-                                }
-                                if (invokeKeyCode <= 0) {
-                                    invokeKeyCode = mEventManager.getActionKeyCode(eventAction);
-                                }
-                                flags = mEventManager.fixPolicyFlags(invokeKeyCode,0);
+                                isDefault = isDefault || eventAction == null;
                             }
 
-                            if (mEventManager.handleScreen(eventAction, ActionType.CLICK, mEventManager.isScreenOn(), mEventManager.getEventChangeTime(), flags)) {
-                                //No action, just awake
-                                mEventManager.setState(State.INVOKED);
+                            if (Common.debug()) {
+                                String str;
+                                if (invokeKeyCode > 0) {
+                                    str = "Callcode:"+invokeKeyCode;
+                                } else {
+                                    str = (isDefault ? "<default>" : eventAction);
+                                }
+                                Log.d(tag, "Invoking click action: " + str);
                             }
 
                             if (isDefault) {
@@ -627,7 +620,15 @@ public final class PhoneWindowManager {
                                 if (origEventContext.equals(mEventManager.getEventStartTime())) {
                                     mEventManager.setState(State.INVOKED);
                                 }
-                            } else if (mEventManager.hasState(State.ONGOING)){
+                            } else {
+                                if (invokeKeyCode <= 0) {
+                                    invokeKeyCode = mEventManager.getActionKeyCode(eventAction);
+                                }
+                                final Integer flags = mEventManager.fixPolicyFlags(invokeKeyCode,0);
+                                //Wake up if needed, but let Android drop key if required
+                                //Explicitly waking up seem to cause problems waking for some devices if added should be for non-key only
+                                //mEventManager.handleScreen(ActionType.CLICK, mEventManager.isScreenOn(), mEventManager.getEventChangeTime(), flags);
+
                                 if (invokeKeyCode > 0) {
                                     mEventManager.invokeKey(invokeKeyCode, KeyEvent.ACTION_MULTIPLE, flags);
                                 } else {
