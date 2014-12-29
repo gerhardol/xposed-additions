@@ -23,6 +23,7 @@ import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager.XServiceBroadcastListener;
 
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.callbacks.XCallback;
 
 public final class PhoneWindowManager {
 	public static final String TAG = PhoneWindowManager.class.getName();
@@ -212,7 +213,7 @@ public final class PhoneWindowManager {
 	 * 		- Gingerbread: PhoneWindowManager.interceptKeyBeforeQueueing(Long whenNanos, Integer action, Integer flags, Integer keyCode, Integer scanCode, Integer policyFlags, Boolean isScreenOn)
 	 * 		- ICS & Above: PhoneWindowManager.interceptKeyBeforeQueueing(KeyEvent event, Integer policyFlags, Boolean isScreenOn)
 	 */
-	protected final XC_MethodHook hook_interceptKeyBeforeQueueing = new XC_MethodHook() {
+	protected final XC_MethodHook hook_interceptKeyBeforeQueueing = new XC_MethodHook(XCallback.PRIORITY_DEFAULT + 100) {
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			final Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
@@ -278,8 +279,9 @@ public final class PhoneWindowManager {
 						 * the original methods themselves seams to be handling this just fine, but a few 
 						 * stock ROM's are treating these as both new and repeated events. 
 						 */
-						param.setResult(ORIGINAL.QUEUEING_ALLOW);
-						
+						//param.setResult(ORIGINAL.QUEUEING_ALLOW);
+						return;
+
 					} else if ((policyFlags & ORIGINAL.FLAG_INJECTED) != 0) {
 						/*
 						 * Some ROM's disables features on injected keys. So let's remove the flag.
@@ -340,7 +342,11 @@ public final class PhoneWindowManager {
 					
 					if(Common.debug()) Log.d(tag, "Passing the event to the queue (" + mEventManager.stateName() + ")");
 					
-					param.setResult(ORIGINAL.QUEUEING_ALLOW);
+					//The default handling may "supress" keys we configure, so avoid default handling in some situations
+					if (!mEventManager.hasState(State.PENDING)) {
+                        param.setResult(ORIGINAL.QUEUEING_ALLOW);
+                    }
+                    return;
 				}
 			}
 		}
@@ -358,7 +364,7 @@ public final class PhoneWindowManager {
 	 * 		- Gingerbread: PhoneWindowManager.interceptKeyBeforeDispatching(WindowState win, Integer action, Integer flags, Integer keyCode, Integer scanCode, Integer metaState, Integer repeatCount, Integer policyFlags)
 	 * 		- ICS & Above: PhoneWindowManager.interceptKeyBeforeDispatching(WindowState win, KeyEvent event, Integer policyFlags)
 	 */	
-	protected XC_MethodHook hook_interceptKeyBeforeDispatching = new XC_MethodHook() {
+	protected XC_MethodHook hook_interceptKeyBeforeDispatching = new XC_MethodHook(XCallback.PRIORITY_DEFAULT + 100) {
 		@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
