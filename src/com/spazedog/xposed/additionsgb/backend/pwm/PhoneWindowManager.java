@@ -523,7 +523,7 @@ public final class PhoneWindowManager {
                             if (Common.debug())
                                 Log.d(tag, "Invoking press action: " + (isDefault ? "<default>" : eventAction));
 
-                            mEventManager.performHapticFeedback(null, HapticFeedbackConstants.LONG_PRESS, policyFlags);
+                            mEventManager.performHapticFeedback(keyEvent, HapticFeedbackConstants.LONG_PRESS, policyFlags);
 
                             if (isDefault) {
       									/*
@@ -531,8 +531,6 @@ public final class PhoneWindowManager {
 									 * Applications can ONLY start tracking from the original event object.
 									 */
                                 //Only one longpress (or tracking) at a time
-                                if (Common.debug())
-                                    Log.d(tag, "Passing event to the dispatcher");
 
                                 if (primaryKeyEvent != null) {
                                     //Primary key is just ignored, insert it now
