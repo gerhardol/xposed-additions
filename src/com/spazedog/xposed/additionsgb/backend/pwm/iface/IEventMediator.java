@@ -633,28 +633,29 @@ public abstract class IEventMediator extends IMediatorSetup {
 		if (!keyCode.equals(KeyEvent.KEYCODE_POWER) 
 				&& !isWakeKeyWhenScreenOff(keyCode)
 				&& (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) {
-					
 					policyFlags &= ~ORIGINAL.FLAG_WAKE_DROPPED;
 			
-		} else if (keyCode.equals(KeyEvent.KEYCODE_POWER) && (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) == 0) {
+		} else if ((keyCode.equals(KeyEvent.KEYCODE_POWER) || isWakeKeyWhenScreenOff(keyCode)) &&
+                (policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) == 0) {
 			policyFlags |= ORIGINAL.FLAG_WAKE_DROPPED;
 		}
 		
 		return policyFlags;
 	}
 	
-	public Boolean handleScreen(String action, ActionType actionType, Boolean isScreenOn, Long eventDownTime, Integer policyFlags) {
+	public Boolean handleScreen(ActionType actionType, Boolean isScreenOn, Long eventDownTime, Integer policyFlags) {
 		/*
 		 * We handle display on here, because some devices has issues
 		 * when executing handlers while in deep sleep.
 		 * Some times they will need a few key presses before reacting.
 		 */
         if (!isScreenOn && actionType == ActionType.CLICK &&
-                ((action != null && action.equals("" + KeyEvent.KEYCODE_POWER)) ||
-                ((policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) ||
+               (((policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) ||
                 ((policyFlags & ORIGINAL.FLAG_WAKE) != 0))) {
             changeDisplayState(eventDownTime, true);
-            return true;
+            if ((policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) {
+                return true;
+            }
         }
         return false;
     }
