@@ -22,9 +22,9 @@ public class Actions {
 		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_POWER, 0, 0, 0, 0, 0));
 		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_HOME, 0, 0, 0, 0, 0, "off", "guard")); 
 		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_MENU, 0, 0, 0, 0, 0, "off", "guard")); 
-		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_BACK, 0, 0, 0, 0, 0, "off", "guard"));
+		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_BACK, 0, 0, 0, 0, 0));
 		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_SEARCH, 0, 0, 0, 0, 0, "off"));
-		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_CAMERA, 0, 0, 0, 0, R.string.selector_notice_camera_buttons, "off")); 
+		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_CAMERA, 0, 0, 0, 0, R.string.selector_notice_camera_buttons));
 		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_FOCUS, 0, 0, 0, 0, R.string.selector_notice_camera_buttons, "off", "guard"));
 		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_CALL, 0, 0, 0, 0, 0));
 		COLLECTION.add(new RemapAction(KeyEvent.KEYCODE_ENDCALL, 0, 0, 0, 0, 0));

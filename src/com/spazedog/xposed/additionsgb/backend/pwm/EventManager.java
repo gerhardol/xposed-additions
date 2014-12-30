@@ -34,7 +34,7 @@ public final class EventManager extends IEventMediator {
     //The ongoing long press (repeat) key
     private Integer mLongPressKeyCode = -1;
 
-	private Boolean mIsScreenOn = true;
+	//private Boolean mIsScreenOn = true;
 	private Boolean mIsExtended = false;
 	private Boolean mIsCallButton = false;
 	private Integer mTapTimeout = 0;
@@ -118,7 +118,7 @@ public final class EventManager extends IEventMediator {
 
         } else {
             mState = State.ONGOING;
-            mIsScreenOn = isScreenOn;
+            //mIsScreenOn = isScreenOn;
             mIsCallButton = mXServiceManager.getBooleanGroup(Settings.REMAP_KEY_ENABLE_CALLBTN, configName);
             mKeyActions = keyActions;
             if(secCode > 0) {
@@ -281,9 +281,7 @@ public final class EventManager extends IEventMediator {
 		return mIsCallButton;
 	}
 
-	public Boolean isScreenOn() {
-		return mIsScreenOn;
-	}
+	//public Boolean isScreenOn() { return mIsScreenOn; }
 	
 	public Integer getPressTimeout() {
 		return mPressTimeout;
@@ -316,10 +314,6 @@ public final class EventManager extends IEventMediator {
     public void setLongPressKeyCode(Integer longPressKeyCode) {
         mLongPressKeyCode = longPressKeyCode;
     }
-
-    public Boolean getIsCombo(){return mComboStarted;}
-
-    public KeyEvent getPrimaryKeyEvent() { return mTrackedKeys[EVENTKEY_PRIMARY].getKeyEvent(); }
 
     public void setState(State state) {
         if(state == mState) {
