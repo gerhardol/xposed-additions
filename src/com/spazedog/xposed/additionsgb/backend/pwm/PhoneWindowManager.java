@@ -518,11 +518,6 @@ public final class PhoneWindowManager {
                 }
 
             } else if (mEventManager.hasState(State.ONGOING)) {
-                KeyEvent primaryKeyEvent = null;
-                if (mEventManager.getIsCombo()) {
-                    //Primary key is just ignored, must track if default action
-                    primaryKeyEvent = mEventManager.getPrimaryKeyEvent();
-                }
 
                 if (down) {
                     if (Common.debug()) Log.d(tag, "Waiting on long press timeout");
@@ -530,57 +525,33 @@ public final class PhoneWindowManager {
                     Boolean timeoutExpired = mEventManager.waitForPressChange(key, origEventContext);
 
                     synchronized (mQueueLock) {
-                        //Continue if state is still OnGoing and timer released
-                        //or if this is default action (new event started)
-                        Boolean isDefault = !origEventContext.equals(mEventManager.getEventStartTime());
+                        //Continue normally if state is still OnGoing and timer released
+                        //If an event is aborted, only do default handling for secondary
+                        //There is no default handling for the primary in a combo
+                        //(insert keys with new event will interfere with states)
+                        Boolean aborted = (!origEventContext.equals(mEventManager.getEventStartTime()) || mEventManager.hasState(State.PENDING));
 
-                        if (timeoutExpired && mEventManager.hasState(State.ONGOING) || isDefault) {
+                        if (timeoutExpired && mEventManager.hasState(State.ONGOING) || aborted) {
                             String eventAction = mEventManager.getAction(ActionType.PRESS);
-                            isDefault = isDefault || eventAction == null;
+                            Boolean isDefault = aborted || eventAction == null;
                             if (Common.debug())
                                 Log.d(tag, "Invoking press action: " + (isDefault ? "<default>" : eventAction));
 
-                            mEventManager.performHapticFeedback(keyEvent, HapticFeedbackConstants.LONG_PRESS, policyFlags);
-
                             if (isDefault) {
-      									/*
+      							    /*
 									 * The first one MUST be dispatched throughout the system.
 									 * Applications can ONLY start tracking from the original event object.
 									 */
-                                //Only one longpress (or tracking) at a time
-
-                                if (primaryKeyEvent != null) {
-                                    //Primary key is just ignored, insert it now
-                                    mEventManager.injectInputEvent(primaryKeyEvent, KeyEvent.ACTION_DOWN, 0, primaryKeyEvent.getFlags());
-                                    if (timeoutExpired) {
-                                        mEventManager.injectInputEvent(primaryKeyEvent, KeyEvent.ACTION_DOWN, 1, primaryKeyEvent.getFlags());
-                                    }
-                                }
-                                if (origEventContext.equals(mEventManager.getEventStartTime())) {
+                                if (!aborted) {
                                     mEventManager.setState(State.REPEATING);
-                                    if (primaryKeyEvent != null) {
-                                        //Insert secondary after the primary key
-                                        mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, 0, policyFlags);
-                                    } else {
-                                        //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
-                                        return;
-                                    }
-                                } else {
-                                    //Already started new event, finish this
-                                    if (primaryKeyEvent != null) {
-                                        mEventManager.injectInputEvent(primaryKeyEvent, KeyEvent.ACTION_MULTIPLE, 0, primaryKeyEvent.getFlags());
-                                    }
-                                    mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, 0, policyFlags);
-                                    if (timeoutExpired) {
-                                        mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, 1, policyFlags);
-                                    }
-                                    mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_UP, 0, policyFlags);
                                 }
+                                //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                                return;
 
                             } else {
                                 Integer invokeKeyCode = mEventManager.getActionKeyCode(eventAction);
                                 if (invokeKeyCode > 0) {
-                                    Integer flags = mEventManager.fixPolicyFlags(invokeKeyCode,0);
+                                    Integer flags = mEventManager.fixPolicyFlags(invokeKeyCode, 0);
                                     mEventManager.invokeKey(invokeKeyCode, KeyEvent.ACTION_DOWN, flags);
                                     mEventManager.performLongPressFeedback();
                                     mEventManager.setState(State.REPEATING);
@@ -592,7 +563,7 @@ public final class PhoneWindowManager {
                             }
                         } else {
                             if (Common.debug())
-                                Log.d(tag, "No action" + " " + timeoutExpired + " " + mEventManager.stateName() + " " + origEventContext.equals(mEventManager.getEventStartTime()));
+                                Log.d(tag, "No action" + " timeout:" + timeoutExpired + " aborted:" + aborted + " " + mEventManager.stateName());
                         }
                     }
 
@@ -610,10 +581,12 @@ public final class PhoneWindowManager {
 
                     synchronized (mQueueLock) {
 
-                        Boolean isDefault = !origEventContext.equals(mEventManager.getEventStartTime());
-                        if (timeoutExpired && mEventManager.hasState(State.ONGOING) || isDefault) {
+                        //Abort, primary etc: See long press
+                        Boolean aborted = (!origEventContext.equals(mEventManager.getEventStartTime()) || mEventManager.hasState(State.PENDING));
+                        if (timeoutExpired && mEventManager.hasState(State.ONGOING) || aborted) {
                             String eventAction = mEventManager.getAction(ActionType.CLICK);
                             Integer invokeKeyCode = -1;
+                            Boolean isDefault = aborted;
                             if (!isDefault && mEventManager.isCallButton()) {
                                 //Call button overrides configuration of the button (unless the sequence was aborted)
                                 invokeKeyCode = mEventManager.invokeCallButton();
@@ -632,23 +605,21 @@ public final class PhoneWindowManager {
                             }
 
                             if (isDefault) {
-                                //Dispatch the original key. We cannot dispatch the original event,
-                                // as we cannot insert the down key prior to the current up.
-                                if(primaryKeyEvent != null) {
-                                    mEventManager.injectInputEvent(primaryKeyEvent, KeyEvent.ACTION_MULTIPLE, 0, primaryKeyEvent.getFlags());
-                                }
-                                mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_MULTIPLE, 0, policyFlags);
-                                if (origEventContext.equals(mEventManager.getEventStartTime())) {
+                                if (!aborted) {
                                     mEventManager.setState(State.INVOKED);
                                 }
+
+                                mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_MULTIPLE, 0, policyFlags);
+
                             } else {
                                 if (invokeKeyCode <= 0) {
                                     invokeKeyCode = mEventManager.getActionKeyCode(eventAction);
                                 }
                                 final Integer flags = mEventManager.fixPolicyFlags(invokeKeyCode,0);
-                                //Wake up if needed, but let Android drop key if required
-                                //Explicitly waking up seem to cause problems waking for some devices if added should be for non-key only
+                                //Wake up if needed, let Android drop key if WAKE_DROPPED
+                                //Explicitly waking up seem to cause problems waking for some devices, if added should be for non-key only
                                 //mEventManager.handleScreen(ActionType.CLICK, mEventManager.isScreenOn(), mEventManager.getEventChangeTime(), flags);
+                                //Probably better to require the user to insert the wakeup with app shortcut
 
                                 if (invokeKeyCode > 0) {
                                     mEventManager.invokeKey(invokeKeyCode, KeyEvent.ACTION_MULTIPLE, flags);
@@ -659,7 +630,7 @@ public final class PhoneWindowManager {
                             }
                         } else {
                             if (Common.debug())
-                                Log.d(tag, "No action" + " " + timeoutExpired + " " + mEventManager.stateName() + " " + mEventManager.getInvokedDefault() + " " + origEventContext.equals(mEventManager.getEventStartTime()));
+                                Log.d(tag, "No action" + " timeout:" + timeoutExpired + " aborted:" + aborted + " " + mEventManager.stateName());
                         }
                     }
                 }
