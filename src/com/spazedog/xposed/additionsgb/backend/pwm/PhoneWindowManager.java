@@ -440,29 +440,45 @@ public final class PhoneWindowManager {
 				 * But since we have GB to think about, this is the best solution. 
 				 */
                 Boolean dispatch = true;
-                //Any down key should be repeating
+                //Any down key is repeating
                 if (down) {
                     if (Common.debug()) Log.d(tag, "Injecting a new repeat " + repeatCount);
 
                     Long origEventContext = mEventManager.getEventStartTime();
-                    Integer curTimeout = (repeatCount == 0) ? (mEventManager.getInvokedDefault() ? 0 : mEventManager.getLongLongPressDelay()) :
-                            SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
 
-                    Boolean timeoutExpired = mEventManager.waitForLongpressChange(curTimeout, origEventContext);
+                    Boolean timeoutExpired;
+                    Boolean alwaysDispatch = false;
+                    Boolean longLongInvokedFirstRepeat = false;
+                    if (repeatCount == 0 ||
+                            ((repeatCount == 1) && (mEventManager.getInvokedDefault()))) {
+                        //No delay dispatching this repeat, wait already done in ONGOING the timeout
+                        //Waiting is done before dispatching the next
+                        timeoutExpired = true;
+                        alwaysDispatch = true;
+                    } else {
+                        longLongInvokedFirstRepeat = (repeatCount == 1);
+                        Integer curTimeout = longLongInvokedFirstRepeat ?  mEventManager.getLongLongPressDelay() :
+                                SDK.VIEW_CONFIGURATION_VERSION > 1 ? ViewConfiguration.getKeyRepeatDelay() : 50;
+                        timeoutExpired = mEventManager.waitForLongpressChange(curTimeout, origEventContext);
+                    }
 
                     synchronized (mQueueLock) {
                         //Check state
                         if (timeoutExpired && mEventManager.hasState(State.REPEATING) &&
                                 origEventContext.equals(mEventManager.getEventStartTime())) {
-                            mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, keyEvent.getRepeatCount()+1, policyFlags);
+                            //State is good to insert a new repeat
+                            mEventManager.injectInputEvent(keyEvent, KeyEvent.ACTION_DOWN, keyEvent.getRepeatCount() + 1, policyFlags);
                         } else {
-                            timeoutExpired = false;
-                            dispatch = false;
-                            //Release invoked keys when next up is dispatched (could be inserted here, but the other situation must be handled anyway)
+                            //The first repeat must be dispatched, not waiting for timeout
+                            if (!alwaysDispatch) {
+                                dispatch = false;
+                                //Release invoked keys when next up is dispatched (could be inserted here, but the other situation must be handled anyway)
+                            }
                         }
                     }
-                    if (timeoutExpired && repeatCount == 0 && !mEventManager.getInvokedDefault()) {
-                        mEventManager.performLongPressFeedback();
+                    if (dispatch && longLongInvokedFirstRepeat) {
+                        //The inserted key long press occurred, give normal longpress feedback
+                        mEventManager.performHapticFeedback(keyEvent, HapticFeedbackConstants.LONG_PRESS, policyFlags);
                     }
                 }
 
@@ -472,7 +488,7 @@ public final class PhoneWindowManager {
                         if (mEventManager.getLongPressKeyCode() > 0) {
                             if(!isInjected) {
                                 if (Common.debug())
-                                    Log.d(tag, "Key up, ending invoked longpress for device key");
+                                    Log.d(tag, "Key up, ending invoked longpress from device key");
                                 dispatch = false;
                             } else {
                                 if (Common.debug())
@@ -483,7 +499,7 @@ public final class PhoneWindowManager {
                             mEventManager.setLongPressKeyCode(-1);
                         } else {
                             if (Common.debug())
-                                Log.d(tag, "Key up, ending default longpress for device key up");
+                                Log.d(tag, "Key up, ending default longpress from device key up");
                             //Default invoked keys. Primary should not be sent, if the handling is changed just release
                             mEventManager.setState(State.PENDING);
                         }
@@ -496,6 +512,7 @@ public final class PhoneWindowManager {
                         param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
                     }
                     //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                    return;
                 } else {
                     param.setResult(ORIGINAL.DISPATCHING_REJECT);
                 }
