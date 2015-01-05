@@ -103,7 +103,7 @@ public final class EventManager extends IEventMediator {
             configName = primCode + ":";
             ArrayList<String> mKeyList = (ArrayList<String>) mXServiceManager.getStringArray(Settings.REMAP_LIST_KEYS, new ArrayList<String>());
             for (String key : mKeyList) {
-                if (key.startsWith(configName)) {
+                if (key.startsWith(configName) && !key.equals(configName+"0")) {
                     maxActionIndex = 1;
                     break;
                 }
