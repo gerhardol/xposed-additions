@@ -97,15 +97,30 @@ public final class EventManager extends IEventMediator {
             }
         }
 
-        if (maxActionIndex < 1 && secCode == 0) {
+        if (maxActionIndex < 0 && secCode == 0) {
             //Find if there are multi keys that this key need to wait for
             //This event need to wait at most for keyUp
-            configName = primCode + ":";
+            String startConfigName = primCode + ":";
             ArrayList<String> mKeyList = (ArrayList<String>) mXServiceManager.getStringArray(Settings.REMAP_LIST_KEYS, new ArrayList<String>());
             for (String key : mKeyList) {
-                if (key.startsWith(configName)) {
-                    maxActionIndex = 1;
-                    break;
+                if (key.startsWith(startConfigName) && !key.equals(configName)) {
+                    //The list of configured conditions, no need to check actually configured actions
+                    //(no actions for a condition is user controllable)
+                    List<String> conditionList = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_CONDITIONS, key, null);
+
+                    if (conditionList != null) {
+                        boolean match = false;
+                        if (appCondition != null && mIsExtended) {
+                            match = conditionList.contains(appCondition);
+                        }
+                        if (!match) {
+                            match = conditionList.contains(isScreenOn ? "on" : "off");
+                        }
+                        if (match) {
+                            maxActionIndex = 1;
+                            break;
+                        }
+                    }
                 }
             }
         }

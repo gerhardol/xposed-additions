@@ -279,8 +279,9 @@ public abstract class IEventMediator extends IMediatorSetup {
 		Integer delay = mXServiceManager.getInt(Settings.REMAP_TIMEOUT_HARD_RESET, 15000);
 		if (delay > 0) {
 			if (keyCode.equals(KeyEvent.KEYCODE_POWER) && isKeyDown) {
-				int vibrateDelay = pressTimeout * 2 + 1000;
-				if (vibrateDelay < delay) {
+                //Set the vibrate warning quite late, after possible feedback
+				int vibrateDelay = delay * 3/4;
+				if (vibrateDelay < delay && vibrateDelay > 3*pressTimeout) {
 					mHandler.postDelayed(mPowerHardResetVibrateRunnable, vibrateDelay);
 				}
 				Log.d(TAG, "Rebooting in " + delay + "ms (if no other key events)");
