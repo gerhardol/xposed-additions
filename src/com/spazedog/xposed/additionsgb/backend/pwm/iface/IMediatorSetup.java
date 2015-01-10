@@ -271,13 +271,13 @@ public abstract class IMediatorSetup {
 		if (SDK.MANAGER_POWER_VERSION > 3) {
 			mMethods.put("goToSleep", mPowerManagerService.findMethodDeep("goToSleep", Match.DEFAULT, Long.TYPE, Integer.TYPE, Integer.TYPE));
 			
-		} else if (SDK.MANAGER_POWER_VERSION == 3) { 
+		} else if (SDK.MANAGER_POWER_VERSION >= 2) {
 			mMethods.put("goToSleep", mPowerManagerService.findMethodDeep("goToSleep", Match.DEFAULT, Long.TYPE, Integer.TYPE));
 			
 		} else {
 			mMethods.put("goToSleep", mPowerManagerService.findMethodDeep("goToSleep", Match.DEFAULT, Long.TYPE));
 		}
-		
+
 		if (SDK.MANAGER_POWER_VERSION == 1) {
 			mMethods.put("userActivity", mPowerManagerService.findMethodDeep("userActivity", Match.DEFAULT, Long.TYPE, Boolean.TYPE));
 			mMethods.put("forceUserActivityLocked", mPowerManagerService.findMethodDeep("forceUserActivityLocked"));

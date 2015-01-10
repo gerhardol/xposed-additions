@@ -281,7 +281,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 			if (SDK.MANAGER_POWER_VERSION > 3) {
 				mMethods.get("goToSleep").invoke(time, 4, 0);
 				
-			} else if (SDK.MANAGER_POWER_VERSION == 3) { 
+			} else if (SDK.MANAGER_POWER_VERSION >= 2) {
 				mMethods.get("goToSleep").invoke(time, 0);
 				
 			} else {
