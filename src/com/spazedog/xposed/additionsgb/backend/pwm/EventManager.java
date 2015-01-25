@@ -65,6 +65,22 @@ public final class EventManager extends IEventMediator {
         }
         if (appCondition != null && mIsExtended) {
             actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(appCondition), configName, null);
+            if (actions != null) {
+                //Overlay actions with the default
+                List<String> defactions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), configName, null);
+                if(defactions != null) {
+                    for (int i = 0; i < actions.size(); i++) {
+                        if (actions.get(i) == null && defactions.size() > i) {
+                            actions.set(i, defactions.get(i));
+                        }
+                    }
+                    if(defactions.size() > actions.size()) {
+                        for (int i = actions.size(); i < defactions.size(); i++) {
+                            actions.add(defactions.get(i));
+                        }
+                    }
+                }
+            }
         }
         if (actions == null) {
             actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), configName, null);
@@ -78,9 +94,9 @@ public final class EventManager extends IEventMediator {
         int maxActionIndex = -1;
         for (int i = 0; i < maxActions; i++) {
             if (!mIsExtended) {
- 							/*
-							 * Only include Click and Long Press, also excluding Application Launch on non-pro versions
-							 */
+				/*
+				 * Only include Click and Long Press, also excluding Application Launch on non-pro versions
+				 */
                 //Excluding combo is done when detecting
                 if (keyActions[i] != null) {
                     //No triple, double press
