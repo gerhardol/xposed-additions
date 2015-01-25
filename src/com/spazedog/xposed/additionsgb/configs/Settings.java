@@ -31,7 +31,8 @@ public class Settings {
 	 * Group Settings Names
 	 */
 	public static final String REMAP_KEY_ENABLE_CALLBTN = "remap_call_button";
-	public static final String REMAP_KEY_LIST_CONDITIONS = "remap_key_conditions";
+    public static final String REMAP_KEY_LIST_CONDITIONS = "remap_key_conditions";
+    public static final String REMAP_KEY_DEFAULT_CONDITION = "remap_key_default_condition";
 	public static final PlaceHolder REMAP_KEY_LIST_ACTIONS = new PlaceHolder("remap_key_actions:%1$s");
 	
 }

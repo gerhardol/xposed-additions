@@ -1,9 +1,12 @@
 package com.spazedog.xposed.additionsgb;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.preference.CheckBoxPreference;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceActivity;
@@ -86,6 +89,17 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
 					
 				} while (mKeyActions.size() < 6);
 			}
+
+            List<String> conditions  = Arrays.asList(getResources().getStringArray(R.array.default_condition_values));
+            if(conditions.contains(mCondition)) {
+                getPreferenceScreen().removePreference(findPreference("default_condition_preference"));
+
+            } else {
+                CheckBoxPreference callButton = (CheckBoxPreference) findPreference("default_condition_preference");
+                callButton.setChecked(mPreferences.getBooleanGroup(Settings.REMAP_KEY_DEFAULT_CONDITION, mKey));
+                callButton.setOnPreferenceClickListener(this);
+            }
+
 			
 			WidgetPreference clickPreference = (WidgetPreference) findPreference("state_click_preference");
 			clickPreference.setSummary( mKeyActions.get(0) != null ? Common.actionName(this, mKeyActions.get(0)) : "" );
@@ -175,8 +189,15 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
     
 	@Override
 	public boolean onPreferenceClick(Preference preference) {
-		if (preference.getIntent() != null) {
-			startActivityForResult(preference.getIntent(), 2); return true;
+        if (preference.getKey().equals("default_condition_preference")) {
+            Boolean isChecked = ((CheckBoxPreference) preference).isChecked();
+
+            mPreferences.putBooleanGroup(Settings.REMAP_KEY_DEFAULT_CONDITION, mKey, isChecked, true);
+
+            return true;
+        } else if (preference.getIntent() != null) {
+			startActivityForResult(preference.getIntent(), 2);
+            return true;
 		}
 		
 		return false;
