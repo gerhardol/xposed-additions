@@ -95,9 +95,9 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
                 getPreferenceScreen().removePreference(findPreference("default_condition_preference"));
 
             } else {
-                CheckBoxPreference callButton = (CheckBoxPreference) findPreference("default_condition_preference");
-                callButton.setChecked(mPreferences.getBooleanGroup(Settings.REMAP_KEY_DEFAULT_CONDITION, mKey));
-                callButton.setOnPreferenceClickListener(this);
+                CheckBoxPreference defButton = (CheckBoxPreference) findPreference("default_condition_preference");
+                defButton.setChecked(mPreferences.getBooleanGroup(Settings.REMAP_KEY_DEFAULT_CONDITION, mKey, false));
+                defButton.setOnPreferenceClickListener(this);
             }
 
 			
@@ -192,7 +192,7 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
         if (preference.getKey().equals("default_condition_preference")) {
             Boolean isChecked = ((CheckBoxPreference) preference).isChecked();
 
-            mPreferences.putBooleanGroup(Settings.REMAP_KEY_DEFAULT_CONDITION, mKey, isChecked, true);
+            mPreferences.putBooleanGroup(Settings.REMAP_KEY_DEFAULT_CONDITION, mKey, isChecked, false);
 
             return true;
         } else if (preference.getIntent() != null) {
