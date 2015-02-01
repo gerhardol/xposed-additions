@@ -58,6 +58,7 @@ public final class EventManager extends IEventMediator {
 
         if (Common.debug()) Log.d(TAG, "Getting actions for the key combo '" + configName + "'");
 
+        List<String> defactions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), configName, null);
         List<String> actions = null;
         String appCondition = null;
         if (isScreenOn) {
@@ -65,25 +66,21 @@ public final class EventManager extends IEventMediator {
         }
         if (appCondition != null && mIsExtended) {
             actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(appCondition), configName, null);
-            if (actions != null) {
+            boolean overrideDefault = mXServiceManager.getBooleanGroup(Settings.REMAP_KEY_DEFAULT_CONDITION, configName, false);
+            if (actions != null && overrideDefault && defactions != null) {
                 //Overlay actions with the default
-                List<String> defactions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), configName, null);
-                if(defactions != null) {
-                    for (int i = 0; i < actions.size(); i++) {
-                        if (actions.get(i) == null && defactions.size() > i) {
-                            actions.set(i, defactions.get(i));
-                        }
+                for (int i = 0; i < actions.size(); i++) {
+                    if (actions.get(i) == null && defactions.size() > i) {
+                        actions.set(i, defactions.get(i));
                     }
-                    if(defactions.size() > actions.size()) {
-                        for (int i = actions.size(); i < defactions.size(); i++) {
-                            actions.add(defactions.get(i));
-                        }
-                    }
+                }
+                for (int i = actions.size(); i < defactions.size(); i++) {
+                    actions.add(defactions.get(i));
                 }
             }
         }
         if (actions == null) {
-            actions = mXServiceManager.getStringArrayGroup(Settings.REMAP_KEY_LIST_ACTIONS.get(isScreenOn ? "on" : "off"), configName, null);
+            actions = defactions;
         }
         if (actions == null) {
             actions = new ArrayList<String>();
