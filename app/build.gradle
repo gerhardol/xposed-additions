@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 19
-    buildToolsVersion "21.1.1"
+    buildToolsVersion "21.1.2"
     defaultConfig {
         applicationId "com.spazedog.xposed.additionsgb"
         minSdkVersion 9
@@ -35,7 +35,7 @@ android {
 }
 
 dependencies {
-    compile 'com.android.support:support-v4:21.0.2'
+    compile 'com.android.support:support-v4:21.0.3'
     compile files('../libs/reflecttools.jar')
     provided files('../XposedBridgeApi-36.jar')
 }
