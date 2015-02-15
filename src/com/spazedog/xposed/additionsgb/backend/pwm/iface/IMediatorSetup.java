@@ -33,106 +33,111 @@ public abstract class IMediatorSetup {
 	
 	/**
 	 * A class containing different feature versions based on Gingerbread and up.
-	 * If a method or feature has changed since Gingerbread, the version is bumped up to the amount of 
-	 * changes from Gingerbread and to the current running Android version. For an example 
+	 * If a method or feature has changed since Gingerbread, the version is bumped up to the amount of
+	 * changes from Gingerbread and to the current running Android version. For an example
 	 * the parameters in the intercept methods was changed in API 11. So for API 11 and up, we assign
 	 * the version as 2.
 	 */
 	public static final class SDK {
 		private static Integer calcSamsungAPI() {
 			ReflectClass spwm = ReflectClass.forName("com.android.internal.policy.impl.sec.SamsungPhoneWindowManager", Match.SUPPRESS);
-			
+
 			if (spwm.exists()) {
-				return spwm.findMethod("performSystemKeyFeedback", Match.SUPPRESS, KeyEvent.class).exists() ? 1 : 
+				return spwm.findMethod("performSystemKeyFeedback", Match.SUPPRESS, KeyEvent.class).exists() ? 1 :
 					spwm.findMethod("performSystemKeyFeedback", Match.SUPPRESS, KeyEvent.class, Boolean.TYPE, Boolean.TYPE).exists() ? 2 : 0;
 			}
-			
+
 			return 0;
 		}
-		
+
 		private static Integer calcInputDeviceAIP() {
 			ReflectClass id = ReflectClass.forName("android.view.InputDevice", Match.SUPPRESS);
-			
+
 			if (id.exists() && id.findMethod("isExternal", Match.SUPPRESS, KeyEvent.class).exists()) {
 				return 2;
 			}
-			
+
 			return 1;
 		}
-		
+
 		/*
 		 * In Jellybean Google added a new method for checking whether a device is external or internal.
-		 * For some reason they have made this small method hidden, so we need reflection to use it. 
+		 * For some reason they have made this small method hidden, so we need reflection to use it.
 		 */
 		public static final Integer INPUT_DEVICESTORAGE_VERSION = calcInputDeviceAIP();
-		
+
 		/*
-		 * Newer Samsung devices uses an internal haptic feedback method with hardcoded keycodes. 
+		 * Newer Samsung devices uses an internal haptic feedback method with hardcoded keycodes.
 		 * At the same time, they have removed the virtual policy flag, so we need to use their method
-		 * in order to get proper haptic control. 
-		 * There are two different version of this method with different parameter numbers. 
-		 * In version 2, the last one needs to be be true in order to allow haptic feedback. 
+		 * in order to get proper haptic control.
+		 * There are two different version of this method with different parameter numbers.
+		 * In version 2, the last one needs to be be true in order to allow haptic feedback.
 		 */
 		public static final Integer SAMSUNG_FEEDBACK_VERSION = calcSamsungAPI();
-		
+
 		/*
 		 * Parameter change in PhoneWindowManager.interceptKeyBefore* in API 11
 		 */
 		public static final Integer METHOD_INTERCEPT_VERSION = android.os.Build.VERSION.SDK_INT >= 11 ? 2 : 1;
-		
+
 		/*
 		 * Input management was moved from the Window Manager Service into it's own Input Manager class in API 16.
 		 */
 		public static final Integer MANAGER_HARDWAREINPUT_VERSION = android.os.Build.VERSION.SDK_INT >= 16 ? 2 : 1;
-		
+
 		/*
 		 * In API 19 Android switched from the KeyguardMediator class to a new KeyguardDelegate class.
 		 */
 		public static final Integer MANAGER_KEYGUARD_VERSION = android.os.Build.VERSION.SDK_INT >= 19 ? 2 : 1;
-		
+
 		/*
 		 * New tools to turn on the screen was added to the documented part in API 17.
 		 * In older versions it can only be done using forceUserActivityLocked() from the PowerManagerService using reflection.
 		 */
-		public static final Integer MANAGER_POWER_VERSION = android.os.Build.VERSION.SDK_INT < 17 ? 1 : 
+		public static final Integer MANAGER_POWER_VERSION = android.os.Build.VERSION.SDK_INT < 17 ? 1 :
 			(android.os.Build.VERSION.SDK_INT < 18 ? 2 : (android.os.Build.VERSION.SDK_INT < 21 ? 3 : 4));
-		
+
 		/*
 		 * Some of the character map values are missing in API below 11, such as VirtualKey for an example.
 		 */
 		public static final Integer INPUT_CHARACTERMAP_VERSION = android.os.Build.VERSION.SDK_INT >= 11 ? 2 : 1;
-		
+
 		/*
 		 * Multi users was not available until API 17
 		 */
 		public static final Integer MANAGER_MULTIUSER_VERSION = android.os.Build.VERSION.SDK_INT >= 17 ? 1 :0;
-		
+
 		/*
 		 * This one got it's own service in API 11
 		 */
 		public static final Integer MANAGER_RECENT_DIALOG_VERSION = android.os.Build.VERSION.SDK_INT >= 11 ? 2 :1;
-		
+
 		/*
 		 * Before API 11, we did not have tools like freezeRotation
 		 */
 		public static final Integer MANAGER_ROTATION_VERSION = android.os.Build.VERSION.SDK_INT >= 11 ? 2 :1;
-		
+
 		/*
 		 * More tools like bringToFront was added in API 11
 		 */
 		public static final Integer MANAGER_ACTIVITY_VERSION = android.os.Build.VERSION.SDK_INT >= 11 ? 2 :1;
-		
+
 		/*
 		 * ViewConfiguration.getKeyRepeatDelay() was not available until API 12
 		 */
 		public static final Integer VIEW_CONFIGURATION_VERSION = android.os.Build.VERSION.SDK_INT >= 12 ? 2 :1;
-		
+
 		/*
-		 * 
+		 *
 		 */
 		public static final Integer HARDWARE_CAMERA_VERSION = android.os.Build.VERSION.SDK_INT >= 11 ? 2 :1;
+
+        /*
+         * Before API 11, flags for activities were limited
+         */
+        public static final Integer FLAG_ACTIVITY_VERSION = android.os.Build.VERSION.SDK_INT >= 11 ? 2 :1;
 	}
-	
+
 	/**
 	 * A class containing values from original properties
 	 */

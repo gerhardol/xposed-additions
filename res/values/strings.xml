@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     
     <string name='preference_load_apps'>Load Application List</string>
     
@@ -114,14 +114,18 @@
     <string name="preference_state_click">Click</string>
     <string name="preference_state_press">Long Press</string>
 
-    <string name="preference_condition_count_$0">No Conditions</string>
-    <string name="preference_condition_count_$1">%1$d Condition</string>
-    <string name="preference_condition_count">%1$d Conditions</string>
-    
-    <string name="preference_action_count_$0">No Active Actions</string>
-    <string name="preference_action_count_$1">%1$d Active Action</string>
-    <string name="preference_action_count">%1$d Active Actions</string>
-    
+    <plurals name="preference_condition_count">
+        <item quantity="zero">No Conditions</item>
+        <item quantity="one">%1$d Condition</item>
+        <item quantity="other">%1$d Conditions</item>
+    </plurals>
+
+    <plurals name="preference_action_count">
+        <item quantity="zero">No Active Actions</item>
+        <item quantity="one">%1$d Active Action</item>
+        <item quantity="other">%1$d Active Actions</item>
+    </plurals>
+
     <string name='alert_dialog_name_intercept_key'>Key Code</string>
 	<string name='alert_dialog_title_intercept_key'>Intercept Key Code</string>
 	<string name='alert_dialog_summary_intercept_key'>Press the key that you wish to add</string>

@@ -107,7 +107,7 @@ public class TaskerIntent extends Intent {
 	// OK: you should be able to send a task to run. Still need to listen for result 
 	//     for e.g. task not found
 	
-	public static enum Status { NotInstalled, NoPermission, NotEnabled, AccessBlocked, NoReceiver, OK };
+	public static enum Status { NotInstalled, NoPermission, NotEnabled, AccessBlocked, NoReceiver, OK }
 
 	// -------------------------- PRIVATE VARS ---------------------------- //
 
@@ -363,9 +363,9 @@ public class TaskerIntent extends Intent {
 		Bundle b = getActionBundle();
 
 		if ( b != null ) { 
-			StringBuilder builder = new StringBuilder();
-			builder.append( APP_ARG_PREFIX ).
-			append( pkg ). append( "," ). append( cls );
+			//StringBuilder builder = new StringBuilder();
+			//builder.append( APP_ARG_PREFIX ).
+			//append( pkg ). append( "," ). append( cls );
 			b.putString( ARG_INDEX_PREFIX + Integer.toString( argCount++ ), b.toString() );
 		}
 		

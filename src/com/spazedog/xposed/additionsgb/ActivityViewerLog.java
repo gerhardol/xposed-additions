@@ -109,14 +109,14 @@ public class ActivityViewerLog extends Activity {
 			
 		} catch (NameNotFoundException e) {}
 		
-		builder.append("Module Version: (" + versionCode + ") " + versionName + "\r\n");
+		builder.append("Module Version: (").append(versionCode).append(") ").append(versionName).append("\r\n");
 		builder.append("-----------------\r\n");
-		builder.append("Manufacturer: " + Build.MANUFACTURER + "\r\n");
-		builder.append("Brand: " + Build.BRAND + "\r\n");
-		builder.append("Device: " + Build.DEVICE + "\r\n");
-		builder.append("Module: " + Build.MODEL + "\r\n");
-		builder.append("Product: " + Build.PRODUCT + "\r\n");
-		builder.append("Software: (" + Build.VERSION.SDK_INT + ") " + Build.VERSION.RELEASE + "\r\n");
+		builder.append("Manufacturer: ").append(Build.MANUFACTURER).append("\r\n");
+		builder.append("Brand: ").append(Build.BRAND).append("\r\n");
+		builder.append("Device: ").append(Build.DEVICE).append("\r\n");
+		builder.append("Module: ").append(Build.MODEL).append("\r\n");
+		builder.append("Product: ").append(Build.PRODUCT).append("\r\n");
+		builder.append("Software: (").append(Build.VERSION.SDK_INT).append(") ").append(Build.VERSION.RELEASE).append("\r\n");
 		builder.append("-----------------\r\n");
 		
 		return builder.toString();

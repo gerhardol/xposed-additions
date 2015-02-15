@@ -1,7 +1,6 @@
 package com.spazedog.xposed.additionsgb;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -232,7 +231,7 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
 		List<String> conditionList = mPreferences.getStringArrayGroup(Settings.REMAP_KEY_LIST_CONDITIONS, key, null);
 		Integer conditionCount = conditionList == null ? 0 : conditionList.size();
 		
-		preference.setSummary( getResources().getString(Common.getQuantityResource(getResources(), "preference_condition_count", conditionCount), conditionCount) );
+		preference.setSummary( getResources().getQuantityString(R.plurals.preference_condition_count, conditionCount, conditionCount) );
 	}
 	
 	private DialogBroadcastReceiver mDialog = new DialogBroadcastReceiver() {
@@ -265,8 +264,7 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
 						textView.setText(R.string.alert_dialog_summary_intercept_key_second);
 					}
 				}
-				
-				valueView.setText( Common.keyToString(mNewKey) );
+				valueView.setText(Common.keyToString(mNewKey));
 			}
 		}
 		

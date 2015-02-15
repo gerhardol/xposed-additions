@@ -30,7 +30,6 @@ import java.util.Locale;
 import android.annotation.SuppressLint;
 import android.app.ProgressDialog;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -127,9 +126,11 @@ public final class Common {
         return result;
     }
 
-    public static String actionType(Context context, String action) {
-        return actionParse(context, action)[0];
-    }
+// --Commented out by Inspection START (2015-02-15 15:28):
+//    public static String actionType(Context context, String action) {
+//        return actionParse(context, action)[0];
+//    }
+// --Commented out by Inspection STOP (2015-02-15 15:28)
 
 
     public static String actionName(Context context, String action) {
@@ -158,12 +159,12 @@ public final class Common {
 	public static String keyToString(String keyCode) {
 		String[] codes = keyCode.trim().split("[^0-9]+");
 		List<String> output = new ArrayList<String>();
-		
-		for (int i=0; i < codes.length; i++) {
-			if(codes[i] != null && !codes[i].equals("0")) {
-				output.add(keyToString( Integer.parseInt(codes[i]) ));
-			}
-		}
+
+        for (String code : codes) {
+            if (code != null && !code.equals("0")) {
+                output.add(keyToString(Integer.parseInt(code)));
+            }
+        }
 		
 		return TextUtils.join("+", output);
 	}
@@ -529,12 +530,12 @@ public final class Common {
 			mAlertRes = alertRes;
 			mNoticeRes = noticeRes;
 			mValidator = blacklist.length > 0 && blacklist[ blacklist.length-1 ] instanceof Validate ? (Validate) blacklist[ blacklist.length-1 ] : null;
-			
-			for (int i=0; i < blacklist.length; i++) {
-				if (blacklist[i] instanceof String) {
-					mConditionBlacklist.add( (String) blacklist[i] );
-				}
-			}
+
+            for (Object aBlacklist : blacklist) {
+                if (aBlacklist instanceof String) {
+                    mConditionBlacklist.add((String) aBlacklist);
+                }
+            }
 		}
 		
 		public RemapAction(Integer key, Integer sdk, Integer labelRes, Integer descriptionRes, Integer alertRes, Integer noticeRes, Object... blacklist) {
@@ -581,10 +582,12 @@ public final class Common {
 			return mDispatchAction;
 		}
 		
-		public Boolean hasNotice(Context context) {
-			return mNoticeRes > 0 && (mValidator == null || mValidator.onDisplayNotice(context));
-		}
-		
+// --Commented out by Inspection START (2015-02-15 15:28):
+//		public Boolean hasNotice(Context context) {
+//			return mNoticeRes > 0 && (mValidator == null || mValidator.onDisplayNotice(context));
+//		}
+// --Commented out by Inspection STOP (2015-02-15 15:28)
+
 		public Boolean hasAlert(Context context) {
 			return mAlertRes > 0 && (mValidator == null || mValidator.onDisplayAlert(context));
 		}
@@ -594,9 +597,9 @@ public final class Common {
 		}
 		
 		public static abstract class Validate {
-			public Boolean onValidate(Context context) { return true; };
+			public Boolean onValidate(Context context) { return true; }
 			public Boolean onDisplayAlert(Context context) { return false; }
-			public Boolean onDisplayNotice(Context context) { return true; }
+			// --Commented out by Inspection (2015-02-15 15:28):public Boolean onDisplayNotice(Context context) { return true; }
 		}
 	}
 }

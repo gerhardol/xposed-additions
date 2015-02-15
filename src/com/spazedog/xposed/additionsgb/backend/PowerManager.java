@@ -50,7 +50,7 @@ public final class PowerManager {
 	protected Boolean mIsPowered;
 	protected Boolean mInitiated = false;
 	
-	public static void init() {
+	public static void handleLoadPackage() {
 		if(Common.DEBUG) Log.d(TAG, "Adding Power Manager Hook");
 		
 		PowerManager hooks = new PowerManager();

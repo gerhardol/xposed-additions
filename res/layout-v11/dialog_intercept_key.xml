@@ -32,7 +32,8 @@
 	                android:id="@+id/content_value"
 		            android:layout_width="wrap_content"
 		    		android:layout_height="wrap_content"
-	    			android:paddingRight="10dp" />
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp" />
             </LinearLayout>
             <TextView 
                 android:id="@+id/content_text"
@@ -45,7 +46,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         style="?android:attr/buttonBarStyle"
-        android:gravity="right"
+        android:gravity="end"
         android:orientation="horizontal" >
         <Button
             android:id="@+id/button_cancel"

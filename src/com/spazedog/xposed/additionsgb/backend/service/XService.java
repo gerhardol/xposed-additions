@@ -28,6 +28,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -75,8 +76,7 @@ public final class XService extends IXService.Stub {
 	}
 	
 	private Context mContextSystem;
-	private Context mContextModule;
-	
+
 	private Map<String, Object> mCachedData = new HashMap<String, Object>();
 	private Map<String, Boolean> mCachedPreserve = new HashMap<String, Boolean>();
 	private Boolean mCachedUpdated = false;
@@ -100,20 +100,22 @@ public final class XService extends IXService.Stub {
 	private static class PlaceHolder<T> {
 		public T value;
 	}
-	
-	public static void init() {
-		if(Common.DEBUG) Log.d(TAG, "Adding Service Hooks");
+
+    public static void handleLoadPackage() {
+        if (Common.DEBUG) Log.d(TAG, "Adding Service Hooks");
 		
 		/*
 		 * Plug in the service into Android's service manager
 		 */
-		XService hooks = new XService();
-		ReflectClass ams = ReflectClass.forName("com.android.server.am.ActivityManagerService");
-		
-		ams.inject("main", hooks.hook_main);
-		ams.inject("systemReady", hooks.hook_systemReady);
-		ams.inject("shutdown", hooks.hook_shutdown);
-		
+        XService hooks = new XService();
+        ReflectClass ams = ReflectClass.forName("com.android.server.am.ActivityManagerService");
+
+        ams.inject("main", hooks.hook_main);
+        ams.inject("systemReady", hooks.hook_systemReady);
+        ams.inject("shutdown", hooks.hook_shutdown);
+    }
+
+    public static void init() {
 		/*
 		 * This service is all about the module's shared preferences. So we need to make sure that this
 		 * service has access to handle the associated file.
@@ -199,12 +201,12 @@ public final class XService extends IXService.Stub {
 			if(Common.DEBUG) Log.d(TAG, "Starting the service");
 			
 			try {
-				mContextModule = mContextSystem.createPackageContext(Common.PACKAGE_NAME, Context.CONTEXT_RESTRICTED);
+				Context contextModule = mContextSystem.createPackageContext(Common.PACKAGE_NAME, Context.CONTEXT_RESTRICTED);
 				
 				/*
 				 * Make sure that we have the correct UID when checking access later on
 				 */
-				PREFERENCE.UID = mContextModule.getApplicationInfo().uid;
+				PREFERENCE.UID = contextModule.getApplicationInfo().uid;
 				
 			} catch (NameNotFoundException e1) { e1.printStackTrace(); }
 			
@@ -310,7 +312,7 @@ public final class XService extends IXService.Stub {
 		synchronized (mCachedData) {
 			if (accessGranted()) {
 				mCachedData.put(key, value);
-				mCachedPreserve.put(key, preserve < 0 ? (mCachedPreserve.get(key) != null && mCachedPreserve.get(key) == true) : (preserve == 1));
+				mCachedPreserve.put(key, preserve < 0 ? (mCachedPreserve.get(key) != null && mCachedPreserve.get(key)) : (preserve == 1));
 				
 				if (mCachedPreserve.get(key)) {
 					mCachedUpdated = true;
@@ -340,10 +342,8 @@ public final class XService extends IXService.Stub {
 					case ARRAY:
 						String[] array = resources.getStringArray(resourceId);
 						List<String> list = new ArrayList<String>();
-						
-						for (int i=0; i < array.length; i++) {
-							list.add(array[i]);
-						}
+
+                        Collections.addAll(list, array);
 						
 						return list;
 		
@@ -406,8 +406,8 @@ public final class XService extends IXService.Stub {
 	@Override
 	public boolean remove(String key) {
 		if (mCachedData.containsKey(key)) {
-			Object value = mCachedData.get(key);
-			Boolean preserved = mCachedPreserve.get(key);
+			//Object value = mCachedData.get(key);
+			//Boolean preserved = mCachedPreserve.get(key);
 			
 			mCachedData.remove(key);
 			mCachedPreserve.remove(key);
@@ -456,7 +456,7 @@ public final class XService extends IXService.Stub {
 		for (String key : mCachedData.keySet()) {
 			Boolean check = mCachedPreserve.get(key);
 			
-			if (check != null && check == true) {
+			if (check != null && check) {
 				list.add(key);
 			}
 		}
@@ -516,7 +516,7 @@ public final class XService extends IXService.Stub {
 				};
 				
 				for (String key : mCachedPreserve.keySet()) {
-					if (mCachedPreserve.get(key) == true) {
+					if (mCachedPreserve.get(key)) {
 						Object content = mCachedData.get(key);
 						
 						if (content instanceof List) {

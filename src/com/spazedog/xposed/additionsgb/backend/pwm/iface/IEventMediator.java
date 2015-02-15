@@ -29,9 +29,7 @@ import android.widget.Toast;
 
 import com.spazedog.lib.reflecttools.ReflectClass;
 import com.spazedog.lib.reflecttools.utils.ReflectException;
-import com.spazedog.lib.reflecttools.utils.ReflectConstants.Match;
 import com.spazedog.xposed.additionsgb.Common;
-import com.spazedog.xposed.additionsgb.backend.pwm.EventManager;
 import com.spazedog.xposed.additionsgb.backend.pwm.PhoneWindowManager;
 import com.spazedog.xposed.additionsgb.backend.pwm.iface.IMediatorSetup.SDK;
 import com.spazedog.xposed.additionsgb.backend.service.XServiceManager;
@@ -42,6 +40,8 @@ public abstract class IEventMediator extends IMediatorSetup {
 	public static enum ActionType { CLICK, PRESS }
 	public static enum StackAction { EXLUDE_HOME, INCLUDE_HOME, JUMP_HOME }
 	
+	@SuppressLint("UseSparseArrays")
+	//Suppress lint, small array no difference
 	private Map<Integer, Boolean> mDeviceIds = new HashMap<Integer, Boolean>();
 	private ArrayList<String> mDeviceTypes;
 	
@@ -65,7 +65,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 	protected IEventMediator(ReflectClass pwm, XServiceManager xServiceManager) {
 		super(pwm, xServiceManager);
 	}
-	
+
 	public Boolean validateDeviceType(Object event) {
 		/*
 		 * Gingerbread has no access to the KeyEvent in the intercept method.
@@ -356,7 +356,8 @@ public abstract class IEventMediator extends IMediatorSetup {
 	}
 	
 	public ActivityManager.RunningTaskInfo getPackageFromStack(Integer stack, StackAction action) {
-		List<ActivityManager.RunningTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRunningTasks(5);
+        //Depreciated in Lollipop, but except for PreviousApp, this is only used for current task, so almost OK?
+		@SuppressWarnings("deprecation") List<ActivityManager.RunningTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRunningTasks(5);
 		String currentHome = action != StackAction.INCLUDE_HOME ? getHomePackage() : null;
 		
 		for (int i=stack; i < packages.size(); i++) {
@@ -498,11 +499,16 @@ public abstract class IEventMediator extends IMediatorSetup {
 		}
 	}
 
+    @SuppressLint("InlinedApi")
     void startShortcut(String uri) {
         Intent intent = new Intent();
         try {
             intent = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME);
-            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (SDK.FLAG_ACTIVITY_VERSION > 1) {
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            } else {
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
         }
         catch (Exception e) {
             Log.e(TAG, "Parse URI exception!"+e.getMessage(), e);

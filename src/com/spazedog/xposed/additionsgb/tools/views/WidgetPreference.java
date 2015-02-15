@@ -77,7 +77,7 @@ public class WidgetPreference extends Preference implements IWidgetPreference {
 					return listener.onPreferenceClick(preference);
 				}
 				
-				return mPreferenceEnabled == false;
+				return !mPreferenceEnabled;
 			}
 		});
 		

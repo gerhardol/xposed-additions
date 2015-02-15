@@ -41,7 +41,7 @@ public final class PhoneWindowManager {
 	/**
 	 * This is a static initialization method.
 	 */
-	public static void init() {
+	public static void handleLoadPackage() {
 		ReflectClass pwm = null;
 		
 		try {
@@ -219,17 +219,15 @@ public final class PhoneWindowManager {
 			final Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
             final KeyEvent keyEvent;
             final Object keyObject;
-            final Integer KEYEVENT_POS;
             final Integer POLICYFLAGS_POS;
             final Integer ISSCREENON_POS;
             if (methodVersion > 1) {
-                KEYEVENT_POS = 0;
                 POLICYFLAGS_POS = 1;
                 ISSCREENON_POS = 2;
+                final Integer KEYEVENT_POS = 0;
                 keyEvent = (KeyEvent) param.args[KEYEVENT_POS];
                 keyObject = keyEvent;
             } else {
-                KEYEVENT_POS = -1;
                 POLICYFLAGS_POS = 5;
                 ISSCREENON_POS = 6;
                 Integer keyCode = (Integer)param.args[3];
@@ -280,7 +278,8 @@ public final class PhoneWindowManager {
 						 * stock ROM's are treating these as both new and repeated events. 
 						 */
 						//param.setResult(ORIGINAL.QUEUEING_ALLOW);
-						return;
+                        //noinspection UnnecessaryReturnStatement
+                        return;
 
 					} else if ((policyFlags & ORIGINAL.FLAG_INJECTED) != 0) {
 						/*
@@ -346,6 +345,7 @@ public final class PhoneWindowManager {
 					if (!mEventManager.hasState(State.PENDING)) {
                         param.setResult(ORIGINAL.QUEUEING_ALLOW);
                     }
+                    //noinspection UnnecessaryReturnStatement
                     return;
 				}
 			}
@@ -372,14 +372,12 @@ public final class PhoneWindowManager {
 
             final Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
             final KeyEvent keyEvent;
-            final Integer KEYEVENT_POS;
             final Integer POLICYFLAGS_POS;
             if (methodVersion > 1) {
-                KEYEVENT_POS = 1;
                 POLICYFLAGS_POS = 2;
+                final Integer KEYEVENT_POS = 1;
                 keyEvent = (KeyEvent) param.args[KEYEVENT_POS];
             } else {
-                KEYEVENT_POS = -1;
                 POLICYFLAGS_POS = 7;
                 Integer keyCode = (Integer) param.args[3];
                 Integer action = (Integer) param.args[1];
@@ -422,12 +420,14 @@ public final class PhoneWindowManager {
                     if (Common.debug())
                         Log.d(tag, "Dispatching INVOKED injected key");
                     //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                    //noinspection UnnecessaryReturnStatement
                     return;
 
                 } else {
                     if (Common.debug())
                         Log.d(tag, "Already handled device key (" + mEventManager.stateName() + ") " + mEventManager.isDownEvent());
                     param.setResult(ORIGINAL.DISPATCHING_REJECT);
+                    //noinspection UnnecessaryReturnStatement
                     return;
                 }
 
@@ -512,6 +512,7 @@ public final class PhoneWindowManager {
                         param.args[POLICYFLAGS_POS] = policyFlags & ~ORIGINAL.FLAG_INJECTED;
                     }
                     //param.setResult(ORIGINAL.DISPATCHING_ALLOW);
+                    //noinspection UnnecessaryReturnStatement
                     return;
                 } else {
                     param.setResult(ORIGINAL.DISPATCHING_REJECT);

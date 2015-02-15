@@ -3,14 +3,11 @@ package com.spazedog.xposed.additionsgb.backend.pwm;
 import android.view.KeyEvent;
 
 public class EventKey {
-	public static enum PressStates { NONE, DOWN, UP }
+	public static enum PressStates { DOWN, UP }
 
     private KeyEvent mKeyEvent = null; //Original KeyEvent, used as status
     private Integer mFlags;
     private PressStates mDevicePressState;
-
-	protected EventKey() {}
-    public final String TAG = getClass().getName();
 
     protected void initiateInstance(KeyEvent keyEvent, Integer flags) {
         mKeyEvent = new KeyEvent(keyEvent);

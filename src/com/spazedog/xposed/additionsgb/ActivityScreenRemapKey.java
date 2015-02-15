@@ -1,9 +1,7 @@
 package com.spazedog.xposed.additionsgb;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import android.annotation.TargetApi;
 import android.content.Intent;
@@ -36,7 +34,7 @@ public class ActivityScreenRemapKey extends PreferenceActivity implements OnPref
 	
 	private Integer mConditionOrder = 0;
 	
-	private Map<String, Integer> mConditionIndentifier = new HashMap<String, Integer>();
+	//private Map<String, Integer> mConditionIndentifier = new HashMap<String, Integer>();
 	
 	private ArrayList<String> mForcedHapticKeys = new ArrayList<String>();
 	private ArrayList<String> mKeyConditions = new ArrayList<String>();
@@ -244,6 +242,6 @@ public class ActivityScreenRemapKey extends PreferenceActivity implements OnPref
 			}
 		}
 		
-		preference.setSummary( getResources().getString(Common.getQuantityResource(getResources(), "preference_action_count", actionCount), actionCount) );
+		preference.setSummary( getResources().getQuantityString(R.plurals.preference_action_count, actionCount, actionCount) );
 	}
 }

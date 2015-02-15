@@ -82,7 +82,7 @@ public class WidgetListPreference extends ListPreference implements IWidgetPrefe
 					return listener.onPreferenceClick(preference);
 				}
 				
-				return mPreferenceEnabled == false;
+				return !mPreferenceEnabled;
 			}
 		});
 		

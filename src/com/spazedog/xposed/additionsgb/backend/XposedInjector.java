@@ -52,16 +52,17 @@ public final class XposedInjector implements IXposedHookZygoteInit {
 		/*
 		 * Register our custom system service
 		 */
+            XService.handleLoadPackage();
 		XService.init();
-		
-		/*
-		 * Register Hooks
-		 */
-		PowerManager.init();
-		ApplicationLayout.init();
-		PhoneWindowManager.init();
-		InputManager.init();
-	}
+            /*
+  		     * Register Hooks
+		     */
+            PowerManager.handleLoadPackage();
+            ApplicationLayout.handleLoadPackage();
+            PhoneWindowManager.handleLoadPackage();
+            InputManager.handleLoadPackage();
+
+    }
 	
 	public static class LogcatMonitor {
 		

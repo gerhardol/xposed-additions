@@ -14,7 +14,9 @@ import android.os.IBinder;
 @TargetApi(Build.VERSION_CODES.HONEYCOMB) // API 11
 public class ServiceTorch extends Service {
 	
-	private Camera mCamera;
+    //depreciated in API 21
+    @SuppressWarnings("deprecation")
+    private Camera mCamera;
 	
 	@Override
 	public IBinder onBind(Intent intent) {
@@ -52,7 +54,8 @@ public class ServiceTorch extends Service {
 	}
 	
 	private void torchOn() {
-		mCamera = Camera.open();
+        //noinspection deprecation
+        mCamera = Camera.open();
 		
 		try {
 			Parameters params = mCamera.getParameters();
