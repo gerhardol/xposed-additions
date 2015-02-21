@@ -356,7 +356,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 	}
 	
 	public ActivityManager.RunningTaskInfo getPackageFromStack(Integer stack, StackAction action) {
-        //Depreciated in Lollipop, but except for PreviousApp, this is only used for current task, so almost OK?
+        //Depreciated in Lollipop, but this is running in system context so OK. Only used for current task and previous app.
 		@SuppressWarnings("deprecation") List<ActivityManager.RunningTaskInfo> packages = ((ActivityManager) mActivityManager.getReceiver()).getRunningTasks(5);
 		String currentHome = action != StackAction.INCLUDE_HOME ? getHomePackage() : null;
 		
