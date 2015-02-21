@@ -41,7 +41,7 @@ public final class PhoneWindowManager {
 	/**
 	 * This is a static initialization method.
 	 */
-	public static void handleLoadPackage() {
+	public static void init() {
 		ReflectClass pwm = null;
 		
 		try {
@@ -240,7 +240,13 @@ public final class PhoneWindowManager {
                 keyObject = keyCode;
             }
             Integer policyFlags = (Integer) (param.args[POLICYFLAGS_POS]);
-            Boolean isScreenOn = (Boolean) (param.args[ISSCREENON_POS]);
+            final Boolean isScreenOn;
+			if (android.os.Build.VERSION.SDK_INT >= 21) {
+				isScreenOn = (policyFlags & ORIGINAL.FLAG_INTERACTIVE) != 0;
+				
+			} else {
+				isScreenOn = (Boolean) (param.args[ISSCREENON_POS]);
+			}
 
 			Integer keyCode = keyEvent.getKeyCode();
 			Integer action = keyEvent.getAction();
@@ -296,7 +302,13 @@ public final class PhoneWindowManager {
 				 */
 				} else if (mInterceptKeyCode && isScreenOn) {
 					if (down) {
+						/*
+						 * Temp. re-activate our hooked feedback to account for ART XposedBridge being broken and does not
+						 * properly invoke original methods when being asked to. It still executes the hook as well. 
+						 */
+						mActiveQueueing = false;
 						mEventManager.performHapticFeedback(keyEvent, HapticFeedbackConstants.VIRTUAL_KEY, policyFlags);
+						mActiveQueueing = true;
 						
 					} else if (mEventManager.validateDeviceType(keyObject)) {
 						Bundle bundle = new Bundle();
@@ -336,7 +348,9 @@ public final class PhoneWindowManager {
 					}
 					
 					if (down) {
+						mActiveQueueing = false;
 						mEventManager.performHapticFeedback(keyEvent, HapticFeedbackConstants.VIRTUAL_KEY, policyFlags);
+						mActiveQueueing = true;
 					}
 					
 					if(Common.debug()) Log.d(tag, "Passing the event to the queue (" + mEventManager.stateName() + ")");

@@ -68,8 +68,12 @@ public final class Common {
 	
 	public static final String PREFERENCE_FILE = "config";
 	
-	public static final File LOG_FILE = new File(Environment.getDataDirectory(), "data/" + PACKAGE_NAME + "/cache/error.log");
-	public static final Long LOG_SIZE = 1024L*512;
+	public static class LogFile {
+		public static final Long SIZE = 1024L*512;
+		public static final File LOCK = new File(Environment.getDataDirectory(), "data/" + PACKAGE_NAME + "/cache/error.log.lock");
+		public static final File MAIN = new File(Environment.getDataDirectory(), "data/" + PACKAGE_NAME + "/cache/error.main.log");
+		public static final File STORED = new File(Environment.getDataDirectory(), "data/" + PACKAGE_NAME + "/cache/error.stored.log");
+	}
 
     public static String[] actionParse(Context context, String action) {
         //type, action, display name
@@ -84,14 +88,20 @@ public final class Common {
                 result[0] = "tasker";
                 int i = "tasker:".length();
                 result[1] = action.substring(i+1);
-                result[2] = "Tasker: " + result[1];
+                result[2] = result[1];
+                if (context != null) {
+                    result[2] = context.getResources().getString(R.string.preference_title_select_tasker) + ": "+ result[2];
+                }
 
-            } else if (action.startsWith("appshortcut:")) {
-                result[0] = "appshortcut";
-                int i = "appshortcut:".length();
+            } else if (action.startsWith("shortcut:")) {
+                result[0] = "shortcut";
+                int i = "shortcut:".length();
                 int j = action.indexOf(':', i);
                 result[1] = action.substring(j+1);
-                result[2] = "App Shortcut: " + action.substring(i,j);
+                result[2] = action.substring(i,j);
+                if (context != null) {
+                    result[2] = context.getResources().getString(R.string.preference_title_select_shortcut) + ": "+ result[2];
+                }
 
             } else if (action.contains(".")) {
                 result[0] = "launcher";
@@ -126,14 +136,7 @@ public final class Common {
         return result;
     }
 
-// --Commented out by Inspection START (2015-02-15 15:28):
-//    public static String actionType(Context context, String action) {
-//        return actionParse(context, action)[0];
-//    }
-// --Commented out by Inspection STOP (2015-02-15 15:28)
-
-
-    public static String actionName(Context context, String action) {
+    public static String actionToString(Context context, String action) {
         return actionParse(context, action)[2];
     }
 
@@ -582,11 +585,6 @@ public final class Common {
 			return mDispatchAction;
 		}
 		
-// --Commented out by Inspection START (2015-02-15 15:28):
-//		public Boolean hasNotice(Context context) {
-//			return mNoticeRes > 0 && (mValidator == null || mValidator.onDisplayNotice(context));
-//		}
-// --Commented out by Inspection STOP (2015-02-15 15:28)
 
 		public Boolean hasAlert(Context context) {
 			return mAlertRes > 0 && (mValidator == null || mValidator.onDisplayAlert(context));

@@ -16,8 +16,11 @@ import android.preference.Preference.OnPreferenceChangeListener;
 import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
+import android.support.v7.widget.Toolbar;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -42,6 +45,19 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
 		super.onCreate(savedInstanceState);
 		
 		addPreferencesFromResource(R.xml.activity_screen_remap_main);
+	}
+	
+	@Override
+	protected void onPostCreate(Bundle savedInstanceState) {
+		super.onPostCreate(savedInstanceState);
+		
+		if (Build.VERSION.SDK_INT >= 14) {
+			LinearLayout root = (LinearLayout)findViewById(android.R.id.list).getParent().getParent().getParent();
+			Toolbar bar = (Toolbar) LayoutInflater.from(this).inflate(R.layout.actionbar_v14_layout, root, false);
+			bar.setTitle(R.string.category_title_buttons);
+			
+			root.addView(bar, 0);
+		}
 	}
 	
     @Override
@@ -264,6 +280,7 @@ public class ActivityScreenRemapMain extends PreferenceActivity implements OnPre
 						textView.setText(R.string.alert_dialog_summary_intercept_key_second);
 					}
 				}
+				
 				valueView.setText(Common.keyToString(mNewKey));
 			}
 		}

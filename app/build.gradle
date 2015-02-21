@@ -32,10 +32,15 @@ android {
     }
     productFlavors {
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_6
+        targetCompatibility JavaVersion.VERSION_1_6
+    }
 }
 
 dependencies {
     compile 'com.android.support:support-v4:21.0.3'
     compile files('../libs/reflecttools.jar')
     provided files('../XposedBridgeApi-36.jar')
+    compile 'com.android.support:appcompat-v7:21.0.3'
 }

@@ -88,7 +88,8 @@ public abstract class IMediatorSetup {
 		/*
 		 * In API 19 Android switched from the KeyguardMediator class to a new KeyguardDelegate class.
 		 */
-		public static final Integer MANAGER_KEYGUARD_VERSION = android.os.Build.VERSION.SDK_INT >= 19 ? 2 : 1;
+		public static final Integer MANAGER_KEYGUARD_VERSION = android.os.Build.VERSION.SDK_INT < 19 ? 1 : 
+			android.os.Build.VERSION.SDK_INT < 21 ? 2 : 3;
 
 		/*
 		 * New tools to turn on the screen was added to the documented part in API 17.
@@ -144,10 +145,10 @@ public abstract class IMediatorSetup {
 	public static final class ORIGINAL {
 		public static Integer FLAG_INJECTED;
 		public static Integer FLAG_VIRTUAL;
-        public static Integer FLAG_WAKE_DROPPED;
-        public static Integer FLAG_WAKE;
-
-        public static Integer QUEUEING_ALLOW;
+		public static Integer FLAG_WAKE_DROPPED;
+		public static Integer FLAG_INTERACTIVE;
+		
+		public static Integer QUEUEING_ALLOW;
 		public static Integer QUEUEING_REJECT;
 		
 		public static Object DISPATCHING_ALLOW;
@@ -202,10 +203,16 @@ public abstract class IMediatorSetup {
 		
 		ORIGINAL.FLAG_INJECTED = (Integer) wmp.findField("FLAG_INJECTED").getValue();
 		ORIGINAL.FLAG_VIRTUAL = (Integer) wmp.findField("FLAG_VIRTUAL").getValue();
-        ORIGINAL.FLAG_WAKE_DROPPED = (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
-        ORIGINAL.FLAG_WAKE = (Integer) ((wmp.findField("FLAG_WAKE").getValue()));
-
-        ORIGINAL.QUEUEING_ALLOW = (Integer) wmp.findFieldDeep("ACTION_PASS_TO_USER").getValue();
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            //TBD Flag removed in Lollipop source, not doc. How to handle?
+            ORIGINAL.FLAG_WAKE_DROPPED = (Integer) ((wmp.findField("FLAG_WAKE").getValue()));
+            ORIGINAL.FLAG_INTERACTIVE = (Integer) ((wmp.findField("FLAG_INTERACTIVE").getValue()));
+		} else {
+            ORIGINAL.FLAG_WAKE_DROPPED = (Integer) ((wmp.findField("FLAG_WAKE").getValue())) &
+                                         (Integer) ((wmp.findField("FLAG_WAKE_DROPPED").getValue()));
+        }
+		
+		ORIGINAL.QUEUEING_ALLOW = (Integer) wmp.findFieldDeep("ACTION_PASS_TO_USER").getValue();
 		ORIGINAL.QUEUEING_REJECT = 0;
 		
 		ORIGINAL.DISPATCHING_ALLOW = SDK.METHOD_INTERCEPT_VERSION == 1 ? false : 0;
@@ -251,7 +258,13 @@ public abstract class IMediatorSetup {
 			}
 		});
 		
-		mMethods.put("KeyguardMediator.isShowing", mKeyguardMediator.findMethodDeep("isShowingAndNotHidden"));
+		if (SDK.MANAGER_KEYGUARD_VERSION > 2) {
+			mMethods.put("KeyguardMediator.isShowing", mKeyguardMediator.findMethodDeep("isShowingAndNotOccluded"));
+		
+		} else {
+			mMethods.put("KeyguardMediator.isShowing", mKeyguardMediator.findMethodDeep("isShowingAndNotHidden"));
+		}
+		
 		mMethods.put("KeyguardMediator.isLocked", mKeyguardMediator.findMethodDeep("isShowing"));
 		mMethods.put("KeyguardMediator.isRestricted", mKeyguardMediator.findMethodDeep("isInputRestricted"));
 		mMethods.put("KeyguardMediator.dismiss", mKeyguardMediator.findMethodDeep("keyguardDone", Match.DEFAULT, Boolean.TYPE, Boolean.TYPE));
@@ -276,13 +289,12 @@ public abstract class IMediatorSetup {
 		if (SDK.MANAGER_POWER_VERSION > 3) {
 			mMethods.put("goToSleep", mPowerManagerService.findMethodDeep("goToSleep", Match.DEFAULT, Long.TYPE, Integer.TYPE, Integer.TYPE));
 			
-		} else if (SDK.MANAGER_POWER_VERSION >= 2) {
+		} else if (SDK.MANAGER_POWER_VERSION > 1) {
 			mMethods.put("goToSleep", mPowerManagerService.findMethodDeep("goToSleep", Match.DEFAULT, Long.TYPE, Integer.TYPE));
 			
 		} else {
 			mMethods.put("goToSleep", mPowerManagerService.findMethodDeep("goToSleep", Match.DEFAULT, Long.TYPE));
 		}
-
 		if (SDK.MANAGER_POWER_VERSION == 1) {
 			mMethods.put("userActivity", mPowerManagerService.findMethodDeep("userActivity", Match.DEFAULT, Long.TYPE, Boolean.TYPE));
 			mMethods.put("forceUserActivityLocked", mPowerManagerService.findMethodDeep("forceUserActivityLocked"));
@@ -334,7 +346,13 @@ public abstract class IMediatorSetup {
 			mMethods.put("closeSystemDialogs", mActivityManagerService.findMethodDeep("closeSystemDialogs", Match.BEST, String.class));
 			
 			try {
-				mMethods.put("showGlobalActionsDialog", mPhoneWindowManager.findMethodDeep("showGlobalActionsDialog"));
+				if (android.os.Build.VERSION.SDK_INT >= 21) {
+					mMethods.put("showGlobalActionsDialog", mPhoneWindowManager.findMethodDeep("showGlobalActions"));
+					
+				} else {
+					mMethods.put("showGlobalActionsDialog", mPhoneWindowManager.findMethodDeep("showGlobalActionsDialog"));
+				}
+				
 				mXServiceManager.putBoolean("variable:remap.support.global_actions", true);
 				
 			} catch (ReflectException e) {

@@ -281,7 +281,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 			if (SDK.MANAGER_POWER_VERSION > 3) {
 				mMethods.get("goToSleep").invoke(time, 4, 0);
 				
-			} else if (SDK.MANAGER_POWER_VERSION >= 2) {
+			} else if (SDK.MANAGER_POWER_VERSION > 1) {
 				mMethods.get("goToSleep").invoke(time, 0);
 				
 			} else {
@@ -447,6 +447,24 @@ public abstract class IEventMediator extends IMediatorSetup {
 		launchIntent(intent);
 	}
 	
+
+    @SuppressLint("InlinedApi")
+    void launchUri(String uri) {
+        try {
+            Intent intent = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME);
+            if (SDK.FLAG_ACTIVITY_VERSION > 1) {
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            } else {
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
+
+            launchIntent(intent);
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Parse URI exception!"+e.getMessage(), e);
+        }
+    }
+
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	public void togglePreviousApplication() {
 		if (SDK.MANAGER_ACTIVITY_VERSION > 1) {
@@ -498,23 +516,6 @@ public abstract class IEventMediator extends IMediatorSetup {
 			((Context) mContext.getReceiver()).sendBroadcast(intent);
 		}
 	}
-
-    @SuppressLint("InlinedApi")
-    void startShortcut(String uri) {
-        Intent intent = new Intent();
-        try {
-            intent = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME);
-            if (SDK.FLAG_ACTIVITY_VERSION > 1) {
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            } else {
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            }
-        }
-        catch (Exception e) {
-            Log.e(TAG, "Parse URI exception!"+e.getMessage(), e);
-        }
-        launchIntent(intent);
-    }
 
     public void toggleFlashLight() {
 		if (mTorchIntent != null) {
@@ -672,8 +673,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 		 * Some times they will need a few key presses before reacting.
 		 */
         if (!isScreenOn && actionType == ActionType.CLICK &&
-               (((policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) ||
-                ((policyFlags & ORIGINAL.FLAG_WAKE) != 0))) {
+                ((policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0)) {
             changeDisplayState(eventDownTime, true);
             if ((policyFlags & ORIGINAL.FLAG_WAKE_DROPPED) != 0) {
                 return true;
@@ -753,8 +753,8 @@ public abstract class IEventMediator extends IMediatorSetup {
                 } else if ("tasker".equals(type)) {
                     sendBroadcast(new TaskerIntent(action));
 
-                } else if ("appshortcut".equals(type)) {
-                    startShortcut(action);
+                } else if ("shortcut".equals(type)) {
+                    launchUri(action);
 
                 }
                 else {

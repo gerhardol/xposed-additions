@@ -5,26 +5,25 @@
         android:key="custom_group"
         android:title="@string/category_custom_actions"
         android:order="1000" />
-
     <PreferenceCategory
         android:key="application_group"
         android:title="@string/category_applications"
         android:order="1500">
-
-        <Preference
-            android:key="select_tasker_preference"
-            android:title="@string/preference_title_select_tasker"
-            android:summary="@string/preference_summary_select_tasker" />
-
-        <Preference
-            android:key="select_appshortcut_preference"
-            android:title="@string/preference_title_select_appshortcut"
-            android:summary="@string/preference_summary_select_appshortcut" />
-
-        <Preference
-            android:key="load_apps_preference"
-            android:title="@string/preference_load_apps" />
-
+        
+        <Preference 
+        	android:key="select_tasker_preference"
+        	android:title="@string/preference_title_select_tasker"
+        	android:summary="@string/preference_summary_select_tasker" />
+        
+        <Preference 
+        	android:key="select_shortcut_preference"
+        	android:title="@string/preference_title_select_shortcut"
+        	android:summary="@string/preference_summary_select_shortcut" />
+        
+        <Preference 
+        	android:key="load_apps_preference"
+        	android:title="@string/preference_load_apps" />
+        
     </PreferenceCategory>
 
 </PreferenceScreen>

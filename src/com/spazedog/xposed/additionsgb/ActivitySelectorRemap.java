@@ -35,6 +35,9 @@ import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
+import android.support.v7.widget.Toolbar;
+import android.view.LayoutInflater;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 
 import com.spazedog.xposed.additionsgb.Common.AppBuilder;
@@ -47,6 +50,10 @@ import com.spazedog.xposed.additionsgb.tools.views.WidgetPreference;
 
 public class ActivitySelectorRemap extends PreferenceActivity implements OnPreferenceClickListener {
 	
+	final static int REQUEST_SELECT_TASKER = 1;
+	final static int REQUEST_SELECT_APPSHORTCUT = 2;
+	final static int REQUEST_CREATE_APPSHORTCUT = 3;
+	
 	private XServiceManager mPreferences;
 	
 	private Boolean mSetup = false;
@@ -54,21 +61,16 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 	private String mAction;
 	
 	private AppBuilder mAppBuilder;
-
-    final int REQUEST_SELECT_TASKER = 1;
-    final int REQUEST_SELECT_APPSHORTCUT = 2;
-    final int REQUEST_CREATE_APPSHORTCUT = 3;
-
-    private Intent getAppShortcutSelectIntent() {
-        Intent intent = new Intent(Intent.ACTION_PICK_ACTIVITY);
-
-        intent.putExtra(Intent.EXTRA_INTENT, new Intent(Intent.ACTION_CREATE_SHORTCUT));
-        intent.putExtra(Intent.EXTRA_TITLE, R.string.preference_title_select_appshortcut);
-        return intent;
-    }
-
-
-    @Override
+	
+	private Intent getShortcutSelectIntent() {
+		Intent intent = new Intent(Intent.ACTION_PICK_ACTIVITY);
+		intent.putExtra(Intent.EXTRA_INTENT, new Intent(Intent.ACTION_CREATE_SHORTCUT));
+		intent.putExtra(Intent.EXTRA_TITLE, R.string.preference_title_select_shortcut);
+		
+		return intent;
+	}
+	
+	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		
@@ -76,12 +78,32 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 		
 		mAction = getIntent().getStringExtra("action");
 		mAppBuilder = new AppBuilder( getListView() );
+	}
+	
+	@Override
+	protected void onPostCreate(Bundle savedInstanceState) {
+		super.onPostCreate(savedInstanceState);
 		
-		if ("add_condition".equals(mAction)) {
-			setTitle(R.string.preference_add_condition);
+		if (Build.VERSION.SDK_INT >= 14) {
+			LinearLayout root = (LinearLayout)findViewById(android.R.id.list).getParent().getParent().getParent();
+			Toolbar bar = (Toolbar) LayoutInflater.from(this).inflate(R.layout.actionbar_v14_layout, root, false);
+
+			if ("add_condition".equals(mAction)) {
+				bar.setTitle(R.string.preference_add_condition);
+				
+			} else if ("add_action".equals(mAction)) {
+				bar.setTitle(R.string.preference_add_action);
+			}
 			
-		} else if ("add_action".equals(mAction)) {
-			setTitle(R.string.preference_add_action);
+			root.addView(bar, 0);
+			
+		} else {
+			if ("add_condition".equals(mAction)) {
+				setTitle(R.string.preference_add_condition);
+				
+			} else if ("add_action".equals(mAction)) {
+				setTitle(R.string.preference_add_action);
+			}
 		}
 	}
 	
@@ -171,22 +193,20 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
     		}
 
             if (mPreferences.isPackageUnlocked()) {
+                findPreference("load_apps_preference").setOnPreferenceClickListener(this);
+
                 if ("add_action".equals(mAction)) {
-                    findPreference("select_appshortcut_preference").setOnPreferenceClickListener(this);
+                    findPreference("select_shortcut_preference").setOnPreferenceClickListener(this);
+
                 } else {
-                    ((PreferenceGroup) findPreference("application_group")).removePreference(findPreference("select_appshortcut_preference"));
+                    ((PreferenceGroup) findPreference("application_group")).removePreference(findPreference("select_shortcut_preference"));
                 }
 
                 if ("add_action".equals(mAction) && TaskerIntent.testStatus(this).equals(TaskerIntent.Status.OK)) {
-                        findPreference("select_tasker_preference").setOnPreferenceClickListener(this);
+                    findPreference("select_tasker_preference").setOnPreferenceClickListener(this);
+
                 } else {
                     ((PreferenceGroup) findPreference("application_group")).removePreference(findPreference("select_tasker_preference"));
-                }
-
-                if ("add_action".equals(mAction) && "off".equals(getIntent().getStringExtra("condition"))) {
-                    ((PreferenceGroup) findPreference("application_group")).removePreference(findPreference("load_apps_preference"));
-                } else {
-                    findPreference("load_apps_preference").setOnPreferenceClickListener(this);
                 }
 
             } else {
@@ -224,14 +244,14 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 					);
 				}
 			});
+			
+		} else if ("select_tasker_preference".equals(preference.getKey())) {
+			startActivityForResult(TaskerIntent.getTaskSelectIntent(), REQUEST_SELECT_TASKER);
 
-        } else if ("select_tasker_preference".equals(preference.getKey())) {
-            startActivityForResult(TaskerIntent.getTaskSelectIntent(), REQUEST_SELECT_TASKER);
-
-        } else if ("select_appshortcut_preference".equals(preference.getKey())) {
-            startActivityForResult(getAppShortcutSelectIntent(), REQUEST_SELECT_APPSHORTCUT);
-
-        } else {
+		} else if ("select_shortcut_preference".equals(preference.getKey())) {
+			startActivityForResult(getShortcutSelectIntent(), REQUEST_SELECT_APPSHORTCUT);
+			
+		} else {
 			Intent intent = getIntent();
 			intent.putExtra("result", (String) ((IWidgetPreference) preference).getTag());
 			
@@ -245,41 +265,36 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
 
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
-
-        if (intent != null) {
-            Intent returnIntent;
-            switch (requestCode) {
-
-                case REQUEST_SELECT_TASKER:
-                    returnIntent = getIntent();
-                    returnIntent.putExtra("result", "tasker:" + intent.getDataString());
-
-                    setResult(RESULT_OK, returnIntent);
-
-                    finish();
-                    break;
-
-                case REQUEST_SELECT_APPSHORTCUT:
-                    startActivityForResult(intent, REQUEST_CREATE_APPSHORTCUT);
-
-                    break;
-
-                case REQUEST_CREATE_APPSHORTCUT:
-                    String name = intent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME).replace(':', '_');
-
-                    Intent appIntent = intent.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT);
-                    returnIntent = getIntent();
-
-                    returnIntent.putExtra("result", "appshortcut:" + name + ":" + appIntent.toUri(Intent.URI_INTENT_SCHEME));
-
-                    setResult(RESULT_OK, returnIntent);
-
-                    finish();
-                    break;
-            }
-        }
-    }
-
+		if (intent != null) {
+			Intent returnIntent = null;
+			
+			switch (requestCode) {
+				case REQUEST_SELECT_TASKER:
+					returnIntent = getIntent();
+					returnIntent.putExtra("result", "tasker:" + intent.getDataString());
+					
+					break;
+					
+				case REQUEST_SELECT_APPSHORTCUT:
+					startActivityForResult(intent, REQUEST_CREATE_APPSHORTCUT); break;
+					
+				case REQUEST_CREATE_APPSHORTCUT:
+					String name = intent.getStringExtra(Intent.EXTRA_SHORTCUT_NAME).replace(':', '_');
+					Intent appIntent = intent.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT);
+					
+					returnIntent = getIntent();
+					returnIntent.putExtra("result", "shortcut:" + name + ":" + appIntent.toUri(Intent.URI_INTENT_SCHEME));
+					
+					break;
+			}
+			
+			if (returnIntent != null) {
+				setResult(RESULT_OK, returnIntent);
+				finish();
+			}
+		}
+	}
+	
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	private Preference getSelectPreference(String title, String summary, String tag, Drawable icon, Intent intent) {
 		WidgetPreference preference = new WidgetPreference(this);

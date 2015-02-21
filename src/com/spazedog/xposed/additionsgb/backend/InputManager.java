@@ -33,7 +33,7 @@ public class InputManager {
 	
 	protected static int FLAG_INJECTED;
 	
-	public static void handleLoadPackage() {
+	public static void init() {
 		if(Common.DEBUG) Log.d(TAG, "Adding Input Manager Hook");
 
 		/*
