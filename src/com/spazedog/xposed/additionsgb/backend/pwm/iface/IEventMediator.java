@@ -129,7 +129,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 				if (SDK.INPUT_DEVICESTORAGE_VERSION > 1) {
 
 					try {
-                        InputDevice device = keyEvent.getDevice();
+                        InputDevice device = keyEvent != null ? keyEvent.getDevice() : null;
 						/*
 						 * @Google get a grip, this method should be publicly accessible. Makes no sense to hide it.
 						 */
@@ -683,7 +683,7 @@ public abstract class IEventMediator extends IMediatorSetup {
     }
 
     public Integer getActionKeyCode(String action) {
-        String[] actions = Common.actionParse((Context)mContext.getReceiver(), action);
+        String[] actions = Common.actionParse(action);
         String type = actions[0];
         Integer keyCode;
         if ("dispatch".equals(type)) {
@@ -701,7 +701,7 @@ public abstract class IEventMediator extends IMediatorSetup {
 		 * -> 'Can't create handler inside thread that has not called Looper.prepare()'
 		 */
 
-        String[] actions = Common.actionParse((Context)mContext.getReceiver(), actionString);
+        String[] actions = Common.actionParse(actionString);
         final String type = actions[0];
         final String action = actions[1];
         mHandler.post(new Runnable() {

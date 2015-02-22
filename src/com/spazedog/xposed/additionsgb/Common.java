@@ -75,7 +75,13 @@ public final class Common {
 		public static final File STORED = new File(Environment.getDataDirectory(), "data/" + PACKAGE_NAME + "/cache/error.stored.log");
 	}
 
-    public static String[] actionParse(Context context, String action) {
+    public static String[] actionParse(String action) {
+        return actionParse(null, action);
+    }
+
+    //context is for this app, i.e. used in the GUI
+    //context is used to get display name for the action
+    private static String[] actionParse(Context context, String action) {
         //type, action, display name
         String[] result = {null, null, null};
         if (action != null) {
@@ -173,7 +179,7 @@ public final class Common {
 	}
 
 	@SuppressLint("NewApi")
-	public static String keyToString(Integer keyCode) {
+    private static String keyToString(Integer keyCode) {
 		/*
 		 * KeyEvent to string is not supported in Gingerbread, 
 		 * so we define the most basics ourself.
