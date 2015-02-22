@@ -48,7 +48,8 @@ public class ActivityViewerLog extends Activity {
 					
 				}  catch (IOException e) {} finally {
 					try {
-						reader.close();
+                        assert reader != null;
+                        reader.close();
 						
 					} catch (Throwable e) {}
 				}

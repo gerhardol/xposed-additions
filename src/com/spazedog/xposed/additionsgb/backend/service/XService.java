@@ -60,7 +60,7 @@ import com.spazedog.xposed.additionsgb.Common;
 import de.robv.android.xposed.XC_MethodHook;
 
 public final class XService extends IXService.Stub {
-	public static final String TAG = XService.class.getName();
+	private static final String TAG = XService.class.getName();
 	
 	public static enum DataType { 
 		EMPTY("empty"), STRING("string"), INTEGER("integer"), BOOLEAN("bool"), ARRAY("array");
@@ -77,8 +77,7 @@ public final class XService extends IXService.Stub {
 	}
 	
 	private Context mContextSystem;
-	private Context mContextModule;
-	
+
 	private Map<String, Object> mCachedData = new HashMap<String, Object>();
 	private Map<String, Boolean> mCachedPreserve = new HashMap<String, Boolean>();
 	private Boolean mCachedUpdated = false;
@@ -225,12 +224,12 @@ public final class XService extends IXService.Stub {
 			if(Common.DEBUG) Log.d(TAG, "Starting the service");
 			
 			try {
-				mContextModule = mContextSystem.createPackageContext(Common.PACKAGE_NAME, Context.CONTEXT_RESTRICTED);
+				Context contextModule = mContextSystem.createPackageContext(Common.PACKAGE_NAME, Context.CONTEXT_RESTRICTED);
 				
 				/*
 				 * Make sure that we have the correct UID when checking access later on
 				 */
-				PREFERENCE.UID = mContextModule.getApplicationInfo().uid;
+				PREFERENCE.UID = contextModule.getApplicationInfo().uid;
 				
 			} catch (NameNotFoundException e1) { e1.printStackTrace(); }
 			
@@ -336,7 +335,7 @@ public final class XService extends IXService.Stub {
 		synchronized (mCachedData) {
 			if (accessGranted()) {
 				mCachedData.put(key, value);
-				mCachedPreserve.put(key, preserve < 0 ? (mCachedPreserve.get(key) != null && mCachedPreserve.get(key) == true) : (preserve == 1));
+				mCachedPreserve.put(key, preserve < 0 ? (mCachedPreserve.get(key) != null && mCachedPreserve.get(key)) : (preserve == 1));
 				
 				if (mCachedPreserve.get(key)) {
 					mCachedUpdated = true;

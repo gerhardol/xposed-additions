@@ -26,7 +26,7 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.callbacks.XCallback;
 
 public final class PhoneWindowManager {
-	public static final String TAG = PhoneWindowManager.class.getName();
+	private static final String TAG = PhoneWindowManager.class.getName();
 	
 	private XServiceManager mXServiceManager;
 	private EventManager mEventManager;

@@ -46,7 +46,7 @@ public final class EventManager extends IEventMediator {
     //The index for the "last" action
     private int mMaxActionIndex;
 
-	protected EventManager(ReflectClass pwm, XServiceManager xServiceManager) {
+	EventManager(ReflectClass pwm, XServiceManager xServiceManager) {
 		super(pwm, xServiceManager);
         for (int i = 0; i < mTrackedKeys.length; i++) {
             mTrackedKeys[i] = new EventKey();
@@ -315,7 +315,7 @@ public final class EventManager extends IEventMediator {
 		return mPressTimeout;
 	}
 	
-	public Integer getTapTimeout() {
+	Integer getTapTimeout() {
 		return mTapTimeout;
 	}
 

@@ -9,13 +9,13 @@ public class EventKey {
     private Integer mFlags;
     private PressStates mDevicePressState;
 
-    protected void initiateInstance(KeyEvent keyEvent, Integer flags) {
+    void initiateInstance(KeyEvent keyEvent, Integer flags) {
         mKeyEvent = new KeyEvent(keyEvent);
         mFlags = flags;
         mDevicePressState = PressStates.DOWN;
 	}
 	
-	protected void setKetPressDevice(Boolean pressed) {
+	void setKetPressDevice(Boolean pressed) {
 		if (pressed) {
             mDevicePressState = PressStates.DOWN;
         } else {

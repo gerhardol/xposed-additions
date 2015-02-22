@@ -50,9 +50,9 @@ import com.spazedog.xposed.additionsgb.tools.views.WidgetPreference;
 
 public class ActivitySelectorRemap extends PreferenceActivity implements OnPreferenceClickListener {
 	
-	final static int REQUEST_SELECT_TASKER = 1;
-	final static int REQUEST_SELECT_APPSHORTCUT = 2;
-	final static int REQUEST_CREATE_APPSHORTCUT = 3;
+	private final static int REQUEST_SELECT_TASKER = 1;
+	private final static int REQUEST_SELECT_APPSHORTCUT = 2;
+	private final static int REQUEST_CREATE_APPSHORTCUT = 3;
 	
 	private XServiceManager mPreferences;
 	
@@ -168,8 +168,8 @@ public class ActivitySelectorRemap extends PreferenceActivity implements OnPrefe
     				String noticeMsg = current.getNotice(this);
     				
     				if (isValid || displayAlert) {
-    					PreferenceGroup preferenceGroup = null;
-    					Preference preference = null;
+    					PreferenceGroup preferenceGroup;
+    					Preference preference;
     					
     					if (current.isDispatchAction()) {
     						preferenceGroup = preferenceScreen;
