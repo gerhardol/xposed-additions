@@ -2,7 +2,7 @@
     package="com.spazedog.xposed.additionsgb"
     android:icon="@drawable/ic_launcher"
     android:versionCode="63"
-    android:versionName="3.5.0.1" >
+    android:versionName="3.5.0.2" >
 
     <!--<uses-sdk
         android:minSdkVersion="9"
