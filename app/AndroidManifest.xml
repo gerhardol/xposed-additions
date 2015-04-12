@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.spazedog.xposed.additionsgb"
-    android:versionCode="64"
-    android:versionName="3.5.2.1" >
+    android:versionCode="66"
+    android:versionName="3.5.4" >
 
     <!--<uses-sdk
         android:minSdkVersion="9"
@@ -21,7 +21,13 @@
         <meta-data android:value="true" android:name="xposedmodule" />
         <meta-data android:value="30+" android:name="xposedminversion" />
         <meta-data android:value="Additional Settings for Gingerbread and up" android:name="xposeddescription" />
-        
+
+        <receiver android:name=".SettingsReceiver">
+            <intent-filter>
+                <action android:name="user.additionsgb.service.broadcast.settings" />
+            </intent-filter>
+        </receiver>
+
         <service android:name=".ServiceTorch">
             <intent-filter>
                 <action android:name="com.spazedog.xposed.additionsgb.TOGGLE_FLASHLIGHT" />

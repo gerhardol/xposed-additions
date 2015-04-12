@@ -262,7 +262,11 @@ public final class PhoneWindowManager {
 			}
 			
 			synchronized(mQueueLock) {
-				mActiveQueueing = true;
+				/*
+				 * Only disable default haptic feedback on 
+				 * our own injected events
+				 */
+				mActiveQueueing = (((KeyEvent) param.args[0]).getFlags() & EventKey.FLAG_CUSTOM) != 0;
 				
 				/*
 				 * Using KitKat work-around from the InputManager Hook
@@ -382,7 +386,6 @@ public final class PhoneWindowManager {
 		@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 		@Override
 		protected final void beforeHookedMethod(final MethodHookParam param) {
-            mActiveDispatching = true;
 
             final Integer methodVersion = SDK.METHOD_INTERCEPT_VERSION;
             final KeyEvent keyEvent;
@@ -416,6 +419,8 @@ public final class PhoneWindowManager {
                 //Return, do default handling, not call:  param.setResult(ORIGINAL.DISPATCHING_ALLOW);
                 return;
             }
+
+			mActiveDispatching = (((KeyEvent) param.args[1]).getFlags() & EventKey.FLAG_CUSTOM) != 0;
 
         	/*
 			 * Using KitKat work-around from the InputManager Hook
