@@ -65,8 +65,6 @@ public final class Common {
 	public static final String XSERVICE_NAME_COMBAT = PACKAGE_NAME + ".service.XSERVICE";
 	public static final String XSERVICE_PERMISSIONS = PACKAGE_NAME + ".permissions.XSERVICE";
 	
-	public static final String XSERVICE_BROADCAST_SETTINGS = "user.additionsgb.service.broadcast.settings";
-	
 	public static final String TORCH_INTENT_ACTION = PACKAGE_NAME + ".TOGGLE_FLASHLIGHT";
 	
 	public static final String PREFERENCE_FILE = "config";
@@ -505,7 +503,7 @@ public final class Common {
 			}
 		}
 		
-		return DEBUG || (ENABLE_DEBUG != null && ENABLE_DEBUG);
+		return DEBUG || ENABLE_DEBUG == null || ENABLE_DEBUG;
 	}
 
 	public static class PlaceHolder {
