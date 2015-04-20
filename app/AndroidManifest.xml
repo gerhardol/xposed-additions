@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.spazedog.xposed.additionsgb"
-    android:versionCode="67"
-    android:versionName="3.5.5.1" >
+    android:versionCode="69"
+    android:versionName="3.5.7.1" >
 
     <!--<uses-sdk
         android:minSdkVersion="9"
@@ -22,19 +22,18 @@
         <meta-data android:value="30+" android:name="xposedminversion" />
         <meta-data android:value="Additional Settings for Gingerbread and up" android:name="xposeddescription" />
 
-        <receiver android:name=".SettingsReceiver">
-            <intent-filter>
-                <action android:name="com.spazedog.xposed.additionsgb.ACTION_XSERVICE_SHUTDOWN" />
-                <action android:name="com.spazedog.xposed.additionsgb.ACTION_XSERVICE_READY" />
-            </intent-filter>
-        </receiver>
-
         <service android:name=".ServiceTorch">
             <intent-filter>
                 <action android:name="com.spazedog.xposed.additionsgb.TOGGLE_FLASHLIGHT" />
             </intent-filter>
         </service>
-        
+
+        <service android:name=".ServicePreferences">
+            <intent-filter>
+                <action android:name="app.additionsgb.preferences.service.BIND" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".ActivityMain"
             android:label="Xposed Additions"
