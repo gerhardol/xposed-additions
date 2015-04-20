@@ -85,6 +85,15 @@ public class ActivityScreenRemapCondition extends PreferenceActivity implements 
     }
     
     @Override
+    protected void onPause() {
+    	super.onPause();
+    	
+    	if (mPreferences != null) {
+    		mPreferences.apply();
+    	}
+    }
+    
+    @Override
     protected void onStop() {
     	super.onStop();
 

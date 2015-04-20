@@ -30,8 +30,10 @@ import java.util.Locale;
 import android.annotation.SuppressLint;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -302,7 +304,7 @@ public final class Common {
 		public AppBuilder(ListView listView) {
 			mView = new WeakReference<ListView>(listView);
 
-			mCache = new LruCache<String, Bitmap>( Math.round(0.25f * Runtime.getRuntime().maxMemory() / 1024) ) {
+			mCache = new LruCache<String, Bitmap>( Math.round(0.15f * Runtime.getRuntime().maxMemory() / 1024) ) {
 				@Override
 				protected int sizeOf(String key, Bitmap value) {
 					return (value.getRowBytes() * value.getHeight()) / 1024;
@@ -398,8 +400,13 @@ public final class Common {
 					@Override
 					protected List<AppInfo> doInBackground(Context... args) {
 						Context context = args[0];
+						
+						Intent intent = new Intent();
+						intent.setAction(Intent.ACTION_MAIN);
+						intent.addCategory(Intent.CATEGORY_LAUNCHER);
+						
 						PackageManager packageManager = context.getPackageManager();
-						List<ApplicationInfo> packages = packageManager.getInstalledApplications(PackageManager.GET_META_DATA);
+						List<ResolveInfo> packages = packageManager.queryIntentActivities(intent, 0);
 						
 						if (mProgress != null) {
 							mProgress.setMax(packages.size());
@@ -410,10 +417,10 @@ public final class Common {
 								mProgress.setProgress( (i+1) );
 							}
 							
-							ApplicationInfo app = packages.get(i);
+							ApplicationInfo app = packages.get(i).activityInfo.applicationInfo;
 							String label = (String) packageManager.getApplicationLabel(app);
 							
-							if (label != null && !label.equals(app.packageName)) {
+							if (label != null) {
 								mApplications.add(new AppInfo(label, app));
 							}
 						}

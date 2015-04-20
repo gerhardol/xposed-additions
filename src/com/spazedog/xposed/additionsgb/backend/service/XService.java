@@ -57,6 +57,7 @@ public final class XService extends IXService.Stub {
 	
 	private Context mContextSystem;
 
+	
 	private SettingsData mData = new SettingsData();
 	
 	private Boolean mIsReady = false;
@@ -110,7 +111,7 @@ public final class XService extends IXService.Stub {
 				}
 			});
 		}
-			}
+	}
 	
 	protected XC_MethodHook hook_main = new XC_MethodHook() {
 		@Override
@@ -186,14 +187,14 @@ public final class XService extends IXService.Stub {
 		protected final void beforeHookedMethod(final MethodHookParam param) {
 			if(Common.DEBUG) Log.d(TAG, "Stopping the service");
 			
-			pokeAppPreferenceService(PokeType.SAVE_SETTINGS);
+			//pokeAppPreferenceService(PokeType.SAVE_SETTINGS);
 		}
 	};
-
+	
 	private boolean pokeAppPreferenceService(final PokeType poke) {
 		/*
-			 * Alert the app that settings should be saved
-			 */
+		 * Make sure that our application is the one being called.
+		 */
 		Intent intent = new Intent(Common.SERVICE_APP_PREFERENCES);
 		intent.setPackage(Common.PACKAGE_NAME);
 		
@@ -209,15 +210,29 @@ public final class XService extends IXService.Stub {
 						service.writeSettingsData(mData);
 						
 					} else {
-						mData = service.readSettingsData();
+						SettingsData data = service.readSettingsData();
+						
+						/*
+						 * Copy all current non-persistent values
+						 */
+						synchronized (mData) {
+							for (String key : mData.keySet()) {
+								if (!mData.persistent(key)) {
+									data.put(key, mData.get(key), false);
+								}
+							}
+							
+							mData = data;
+						}
 						
 						/*
 						 * Make sure that managers that has already collected some data 
 						 * makes sure to update it. 
 						 */
 						broadcastChange(null);
-		}
+					}
 					
+					mData.changed(false);
 					mIsReady = true;
 					
 				} catch (RemoteException e) {} finally {
@@ -227,9 +242,13 @@ public final class XService extends IXService.Stub {
 
 			@Override
 			public void onServiceDisconnected(ComponentName name) {}
-	};
-	
-		return mContextSystem.bindService(intent, connection, Context.BIND_AUTO_CREATE);
+		};
+		
+		if (poke != PokeType.SAVE_SETTINGS || mData.changed()) {
+			return mContextSystem.bindService(intent, connection, Context.BIND_AUTO_CREATE);
+		}
+		
+		return true;
 	}
 	
 	private Boolean accessGranted() {
@@ -334,15 +353,15 @@ public final class XService extends IXService.Stub {
 	public boolean remove(String key) {
 		synchronized (mData) {
 			if (mData.contains(key) && accessGranted()) {
-			mData.remove(key);
+				mData.remove(key);
+				
+				broadcastChange(key);
+				
+				return true;
+			}
 			
-			broadcastChange(key);
-			
-			return true;
+			return false;
 		}
-		
-		return false;
-	}
 	}
 	
 	@Override
@@ -386,8 +405,8 @@ public final class XService extends IXService.Stub {
 	private void write() {
 		synchronized (mData) {
 			pokeAppPreferenceService(PokeType.SAVE_SETTINGS);
-			}
 		}
+	}
 	
 	@Override
 	public boolean isUnlocked() {
