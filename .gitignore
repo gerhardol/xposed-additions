@@ -1,13 +1,8 @@
-#ADT files
-/bin
-/gen
-.settings/org.eclipse.jdt.core.prefs
-
 .gradle
 /local.properties
 .DS_Store
 /build
-app/build
+projects/xposedAdditions/build
 
 #IntelliJ private
 /*.iml

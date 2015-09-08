@@ -2,9 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/projects/projects.iml" filepath="$PROJECT_DIR$/projects/projects.iml" />
       <module fileurl="file://$PROJECT_DIR$/xposed-additions.iml" filepath="$PROJECT_DIR$/xposed-additions.iml" />
+      <module fileurl="file://$PROJECT_DIR$/projects/xposedAdditions/xposedAdditions.iml" filepath="$PROJECT_DIR$/projects/xposedAdditions/xposedAdditions.iml" />
     </modules>
   </component>
 </project>
-
